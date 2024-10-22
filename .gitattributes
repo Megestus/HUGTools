@@ -1,5 +1,0 @@
-# Auto detect text files and perform LF normalization
-* text=auto
-.github/workflows/deploy-docs.yml export-ignore
-.gitignore export-ignore    
-*.pyc export-ignore
