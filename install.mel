@@ -1,30 +1,43 @@
 // UTF-8
 // Encoding: UTF-8
 
-// 定义安装HUGTools的全局过程
+// Define global procedure for installing HUGTools
 global proc installHUGTools()
 {
-    // 获取installHUGTools过程的路径
+    // Get the path of the installHUGTools procedure
     string $scriptPath = `whatIs installHUGTools`;
     
-    // 从路径中提取目录部分
-    // 注意：这里假设路径字符串的前25个字符是不需要的
+    // Extract the directory part from the path
+    // Note: This assumes the first 25 characters of the path string are not needed
     string $dirPath = `substring $scriptPath 25 (size($scriptPath))`;
     
-    // 获取父目录路径
+    // Get the parent directory path
     $dirPath = `dirname $dirPath`;
     
-    // 构造Python安装脚本的完整路径
+    // Construct the full path for the Python installation script
     string $pythonPath = $dirPath + "/install.py";
     
-    // 将所有反斜杠替换为正斜杠，确保路径格式正确
+    // Replace all backslashes with forward slashes to ensure correct path format
     $pythonPath = substituteAllString($pythonPath, "\\", "/");
     
-    // 执行Python脚本
-    // 1. 将脚本所在目录添加到Python的sys.path
-    // 2. 读取并执行install.py文件的内容
-    python("import os, sys; sys.path.append(os.path.dirname(r'" + $pythonPath + "')); exec(open(r'" + $pythonPath + "', encoding='utf-8').read())");
+    // Python code to handle different encodings
+    string $pythonCode = "import os, sys, codecs\n";
+    $pythonCode += "script_path = r'" + $pythonPath + "'\n";
+    $pythonCode += "sys.path.append(os.path.dirname(script_path))\n";
+    $pythonCode += "def read_file_with_fallback(file_path, encodings=['utf-8', 'gbk', 'iso-8859-1']):\n";
+    $pythonCode += "    for encoding in encodings:\n";
+    $pythonCode += "        try:\n";
+    $pythonCode += "            with codecs.open(file_path, 'r', encoding=encoding) as file:\n";
+    $pythonCode += "                return file.read()\n";
+    $pythonCode += "        except UnicodeDecodeError:\n";
+    $pythonCode += "            continue\n";
+    $pythonCode += "    raise UnicodeDecodeError('Unable to decode the file with the given encodings')\n";
+    $pythonCode += "script_content = read_file_with_fallback(script_path)\n";
+    $pythonCode += "exec(script_content)\n";
+
+    // Execute the Python code
+    python($pythonCode);
 }
 
-// 调用安装过程
+// Call the installation procedure
 installHUGTools();

@@ -192,9 +192,8 @@ class UVSetEditor_Module_UI(QtWidgets.QDialog):
         sample_space_grid.addWidget(self.uv_radio, 1, 0)
         sample_space_grid.addWidget(self.component_radio, 1, 1)
         
-        # 使用 QVBoxLayout 来将网格布局放在新的一行
         sample_space_right_layout = QtWidgets.QVBoxLayout()
-        sample_space_right_layout.addSpacing(5)  # 添加一些垂直空间
+        sample_space_right_layout.addSpacing(5)
         sample_space_right_layout.addLayout(sample_space_grid)
         
         sample_space_layout.addLayout(sample_space_right_layout)
@@ -222,7 +221,7 @@ class UVSetEditor_Module_UI(QtWidgets.QDialog):
     def refresh_uv_sets(self):
         selection = cmds.ls(selection=True)
         if not selection:
-            cmds.warning("请先选择一个对象。")
+            cmds.warning("Please select an object first.")
             return
 
         selected_object = selection[0]
@@ -253,22 +252,22 @@ class UVSetEditor_Module_UI(QtWidgets.QDialog):
             uv_set_name = selected_uv_set.text()
             selected_objects = cmds.ls(selection=True, long=True)
             if not selected_objects:
-                cmds.warning("请先选择一个对象。")
+                cmds.warning("Please select an object first.")
                 return
 
             for obj in selected_objects:
                 try:
                     if cmds.polyUVSet(obj, query=True, allUVSets=True).count(uv_set_name) > 0:
                         cmds.polyUVSet(obj, delete=True, uvSet=uv_set_name)
-                        print(f"已从 {obj} 删除 UV set: {uv_set_name}")
+                        print(f"Deleted UV set: {uv_set_name} from {obj}")
                     else:
-                        print(f"{obj} 上不存在 UV set: {uv_set_name}")
+                        print(f"UV set: {uv_set_name} does not exist on {obj}")
                 except Exception as e:
-                    cmds.warning(f"删除 {obj} 上的 UV set {uv_set_name} 时出错: {str(e)}")
+                    cmds.warning(f"Error deleting UV set {uv_set_name} from {obj}: {str(e)}")
 
             self.refresh_uv_sets()
         else:
-            cmds.warning("请先选择一个 UV set。")
+            cmds.warning("Please select a UV set first.")
 
     # Function: Rename selected UV set
     def rename_selected_uv_set(self):
@@ -277,11 +276,11 @@ class UVSetEditor_Module_UI(QtWidgets.QDialog):
         if selected_uv_set and new_name:
             cmds.polyUVSet(rename=True, newUVSet=new_name, uvSet=selected_uv_set.text())
             self.refresh_uv_sets()
-            self.new_name_input.clear()  # 清空输入框
+            self.new_name_input.clear()
         elif not selected_uv_set:
-            cmds.warning("请先选择一个 UV set。")
+            cmds.warning("Please select a UV set first.")
         else:
-            cmds.warning("请输入新的名称。")
+            cmds.warning("Please enter a new name.")
 
     # Function: Create new UV set
     def create_new_uv_set(self):
@@ -289,15 +288,15 @@ class UVSetEditor_Module_UI(QtWidgets.QDialog):
         selected_objects = cmds.ls(selection=True, long=True)
         
         if not selected_objects:
-            cmds.warning("请先选择一个对象。")
+            cmds.warning("Please select an object first.")
             return
 
         for obj in selected_objects:
             if new_name:
-                # 使用用户输入的名称
+                # Use user-provided name
                 uv_set_name = new_name
             else:
-                # 自动生成名称（map2, map3, ...）
+                # Auto-generate name (map2, map3, ...)
                 existing_uv_sets = cmds.polyUVSet(obj, query=True, allUVSets=True)
                 index = 1
                 while f"map{index}" in existing_uv_sets:
@@ -306,12 +305,12 @@ class UVSetEditor_Module_UI(QtWidgets.QDialog):
 
             try:
                 cmds.polyUVSet(obj, create=True, uvSet=uv_set_name)
-                print(f"在 {obj} 上创建了新的UV set: {uv_set_name}")
+                print(f"Created new UV set: {uv_set_name} on {obj}")
             except Exception as e:
-                cmds.warning(f"在 {obj} 上创建UV set {uv_set_name} 时出错: {str(e)}")
+                cmds.warning(f"Error creating UV set {uv_set_name} on {obj}: {str(e)}")
 
         self.refresh_uv_sets()
-        self.new_name_input.clear()  # 清空输入框
+        self.new_name_input.clear()
 
     # Function: UV set swap
     def UVsetSwap(self):
@@ -320,61 +319,78 @@ class UVSetEditor_Module_UI(QtWidgets.QDialog):
         selected_objects = cmds.ls(sl=True)
         
         if not selected_objects:
-            cmds.warning("请选择一个对象。")
+            cmds.warning("Please select an object.")
+            return
+
+        if not UVname1 or not UVname2:
+            cmds.warning("Please enter both UV set names.")
+            return
+
+        if UVname1 == UVname2:
+            cmds.warning("UV set names must be different.")
             return
 
         for obj in selected_objects:
-            # 记录操作前的历史节点
-            history_before = set(cmds.listHistory(obj))
-            
             try:
-                cmds.polyUVSet(obj, query=True, allUVSets=True)
-                cmds.polyUVSet(obj, create=True, uvSet='TempUV')
-                cmds.polyUVSet(obj, copy=True, nuv='TempUV', uvSet=UVname1)
-                cmds.polyUVSet(obj, copy=True, nuv=UVname1, uvSet=UVname2)
-                cmds.polyUVSet(obj, copy=True, nuv=UVname2, uvSet='TempUV')
-                cmds.polyUVSet(obj, delete=True, uvSet='TempUV')
+                uv_sets = cmds.polyUVSet(obj, query=True, allUVSets=True) or []
+                
+                if UVname1 not in uv_sets or UVname2 not in uv_sets:
+                    cmds.warning(f"One or both UV sets do not exist on {obj}. Skipping this object.")
+                    continue
+
+                # Store the current UV set
+                current_uv_set = cmds.polyUVSet(obj, query=True, currentUVSet=True)[0]
+
+                # Create a temporary UV set
+                temp_uv_name = f"TempUV_{int(cmds.timerX() * 1000)}"
+                cmds.polyUVSet(obj, create=True, uvSet=temp_uv_name)
+
+                # Copy UV sets
+                cmds.polyUVSet(obj, copy=True, uvSet=UVname1, newUVSet=temp_uv_name)
+                cmds.polyUVSet(obj, copy=True, uvSet=UVname2, newUVSet=UVname1)
+                cmds.polyUVSet(obj, copy=True, uvSet=temp_uv_name, newUVSet=UVname2)
+
+                # Delete the temporary UV set
+                cmds.polyUVSet(obj, delete=True, uvSet=temp_uv_name)
+
+                # Restore the current UV set
+                cmds.polyUVSet(obj, currentUVSet=True, uvSet=current_uv_set)
+
+                print(f"Successfully swapped UV sets {UVname1} and {UVname2} on {obj}")
             except Exception as e:
-                cmds.warning(f"在 {obj} 上交换 UV set 时出错: {str(e)}")
-            
-            # 获取操作后的历史节点
-            history_after = set(cmds.listHistory(obj))
-            
-            # 删除新增的历史节点
-            new_history = history_after - history_before
-            if new_history:
-                cmds.delete(list(new_history))
-        
-        self.refresh_uv_sets()   # 刷新列表
-        cmds.select(selected_objects)  # 重新选择对象
+                cmds.warning(f"Error swapping UV sets on {obj}: {str(e)}")
+
+        self.refresh_uv_sets()
+        cmds.select(selected_objects)
+        cmds.inViewMessage(amg=f'<span style="color:#FFA500;">UV sets swapped: {UVname1} <-> {UVname2}</span>', pos='botRight', fade=True, fst=10, fad=1)
 
     def UVsetReorder(self):
         UVname1 = self.uv_set1_input.text()
         UVname2 = self.uv_set2_input.text()
-        print("Reorder object is " + UVname1 + " + " + UVname2)
+        print(f"Reorder object is {UVname1} + {UVname2}")
         
         selected_objects = cmds.ls(sl=True)
         if not selected_objects:
-            cmds.warning("请选择一个对象。")
+            cmds.warning("Please select an object.")
             return
 
         for obj in selected_objects:
-            # 记录操作前的历史节点
+            # Record history nodes before operation
             history_before = set(cmds.listHistory(obj))
             
-            # 直接使用 polyUVSet 命令进行重排序
+            # Directly use polyUVSet command for reordering
             cmds.polyUVSet(obj, reorder=True, uvSet=UVname1, newUVSet=UVname2)
 
-            # 获取操作后的历史节点
+            # Get history nodes after operation
             history_after = set(cmds.listHistory(obj))
             
-            # 删除新增的历史节点
+            # Delete new history nodes
             new_history = history_after - history_before
             if new_history:
                 cmds.delete(list(new_history))
 
-        self.refresh_uv_sets()   # 刷新列表
-        cmds.select(selected_objects)  # 重新选择对象
+        self.refresh_uv_sets()
+        cmds.select(selected_objects)
 
     # Function: UV set transfer
     def get_object_name(self):

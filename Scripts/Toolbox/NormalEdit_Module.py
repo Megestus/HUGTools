@@ -4,8 +4,11 @@ from PySide2 import QtWidgets, QtGui, QtCore
 from functools import partial
 
 class RoundedButton(QtWidgets.QPushButton):
-    def __init__(self, text):
+    def __init__(self, text, icon=None):
         super(RoundedButton, self).__init__(text)
+        if icon:
+            self.setIcon(icon)
+            self.setIconSize(QtCore.QSize(24, 24))
         self.setStyleSheet(
             """
             QPushButton {
@@ -14,6 +17,7 @@ class RoundedButton(QtWidgets.QPushButton):
                 border-radius: 10px;
                 padding: 5px;
                 font-weight: bold;
+                text-align: center;
             }
             QPushButton:hover {
                 background-color: #E0E0E0;
@@ -27,7 +31,7 @@ class RoundedButton(QtWidgets.QPushButton):
 class VertsNormalUI(QtWidgets.QDialog):
     def __init__(self, parent=None):
         super(VertsNormalUI, self).__init__(parent)
-        self.setWindowTitle("法线工具")
+        self.setWindowTitle("Normal Editor")
         self.setFixedWidth(300)
         self.setWindowFlags(QtCore.Qt.Window | QtCore.Qt.WindowStaysOnTopHint)
 
@@ -36,59 +40,72 @@ class VertsNormalUI(QtWidgets.QDialog):
         self.create_connections()
 
     def create_widgets(self):
-        # 显示控制组
-        self.display_group = QtWidgets.QGroupBox("显示控制")
-        self.display_btn = QtWidgets.QToolButton()
-        self.display_btn.setIcon(QtGui.QIcon(":polyNormalSetToFace.png"))
-        self.display_btn.setIconSize(QtCore.QSize(32, 32))
-        self.display_btn.setToolTip("法线显示切换")
+        # Display Control Group
+        self.display_group = QtWidgets.QGroupBox("Display Control")
+        self.display_btn = RoundedButton("Normal", icon=QtGui.QIcon(":polyNormalSetToFace.png"))
+        self.display_btn.setMinimumSize(100, 40)
+        self.display_btn.setToolTip("Toggle normal display")
 
-        self.normal_size_label = QtWidgets.QLabel("法线长短:")
+        self.normal_size_label = QtWidgets.QLabel("Normal Size:")
         self.normal_size_field = QtWidgets.QDoubleSpinBox()
         self.normal_size_field.setValue(0.4)
         self.normal_size_field.setRange(0.01, 10.0)
+        self.normal_size_field.setToolTip("Set the size of displayed normals")
         self.normal_size_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
         self.normal_size_slider.setRange(1, 1000)
         self.normal_size_slider.setValue(40)
+        self.normal_size_slider.setToolTip("Adjust the size of displayed normals")
 
-        # 法线锁定组
-        self.lock_group = QtWidgets.QGroupBox("法线锁定")
-        self.lock_btn = RoundedButton("锁定法线")
-        self.unlock_btn = RoundedButton("解锁法线")
+        # Normal Lock Group
+        self.lock_group = QtWidgets.QGroupBox("Normal Lock")
+        self.lock_btn = RoundedButton("Lock Normal", icon=QtGui.QIcon(":polyNormalLock.png"))
+        self.lock_btn.setToolTip("Lock the current normal direction")
+        self.unlock_btn = RoundedButton("Unlock Normal", icon=QtGui.QIcon(":polyNormalUnlock.png"))
+        self.unlock_btn.setToolTip("Unlock the normal direction")
 
-        # 快速设置和平均化组
-        self.quick_set_average_group = QtWidgets.QGroupBox("快速设置")
+        # Quick Set and Average Group
+        self.quick_set_average_group = QtWidgets.QGroupBox("Quick Set")
         self.quick_set_buttons = []
         for axis in ["+X", "+Y", "+Z", "-X", "-Y", "-Z"]:
             btn = RoundedButton(axis)
+            btn.setToolTip(f"Set normal direction to {axis}")
             self.quick_set_buttons.append(btn)
 
         self.average_buttons = []
         for axis in ["X", "Y", "Z"]:
-            btn = RoundedButton(f"平均化 {axis}")
+            btn = RoundedButton(f"Average {axis}")
+            btn.setToolTip(f"Average normals along the {axis} axis")
             self.average_buttons.append(btn)
 
-        self.average_normals_btn = RoundedButton("平均法线")
+        self.average_normals_btn = RoundedButton("Average Normals")
+        self.average_normals_btn.setToolTip("Average all selected normals")
 
-        # 手动设置组
-        self.manual_set_group = QtWidgets.QGroupBox("法线编辑")
-        self.get_normal_btn = RoundedButton("获取法线")
+        # Manual Set Group
+        self.manual_set_group = QtWidgets.QGroupBox("Normal Edit")
+        self.get_normal_btn = RoundedButton("Get Normal", icon=QtGui.QIcon(":polyNormalDisplay.png"))
+        self.get_normal_btn.setToolTip("Get the normal direction of selected vertex or face")
         self.normal_fields = [QtWidgets.QLineEdit() for _ in range(3)]
-        self.set_normal_btn = RoundedButton("设置法线")
+        for field in self.normal_fields:
+            field.setToolTip("Enter a value for the normal component")
+        self.set_normal_btn = RoundedButton("Set Normal")
+        self.set_normal_btn.setToolTip("Set the normal direction for selected vertices")
 
-        # 传输法线组
-        self.transfer_group = QtWidgets.QGroupBox("传输法线")
-        self.get_mesh_btn = RoundedButton("获取网格")
+        # Transfer Normal Group
+        self.transfer_group = QtWidgets.QGroupBox("Transfer Normal")
+        self.get_mesh_btn = RoundedButton("Get Mesh", icon=QtGui.QIcon(":polySelectObject.png"))
+        self.get_mesh_btn.setToolTip("Select the source mesh for normal transfer")
         self.mesh_name_field = QtWidgets.QLineEdit()
         self.mesh_name_field.setReadOnly(True)
-        self.transfer_normal_btn = RoundedButton("传输法线")
+        self.mesh_name_field.setToolTip("Displays the name of the selected source mesh")
+        self.transfer_normal_btn = RoundedButton("Transfer Normal")
+        self.transfer_normal_btn.setToolTip("Transfer normals from source mesh to selected objects")
 
     def create_layouts(self):
         main_layout = QtWidgets.QVBoxLayout(self)
         main_layout.setSpacing(10)
         main_layout.setContentsMargins(10, 10, 10, 10)
 
-        # 显示控制布局
+        # Display Control Layout
         display_layout = QtWidgets.QHBoxLayout()
         display_layout.addWidget(self.display_btn)
         
@@ -104,13 +121,13 @@ class VertsNormalUI(QtWidgets.QDialog):
         
         self.display_group.setLayout(display_main_layout)
 
-        # 法线锁定布局
+        # Normal Lock Layout
         lock_layout = QtWidgets.QHBoxLayout()
         lock_layout.addWidget(self.lock_btn)
         lock_layout.addWidget(self.unlock_btn)
         self.lock_group.setLayout(lock_layout)
 
-        # 快速设置和平均化布局
+        # Quick Set and Average Layout
         quick_set_average_layout = QtWidgets.QVBoxLayout()
         
         quick_set_layout = QtWidgets.QGridLayout()
@@ -127,7 +144,7 @@ class VertsNormalUI(QtWidgets.QDialog):
         
         self.quick_set_average_group.setLayout(quick_set_average_layout)
 
-        # 手动设置布局
+        # Manual Set Layout
         manual_set_layout = QtWidgets.QVBoxLayout()
         manual_set_layout.addWidget(self.get_normal_btn)
         normal_fields_layout = QtWidgets.QHBoxLayout()
@@ -137,22 +154,22 @@ class VertsNormalUI(QtWidgets.QDialog):
         manual_set_layout.addWidget(self.set_normal_btn)
         self.manual_set_group.setLayout(manual_set_layout)
 
-        # 传输法线布局
+        # Transfer Normal Layout
         transfer_layout = QtWidgets.QVBoxLayout()
         transfer_layout.addWidget(self.get_mesh_btn)
         transfer_layout.addWidget(self.mesh_name_field)
         transfer_layout.addWidget(self.transfer_normal_btn)
         self.transfer_group.setLayout(transfer_layout)
 
-        # 将所有组添加到主布局
+        # Add all groups to main layout
         main_layout.addWidget(self.display_group)
         main_layout.addWidget(self.lock_group)
-        main_layout.addWidget(self.quick_set_average_group)  # 新的组合组
+        main_layout.addWidget(self.quick_set_average_group)
         main_layout.addWidget(self.manual_set_group)
         main_layout.addWidget(self.transfer_group)
 
     def create_connections(self):
-        self.display_btn.clicked.connect(self.toggle)
+        self.display_btn.clicked.connect(self.toggle_normal_display)
         self.normal_size_field.valueChanged.connect(self.set_normal_size_from_field)
         self.normal_size_slider.valueChanged.connect(self.set_normal_size_from_slider)
         self.lock_btn.clicked.connect(self.lock_normal)
@@ -183,16 +200,18 @@ class VertsNormalUI(QtWidgets.QDialog):
 
     def set_normal_size(self, value):
         cmds.polyOptions(sn=value)
+        cmds.inViewMessage(amg=f'<span style="color:#FFA500;">Normal Size: {value:.2f}</span>', pos='botRight', fade=True, fst=10, fad=1)
 
-    # 切换显示法线
-    def toggle(self):
+    def toggle_normal_display(self):
         sel = cmds.ls(sl=True)
         if sel:
             new_size = self.normal_size_field.value()
             display_state = cmds.polyOptions(q=True, dn=True)[0]
             cmds.polyOptions(dn=not display_state, pt=True, sn=new_size)
+            message = "Normals On" if not display_state else "Normals Off"
+            cmds.inViewMessage(amg=f'<span style="color:#FFA500;">{message}</span>', pos='botRight', fade=True, fst=10, fad=1)
         else:
-            cmds.warning("未选择任何对象！")
+            cmds.warning("No object selected!")
 
     def get_verts_normal(self):
         sel = cmds.ls(sl=True, fl=True)
@@ -200,15 +219,15 @@ class VertsNormalUI(QtWidgets.QDialog):
             if cmds.objectType(sel[0]) == "mesh":
                 normal = cmds.polyNormalPerVertex(sel[0], q=True, xyz=True)[:3]
                 for i, field in enumerate(self.normal_fields):
-                    field.setText(f"{normal[i]:.5g}")  # 使用 g 格式，显示5位有效数字
+                    field.setText(f"{normal[i]:.5g}")  # Use g format, display 5 significant digits
             elif cmds.objectType(sel[0]) == "meshFace":
                 normal = self.get_face_normal(sel[0])
                 for i, field in enumerate(self.normal_fields):
-                    field.setText(f"{normal[i]:.5g}")  # 使用 g 格式，最多显示5位有效数字
+                    field.setText(f"{normal[i]:.5g}")  # Use g format, display up to 5 significant digits
             else:
-                cmds.warning("请选择顶点或面！")
+                cmds.warning("Please select a vertex or face!")
         else:
-            cmds.warning("未选择任何对象！")
+            cmds.warning("No object selected!")
 
     def set_verts_normal(self):
         sel = cmds.ls(sl=True, fl=True)
@@ -221,14 +240,14 @@ class VertsNormalUI(QtWidgets.QDialog):
                 vtx_list = cmds.filterExpand(vtx_list, sm=31)
                 cmds.polyNormalPerVertex(vtx_list, xyz=normal)
         else:
-            cmds.warning("未选择任何对象！")
+            cmds.warning("No object selected!")
 
     def get_mesh(self):
         sel = cmds.ls(sl=True)
         if sel:
             self.mesh_name_field.setText(sel[0])
         else:
-            cmds.warning("未选择任何对象！")
+            cmds.warning("No object selected!")
 
     def set_normal(self):
         source_name = self.mesh_name_field.text()
@@ -238,50 +257,50 @@ class VertsNormalUI(QtWidgets.QDialog):
                 cmds.transferAttributes(source_name, s, transferNormals=1)
                 cmds.delete(s, ch=True)
         else:
-            cmds.warning("请先获取法线！")
+            cmds.warning("Please get the normal first!")
 
     def flatten(self, axis_index):
         """
-        平坦化函数：将选中顶点的法线在指定轴上的分量设置为0
+        Flatten function: Set the normal component of selected vertices to 0 on the specified axis
         
-        :param axis_index: 要平坦化的轴索引（0=X, 1=Y, 2=Z）
+        :param axis_index: Index of the axis to flatten (0=X, 1=Y, 2=Z)
         """
         axes = ["x", "y", "z"]
         sel = cmds.ls(sl=True, fl=True)
         if sel:
             for s in sel:
-                # 获取当前法线
+                # Get current normal
                 n = cmds.polyNormalPerVertex(s, q=True, xyz=True)[:3]
-                # 将指定轴的分量设置为0
+                # Set the component of the specified axis to 0
                 n[axis_index] = 0
-                # 应用新的法线
+                # Apply new normal
                 cmds.polyNormalPerVertex(s, xyz=n)
             
-            # 更新显示
+            # Update display
             for obj in set(s.split('.')[0] for s in sel):
                 cmds.polyOptions(obj, point=True)
         else:
-            cmds.warning("未选择任何对象！")
+            cmds.warning("No object selected!")
 
     def unlock_normal(self):
         sel = cmds.ls(sl=True, fl=True)
         if sel:
             cmds.polyNormalPerVertex(ufn=True)
         else:
-            cmds.warning("未选任何对象！")
+            cmds.warning("No object selected!")
 
     def lock_normal(self):
         sel = cmds.ls(sl=True, fl=True)
         if sel:
             cmds.polyNormalPerVertex(fn=True)
         else:
-            cmds.warning("选择任何对象！")
+            cmds.warning("No object selected!")
 
     def quick_set_normal(self, index):
         """
-        快速设置法线函数：将选中顶点的法线设置为指定的世界坐标轴方向
+        Quick set normal function: Set the normal of selected vertices to the specified world coordinate axis direction
         
-        :param index: 要设置的法线方向索引（0=+X, 1=+Y, 2=+Z, 3=-X, 4=-Y, 5=-Z）
+        :param index: Index of the normal direction to set (0=+X, 1=+Y, 2=+Z, 3=-X, 4=-Y, 5=-Z)
         """
         axes = [
             (1, 0, 0), (0, 1, 0), (0, 0, 1),
@@ -291,70 +310,70 @@ class VertsNormalUI(QtWidgets.QDialog):
         
         sel = cmds.ls(sl=True, fl=True)
         if not sel:
-            cmds.warning("未选择任何对象！")
+            cmds.warning("No object selected!")
             return
 
-        # 转换选择为顶点
+        # Convert selection to vertices
         vertices = cmds.polyListComponentConversion(sel, tv=True)
-        vertices = cmds.filterExpand(vertices, sm=31)  # sm=31 表示顶点
+        vertices = cmds.filterExpand(vertices, sm=31)  # sm=31 represents vertices
 
         if not vertices:
-            cmds.warning("无法获取顶点！")
+            cmds.warning("Unable to get vertices!")
             return
 
-        # 设置法线
+        # Set normal
         for vertex in vertices:
             cmds.polyNormalPerVertex(vertex, xyz=normal)
 
-        # 更新显示
+        # Update display
         affected_objects = set(vert.split('.')[0] for vert in vertices)
         for obj in affected_objects:
             cmds.polyOptions(obj, point=True)
 
-        cmds.select(sel, r=True)  # 恢复原始选择
-        cmds.inViewMessage(amg='线设置完成', pos='midCenter', fade=True)
+        cmds.select(sel, r=True)  # Restore original selection
+        cmds.inViewMessage(amg='Normal set completed', pos='midCenter', fade=True)
 
     def average_normals(self):
         """
-        平均选中顶点的法线
+        Average the normals of selected vertices
         """
         sel = cmds.ls(sl=True, fl=True)
         if sel:
-            # 转换选择为顶点
+            # Convert selection to vertices
             vertices = cmds.polyListComponentConversion(sel, tv=True)
-            vertices = cmds.filterExpand(vertices, sm=31)  # sm=31 表示顶点
+            vertices = cmds.filterExpand(vertices, sm=31)  # sm=31 represents vertices
             
             if not vertices:
-                cmds.warning("无法获取顶点！")
+                cmds.warning("Unable to get vertices!")
                 return
             
-            # 检查法线是否被锁定，如果被锁定，先解锁
+            # Check if normals are locked, if so, unlock them
             for vertex in vertices:
                 if cmds.polyNormalPerVertex(vertex, q=True, freezeNormal=True):
                     cmds.polyNormalPerVertex(vertex, ufn=True)
             
-            # 使用 polyAverageNormal 命令
+            # Use polyAverageNormal command
             cmds.polyAverageNormal(vertices)
-            cmds.inViewMessage(amg='法线已平均化', pos='midCenter', fade=True)
+            cmds.inViewMessage(amg='Normals averaged', pos='midCenter', fade=True)
         else:
-            cmds.warning("未选择任何对象！")
+            cmds.warning("No object selected!")
 
 def show_ui():
     window_name = "VertsNormalUIWindow"
     if cmds.window(window_name, exists=True):
-        # 获取当前窗口位置
+        # Get current window position
         existing_window = QtWidgets.QApplication.activeWindow()
         pos = existing_window.pos()
-        # 关闭现有窗口
+        # Close existing window
         cmds.deleteUI(window_name)
     else:
-        # 如果窗口不存在，设置默认位置
+        # If window doesn't exist, set default position
         pos = QtCore.QPoint(200, 200)
     
     ui = VertsNormalUI()
     ui.setObjectName(window_name)
     
-    # 设置窗口位置
+    # Set window position
     ui.move(pos)
     
     ui.show()

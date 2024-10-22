@@ -1,3 +1,5 @@
+# 忽略所有 __pycache__ 文件夹
+__pycache__/
 
-# 忽略 __pycache__ 文件夹
-__pycache__
+# 忽略所有 .pyc 文件
+*.pyc

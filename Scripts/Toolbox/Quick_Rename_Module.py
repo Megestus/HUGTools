@@ -1,13 +1,12 @@
 # Quick_Rename_Module.py
-# 包含自定义层相关的UI和功能函数
+# Contains custom layer related UI and function functions
 
 import re
 import maya.cmds as cmds
 from functools import partial
 from PySide2 import QtWidgets, QtCore, QtGui
 
-
-#======UI按钮组件======
+#====== UI Button Components ======
 
 class RoundedButton(QtWidgets.QPushButton):
     def __init__(self, text):
@@ -30,7 +29,7 @@ class RoundedButton(QtWidgets.QPushButton):
             """
         )
 
-#======UI主窗口组件======
+#====== UI Main Window Component ======
 
 class Quick_Rename_Module_UI(QtWidgets.QWidget):
     def __init__(self, parent=None):
@@ -38,21 +37,21 @@ class Quick_Rename_Module_UI(QtWidgets.QWidget):
         self.setWindowTitle("Quick_Rename_Module")
         self.setMinimumWidth(280)
         
-        # 设置窗口图标
+        # Set window icon
         self.setWindowIcon(QtGui.QIcon(":annotation.png"))
 
-        # 设置窗口标志，使其始终置顶
+        # Set window flags to always stay on top
         self.setWindowFlags(self.windowFlags() | QtCore.Qt.WindowStaysOnTopHint)
 
         self.create_widgets()
         self.create_layouts()
         self.create_connections()
 
-#======UI组件======
+#====== UI Components ======
 
     def create_widgets(self):
 
-        # 快速前缀后缀组
+        # Quick prefix suffix group
         self.quick_prefix_suffix_group = QtWidgets.QGroupBox("Quickuffix")
         self.quick_prefix_suffix_btns = [
             # RoundedButton("SM_"),
@@ -62,7 +61,7 @@ class Quick_Rename_Module_UI(QtWidgets.QWidget):
             RoundedButton("_Temp")
         ]
 
-        # 快速打组选项组
+        # Quick group options group
         self.quick_group_group = QtWidgets.QGroupBox("QuickGroup")
         self.quick_group_buttons = [
             RoundedButton("La_mesh"),
@@ -73,7 +72,7 @@ class Quick_Rename_Module_UI(QtWidgets.QWidget):
             RoundedButton("Concept")
         ]
 
-        # 快速显示层选项组
+        # Quick display layer options group
         self.quick_layer_group = QtWidgets.QGroupBox("QuickLayer")
         self.quick_layer_buttons = [
             RoundedButton("La"),
@@ -84,19 +83,19 @@ class Quick_Rename_Module_UI(QtWidgets.QWidget):
             RoundedButton("Mesh")
         ]
 
-#======UI布局======
+#====== UI Layout ======
 
     def create_layouts(self):
         main_layout = QtWidgets.QVBoxLayout(self)
 
-        # Quick_Prefix_Suffix 布局
+        # Quick_Prefix_Suffix layout
         quick_prefix_suffix_layout = QtWidgets.QGridLayout()
         for i, btn in enumerate(self.quick_prefix_suffix_btns):
             quick_prefix_suffix_layout.addWidget(btn, i // 3, i % 3)
         self.quick_prefix_suffix_group.setLayout(quick_prefix_suffix_layout)
         main_layout.addWidget(self.quick_prefix_suffix_group)
         
-        # QuickGroup布局
+        # QuickGroup layout
         quick_group_layout = QtWidgets.QVBoxLayout()
         quick_group_buttons_layout = QtWidgets.QGridLayout()
         
@@ -108,7 +107,7 @@ class Quick_Rename_Module_UI(QtWidgets.QWidget):
         quick_group_layout.addLayout(quick_group_buttons_layout)
         self.quick_group_group.setLayout(quick_group_layout)
         
-        # QuickLayer布局
+        # QuickLayer layout
         quick_layer_layout = QtWidgets.QVBoxLayout()
         quick_layer_buttons_layout = QtWidgets.QGridLayout()
         
@@ -120,49 +119,49 @@ class Quick_Rename_Module_UI(QtWidgets.QWidget):
         quick_layer_layout.addLayout(quick_layer_buttons_layout)
         self.quick_layer_group.setLayout(quick_layer_layout)
         
-        # 将两个选项组添加到主布局
+        # Add two option groups to the main layout
         main_layout.addWidget(self.quick_group_group)
         main_layout.addWidget(self.quick_layer_group)
 
-#======UI与功能的连接======
+#====== UI and Function Connections ======
 
     def create_connections(self):
-        # 为QuickGroup按钮添加连接
+        # Add connections for QuickGroup buttons
         for btn in self.quick_group_buttons:
             btn.clicked.connect(partial(create_group, btn.text()))
         
-        # 为QuickLayer按钮添加连接
+        # Add connections for QuickLayer buttons
         for btn in self.quick_layer_buttons:
             btn.clicked.connect(partial(create_display_layer_group, btn.text()))
         
-        # 为快速前缀后缀按钮添加连接
+        # Add connections for quick prefix suffix buttons
         for btn in self.quick_prefix_suffix_btns:
             text = btn.text()
-            if text.startswith("_"):  # 如果以下划线开头，认为是后缀
+            if text.startswith("_"):  # If it starts with an underscore, consider it as a suffix
                 btn.clicked.connect(partial(add_prefix_or_suffix, text, True))
-            else:  # 否则认为是前缀
+            else:  # Otherwise consider it as a prefix
                 btn.clicked.connect(partial(add_prefix_or_suffix, text, False))
 
-#======功能======
+#====== Functions ======
 
 def add_prefix_or_suffix(text, is_suffix):
     """
-    为选中的对象添加前缀或后缀
+    Add prefix or suffix to selected objects
     
-    参数:
-    text (str): 要添加的前缀或后缀文本
-    is_suffix (bool): 如果为True，则添加后缀；如果为False，则添加前缀
+    Parameters:
+    text (str): The prefix or suffix text to add
+    is_suffix (bool): If True, add as suffix; if False, add as prefix
     
-    功能:
-    - 检查是否有选中的对象
-    - 为每个选中的对象添加指定的前缀或后缀
-    - 使用sanitize_name函数清理新名称
-    - 尝试重命名对象，如果失败则显示警告
-    - 操作完成后在Maya视图中显示提示信息
+    Functions:
+    - Check if there are selected objects
+    - Add specified prefix or suffix to each selected object
+    - Use sanitize_name function to clean new name
+    - Try to rename object, display warning if failed
+    - Display prompt message in Maya view after operation
     """
     selection = cmds.ls(selection=True)
     if not selection:
-        cmds.warning("没有选择对象")
+        cmds.warning("No object selected")
         return
     for obj in selection:
         new_name = f"{obj}{text}" if is_suffix else f"{text}{obj}"
@@ -170,47 +169,47 @@ def add_prefix_or_suffix(text, is_suffix):
         try:
             cmds.rename(obj, new_name)
         except RuntimeError as e:
-            cmds.warning(f"无法重命名 {obj}: {str(e)}")
-    cmds.inViewMessage(amg=f'<span style="color:#fbca82;">已添加{"后缀" if is_suffix else "前缀"}: {text}</span>', pos='botRight', fade=True)
+            cmds.warning(f"Unable to rename {obj}: {str(e)}")
+    cmds.inViewMessage(amg=f'<span style="color:#fbca82;">Added {"suffix" if is_suffix else "prefix"}: {text}</span>', pos='botRight', fade=True)
 
 
 def create_group(group_name):
     """
-    创建一个新组并将选中的对象放入其中
+    Create a new group and put selected objects into it
     
-    参数:
-    group_name (str): 新创建组的名称
+    Parameters:
+    group_name (str): Name of the new group to create
     
-    功能:
-    - 检查是否有选中的对象
-    - 使用sanitize_name函数清理组名
-    - 创建一个新的空组
-    - 将选中的对象放入新创建的组中
-    - 操作完成后在Maya视图中显示提示信息
+    Functions:
+    - Check if there are selected objects
+    - Use sanitize_name function to clean group name
+    - Create a new empty group
+    - Put selected objects into the newly created group
+    - Display prompt message in Maya view after operation
     """
     selection = cmds.ls(selection=True)
     if not selection:
-        cmds.warning("没有选择对象")
+        cmds.warning("No object selected")
         return
     group_name = sanitize_name(group_name)
     group = cmds.group(name=group_name, empty=True)
     cmds.parent(selection, group)
-    cmds.inViewMessage(amg=f'<span style="color:#fbca82;">创建组: {group_name}</span>', pos='botRight', fade=True)
+    cmds.inViewMessage(amg=f'<span style="color:#fbca82;">Created group: {group_name}</span>', pos='botRight', fade=True)
 
 def create_display_layer_group(layer_name=None):
     """
-    创建一个新的显示层并将选中的对象添加到该层
+    Create a new display layer and add selected objects to that layer
     
-    参数:
-    layer_name (str, 可选): 新创建显示层的名称。如果未提供，将自动生成一个名称。
+    Parameters:
+    layer_name (str, optional): Name of the new display layer to create. If not provided, a name will be automatically generated.
     
-    功能:
-    - 获取当前选中的对象
-    - 如果未提供层名，则自动生成一个
-    - 创建一个新的空显示层
-    - 如果有选中的对象，将它们添加到新创建的显示层中
-    - 保持原有的对象选择状态
-    - 操作完成后在Maya视图中显示提示信息
+    Functions:
+    - Get currently selected objects
+    - If no layer name is provided, automatically generate one
+    - Create a new empty display layer
+    - If there are selected objects, add them to the newly created display layer
+    - Maintain original object selection state
+    - Display prompt message in Maya view after operation
     """
     selection = cmds.ls(selection=True)
     
@@ -221,39 +220,39 @@ def create_display_layer_group(layer_name=None):
     
     if selection:
         cmds.editDisplayLayerMembers(new_layer, selection)
-        cmds.select(selection)  # 保持原有选择
+        cmds.select(selection)  # Maintain original selection
     
-    cmds.inViewMessage(amg=f'<span style="color:#fbca82;">创建显示层: {layer_name}</span>', pos='botRight', fade=True)
+    cmds.inViewMessage(amg=f'<span style="color:#fbca82;">Created display layer: {layer_name}</span>', pos='botRight', fade=True)
 
 def sanitize_name(name):
     """
-    清理和验证对象名称
+    Clean and validate object name
     
-    参数:
-    name (str): 需要清理的名称
+    Parameters:
+    name (str): Name to be cleaned
     
-    返回:
-    str: 清理后的名称
+    Returns:
+    str: Cleaned name
     
-    功能:
-    - 对输入的名称进行清理和验证
-    - 确保名称符合Maya的命名规则
-    - 可以在这里添加自定义的名称清理逻辑
+    Functions:
+    - Clean and validate input name
+    - Ensure name complies with Maya naming rules
+    - Custom name cleaning logic can be added here
     
-    注意: 当前函数只是返回原名称，您可以根据需要添加具体的清理逻辑
+    Note: Current function just returns the original name, you can add specific cleaning logic as needed
     """
-    # 这里可以添加名称清理的逻辑，如果需要的话
+    # Name cleaning logic can be added here if needed
     return name
 
-#======UI函数======
+#====== UI Functions ======
 
 def show():
     """
-    显示编辑器重命名模块的UI
+    Display UI for the editor rename module
     
-    功能:
-    - 关闭并删除现有的UI实例（如果存在）
-    - 创建新的UI实例并显示
+    Functions:
+    - Close and delete existing UI instance (if exists)
+    - Create new UI instance and display
     """
     global rename_window_ui
     try:
@@ -263,12 +262,8 @@ def show():
         pass
     
     rename_window_ui = Quick_Rename_Module_UI()
-    rename_window_ui.show()  # 修正缩进
+    rename_window_ui.show()
 
 
 if __name__ == "__main__":
     show()
-
-
-
-
