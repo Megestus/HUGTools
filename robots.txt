@@ -1,0 +1,5 @@
+
+User-agent:*
+Disallow:
+
+Sitemap: https://megestus.github.io/HUGweb/sitemap.xml
