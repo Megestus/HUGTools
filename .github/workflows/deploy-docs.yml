@@ -1,0 +1,50 @@
+name: 部署文档
+
+on:
+  push:
+    branches:
+      - Doc
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  deploy-gh-pages:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 安装 pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+          run_install: true
+
+      - name: 设置 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      # 运行构建脚本
+      - name: Build VuePress site
+        run: pnpm docs:build
+        working-directory: doc # 假设 VuePress 项目位于 `doc` 目录中
+
+      # 检查构建输出目录
+      - name: Check build output
+        run: ls -la doc/.vuepress/dist
+
+      - name: Deploy to GitHub Pages
+        uses: crazy-max/ghaction-github-pages@v4
+        with:
+          # 部署到 gh-pages 分支
+          target_branch: gh-pages
+          # 部署目录为 VuePress 的默认输出目录
+          build_dir: doc/.vuepress/dist
+        env:
+          GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
