@@ -2,7 +2,7 @@
 
 ![HUGTool Logo](Icons/MainUI.png)
 
-[![版本](https://img.shields.io/badge/版本-1.0.0-blue.svg)](https://github.com/Megestus/HUGTool/releases)
+[![版本](https://img.shields.io/badge/版本-1.0.1-blue.svg)](https://github.com/Megestus/HUGTool/releases)
 
 
 ## 🌟 简介
