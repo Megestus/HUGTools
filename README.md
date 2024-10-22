@@ -1,6 +1,6 @@
 # 🚀 HUGTool - 超强Maya建模利器
 
-![HUGTool Logo](HUGTools/Icons/MainUI.png)
+![HUGTool Logo](Icons/MainUI.png)
 
 [![版本](https://img.shields.io/badge/版本-1.0.0-blue.svg)](https://github.com/Megestus/HUGTool/releases)
 
