@@ -1,0 +1,30 @@
+// UTF-8
+// Encoding: UTF-8
+
+// 定义安装HUGTools的全局过程
+global proc installHUGTools()
+{
+    // 获取installHUGTools过程的路径
+    string $scriptPath = `whatIs installHUGTools`;
+    
+    // 从路径中提取目录部分
+    // 注意：这里假设路径字符串的前25个字符是不需要的
+    string $dirPath = `substring $scriptPath 25 (size($scriptPath))`;
+    
+    // 获取父目录路径
+    $dirPath = `dirname $dirPath`;
+    
+    // 构造Python安装脚本的完整路径
+    string $pythonPath = $dirPath + "/install.py";
+    
+    // 将所有反斜杠替换为正斜杠，确保路径格式正确
+    $pythonPath = substituteAllString($pythonPath, "\\", "/");
+    
+    // 执行Python脚本
+    // 1. 将脚本所在目录添加到Python的sys.path
+    // 2. 读取并执行install.py文件的内容
+    python("import os, sys; sys.path.append(os.path.dirname(r'" + $pythonPath + "')); exec(open(r'" + $pythonPath + "', encoding='utf-8').read())");
+}
+
+// 调用安装过程
+installHUGTools();
