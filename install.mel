@@ -24,16 +24,24 @@ global proc installHUGTools()
     string $pythonCode = "import os, sys, codecs\n";
     $pythonCode += "script_path = r'" + $pythonPath + "'\n";
     $pythonCode += "sys.path.append(os.path.dirname(script_path))\n";
-    $pythonCode += "def read_file_with_fallback(file_path, encodings=['utf-8', 'gbk', 'iso-8859-1']):\n";
+    $pythonCode += "def read_file_with_fallback(file_path, encodings=['utf-8', 'gbk', 'cp437', 'iso-8859-1']):\n";
     $pythonCode += "    for encoding in encodings:\n";
     $pythonCode += "        try:\n";
-    $pythonCode += "            with codecs.open(file_path, 'r', encoding=encoding) as file:\n";
-    $pythonCode += "                return file.read()\n";
+    $pythonCode += "            with open(file_path, 'rb') as file:\n";
+    $pythonCode += "                content = file.read()\n";
+    $pythonCode += "                return content.decode(encoding)\n";
     $pythonCode += "        except UnicodeDecodeError:\n";
+    $pythonCode += "            print(f'Failed to decode with {encoding}')\n";
+    $pythonCode += "            continue\n";
+    $pythonCode += "        except Exception as e:\n";
+    $pythonCode += "            print(f'Error reading file with {encoding}: {str(e)}')\n";
     $pythonCode += "            continue\n";
     $pythonCode += "    raise UnicodeDecodeError('Unable to decode the file with the given encodings')\n";
-    $pythonCode += "script_content = read_file_with_fallback(script_path)\n";
-    $pythonCode += "exec(script_content)\n";
+    $pythonCode += "try:\n";
+    $pythonCode += "    script_content = read_file_with_fallback(script_path)\n";
+    $pythonCode += "    exec(script_content)\n";
+    $pythonCode += "except Exception as e:\n";
+    $pythonCode += "    print(f'Error executing script: {str(e)}')\n";
 
     // Execute the Python code
     python($pythonCode);

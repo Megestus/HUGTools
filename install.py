@@ -13,7 +13,7 @@ import locale
 
 # Define constants for the toolbox
 TOOLBOX_NAME = "HUGTools"
-TOOLBOX_VERSION = "1.0.1"  # Update this to match HUGTOOL_VERSION in HUGTools_main.py
+TOOLBOX_VERSION = "1.0.2"  # Update this to match HUGTOOL_VERSION in HUGTools_main.py
 TOOLBOX_ICON = "MainUI.png"
 TOOLBOX_MAIN_MODULE = "HUGTools_main"
 TOOLBOX_HELP_URL = "https://megestus.github.io/HUGTools/"  
@@ -530,6 +530,20 @@ def get_maya_version():
 def check_maya_version():
     maya_ver = get_maya_version()
     return maya_ver.num >= 2022
+
+def read_file_with_fallback(file_path, encodings=['utf-8', 'gbk', 'cp437', 'iso-8859-1']):
+    for encoding in encodings:
+        try:
+            with open(file_path, 'rb') as file:
+                content = file.read()
+                return content.decode(encoding)
+        except UnicodeDecodeError:
+            print(f'Failed to decode with {encoding}')
+            continue
+        except Exception as e:
+            print(f'Error reading file with {encoding}: {str(e)}')
+            continue
+    raise UnicodeDecodeError('Unable to decode the file with the given encodings')
 
 # Main execution
 if __name__ == "__main__":

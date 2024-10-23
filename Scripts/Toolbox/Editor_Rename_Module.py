@@ -1,5 +1,5 @@
 # Editor_Rename_Module.py
-# 包含高级重命名功能的UI和相关函数
+# Contains UI and related functions for advanced renaming
 
 import re
 import maya.cmds as cmds
@@ -7,19 +7,22 @@ from functools import partial
 from PySide2 import QtWidgets, QtCore, QtGui
 
 
-#======UI按钮组件======
+#======UI Button Components======
 
 class RoundedButton(QtWidgets.QPushButton):
     """
-    自定义圆角按钮类
+    Custom rounded button class
     
-    特性:
-    - 圆角设计
-    - 自定义颜色和悬停效果
-    - 粗体文字
+    Features:
+    - Rounded design
+    - Custom color and hover effect
+    - Bold text
     """
-    def __init__(self, text):
+    def __init__(self, text="", icon=None):
         super(RoundedButton, self).__init__(text)
+        if icon:
+            self.setIcon(icon)
+            self.setIconSize(QtCore.QSize(24, 24))
         self.setStyleSheet(
             """
             QPushButton {
@@ -28,6 +31,8 @@ class RoundedButton(QtWidgets.QPushButton):
                 border-radius: 10px;
                 padding: 5px;
                 font-weight: bold;
+                text-align: center;
+                
             }
             QPushButton:hover {
                 background-color: #E0E0E0;
@@ -38,52 +43,51 @@ class RoundedButton(QtWidgets.QPushButton):
             """
         )
 
-#======UI主窗口组件======
+#======UI Main Window Component======
 
 class Editor_Rename_Module_UI(QtWidgets.QWidget):
     """
-    高级重命名工具的主UI类
+    Main UI class for advanced renaming tool
     
-    功能:
-    - 创建和管理UI组件
-    - 处理用户交互
-    - 执行重命名操作
+    Features:
+    - Create and manage UI components
+    - Handle user interactions
+    - Execute renaming operations
     """
     def __init__(self, parent=None):
         super(Editor_Rename_Module_UI, self).__init__(parent)
         self.setWindowTitle("Rename Module")
         
-        # 设置窗口宽度
-        self.setFixedWidth(300)  # 将宽度设置为300像素
+        # Set window width
+        self.setFixedWidth(300)  # Set width to 300 pixels
         
-        # 设置窗口图标
-
+        # Set window icon
         self.setWindowIcon(QtGui.QIcon(":quickRename.png"))
         
-        # 设置窗口标志，使其始终置顶
-        self.setWindowFlags(self.windowFlags() | QtCore.Qt.WindowStaysOnTopHint)    
+        # Set window flags to always stay on top
+        self.setWindowFlags(self.windowFlags() | QtCore.Qt.Tool)    
         
         self.create_widgets()
         self.create_layouts()
         self.create_connections()
 
-#======UI组件======
+#======UI Components======
 
     def create_widgets(self):
         """
-        创建所有UI组件
+        Create all UI components
         
-        包括:
-        - 选择所有按钮
-        - 重命名和编号组
-        - 删除字符组
-        - 前缀后缀组
-        - 搜索和替换组
+        Includes:
+        - Select All button
+        - Rename and Number group
+        - Remove Characters group
+        - Prefix and Suffix group
+        - Search and Replace group
         """
-        # 选择所有按钮
+        # Select All button
         self.select_all_btn = RoundedButton("Select All")
 
-        # 重命名和编号组
+        # Rename and Number group
         self.rename_group = QtWidgets.QGroupBox("Rename and Number")
         self.rename_field = QtWidgets.QLineEdit()
         self.rename_field.setPlaceholderText("Enter new name")
@@ -97,7 +101,7 @@ class Editor_Rename_Module_UI(QtWidgets.QWidget):
         self.number_radio.setChecked(True)
         self.rename_number_btn = RoundedButton("Rename and Sort")
 
-        # 删除字符组
+        # Remove Characters group
         self.remove_group = QtWidgets.QGroupBox("Remove Characters")
         self.remove_first_btn = RoundedButton("Remove First")
         self.remove_last_btn = RoundedButton("Remove Last")
@@ -108,14 +112,14 @@ class Editor_Rename_Module_UI(QtWidgets.QWidget):
         self.remove_all_btn = RoundedButton("Remove")
         self.remove_end_btn = self.create_small_button("-")
 
-        # 前缀后缀组
+        # Prefix and Suffix group
         self.prefix_suffix_group = QtWidgets.QGroupBox("Prefix and Suffix")
         self.prefix_field = QtWidgets.QLineEdit("prefix_")
         self.suffix_field = QtWidgets.QLineEdit("_suffix")
         self.add_prefix_btn = RoundedButton("Add Prefix")
         self.add_suffix_btn = RoundedButton("Add Suffix")
 
-        # 搜索和替换组
+        # Search and Replace group
         self.search_replace_group = QtWidgets.QGroupBox("Search and Replace")
         self.search_field = QtWidgets.QLineEdit()
         self.replace_field = QtWidgets.QLineEdit()
@@ -130,18 +134,18 @@ class Editor_Rename_Module_UI(QtWidgets.QWidget):
         self.sr_apply_btn = RoundedButton("Apply")
 
 
-#======UI布局======
+#======UI Layouts======
 
     def create_layouts(self):
         """
-        创建和设置UI布局
+        Create and set up UI layouts
         
-        布局包括:
-        - 主布局
-        - 重命名和编号布局
-        - 删除字符布局
-        - 前缀后缀布局
-        - 搜索和替换布局
+        Layouts include:
+        - Main layout
+        - Rename and Number layout
+        - Remove Characters layout
+        - Prefix and Suffix layout
+        - Search and Replace layout
         """
         main_layout = QtWidgets.QVBoxLayout(self)
         main_layout.setSpacing(7)
@@ -149,7 +153,7 @@ class Editor_Rename_Module_UI(QtWidgets.QWidget):
 
         main_layout.addWidget(self.select_all_btn)
 
-        # 重命名和编号布局
+        # Rename and Number layout
         rename_layout = QtWidgets.QGridLayout()
         rename_layout.addWidget(QtWidgets.QLabel("Rename:"), 0, 0)
         rename_layout.addWidget(self.rename_field, 0, 1, 1, 3)
@@ -163,7 +167,7 @@ class Editor_Rename_Module_UI(QtWidgets.QWidget):
         self.rename_group.setLayout(rename_layout)
         main_layout.addWidget(self.rename_group)
 
-        # 删除字符布局
+        # Remove Characters layout
         remove_layout = QtWidgets.QGridLayout()
         remove_layout.addWidget(self.remove_first_btn, 0, 0, 1,2)
         remove_layout.addWidget(self.remove_last_btn, 0, 3, 1, 3)
@@ -176,7 +180,7 @@ class Editor_Rename_Module_UI(QtWidgets.QWidget):
         self.remove_group.setLayout(remove_layout)
         main_layout.addWidget(self.remove_group)
 
-        # 前缀后缀布局
+        # Prefix and Suffix layout
         prefix_suffix_layout = QtWidgets.QGridLayout()
         prefix_suffix_layout.addWidget(QtWidgets.QLabel("Prefix:"), 0, 0)
         prefix_suffix_layout.addWidget(self.prefix_field, 0, 1)
@@ -187,7 +191,7 @@ class Editor_Rename_Module_UI(QtWidgets.QWidget):
         self.prefix_suffix_group.setLayout(prefix_suffix_layout)
         main_layout.addWidget(self.prefix_suffix_group)
 
-        # 搜索和替换布局
+        # Search and Replace layout
         sr_layout = QtWidgets.QVBoxLayout()
         sr_input_layout = QtWidgets.QGridLayout()
         sr_input_layout.addWidget(QtWidgets.QLabel("Search:"), 0, 0)
@@ -196,7 +200,7 @@ class Editor_Rename_Module_UI(QtWidgets.QWidget):
         sr_input_layout.addWidget(self.replace_field, 1, 1)
         sr_layout.addLayout(sr_input_layout)
 
-        # 创建一个水平布局来居中放置单选按钮
+        # Create a horizontal layout to center the radio buttons
         sr_radio_layout = QtWidgets.QHBoxLayout()
         sr_radio_layout.addStretch()
         sr_radio_layout.addWidget(self.sr_selected)
@@ -209,11 +213,11 @@ class Editor_Rename_Module_UI(QtWidgets.QWidget):
         self.search_replace_group.setLayout(sr_layout)
         main_layout.addWidget(self.search_replace_group)
 
-#======UI与功能的连接======
+#======UI and Function Connections======
 
     def create_connections(self):
         """
-        将UI组件与相应的功能函数连接
+        Connect UI components to corresponding functions
         """
         self.select_all_btn.clicked.connect(self.select_all)
         self.rename_number_btn.clicked.connect(self.rename_with_number)
@@ -228,16 +232,16 @@ class Editor_Rename_Module_UI(QtWidgets.QWidget):
         self.sr_apply_btn.clicked.connect(self.search_and_replace)
 
     def select_all(self):
-        """选择场景中的所有对象"""
+        """Select all objects in the scene"""
         cmds.select(ado=True, hi=True)
 
     def rename_with_number(self):
         """
-        根据用户输入重命名选中的对象
+        Rename selected objects based on user input
         
-        功能:
-        - 获取用户输入的新名称、起始数字和填充位数
-        - 调用 _rename_with_number 方法执行重命名
+        Features:
+            - Get user input for new name, start number, and padding digits
+            - Call _rename_with_number method to execute renaming
         """
         new_name = self.rename_field.text()
         start_number = int(self.start_value_field.text())
@@ -247,21 +251,21 @@ class Editor_Rename_Module_UI(QtWidgets.QWidget):
 
     def _rename_with_number(self, new_name, start_number, padding, use_numbers):
         """
-        使用数字或字母重命名对象
+        Rename objects using numbers or letters
         
-        参数:
-        new_name (str): 新的基础名称
-        start_number (int): 起始数字
-        padding (int): 数字填充位数
-        use_numbers (bool): 是否使用数字（False则使用字母）
+        Parameters:
+        new_name (str): New base name
+        start_number (int): Starting number
+        padding (int): Number of padding digits
+        use_numbers (bool): Whether to use numbers (False uses letters)
         
-        功能:
-        - 为选中的对象添加递增的数字或字母后缀
-        - 使用 sanitize_name 方法确保名称有效
+        Features:
+        - Add incrementing numbers or letters suffix to selected objects
+        - Use sanitize_name method to ensure names are valid
         """
         selection = cmds.ls(selection=True, long=True)
         if not selection:
-            cmds.warning("没有选择对象")
+            cmds.warning("No objects selected")
             return
 
         letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -274,18 +278,18 @@ class Editor_Rename_Module_UI(QtWidgets.QWidget):
             try:
                 cmds.rename(obj, new_obj_name)
             except RuntimeError as e:
-                cmds.warning(f"无法重命名 {obj}: {str(e)}")
+                cmds.warning(f"Unable to rename {obj}: {str(e)}")
 
     def remove_chars(self, remove_type):
         """
-        从对象名称中删除指定范围的字符
+        Remove characters from object names within a specified range
         
-        参数:
-        remove_type (str): 删除类型（"begin", "end", "all"）
+        Parameters:
+        remove_type (str): Removal type ("begin", "end", "all")
         
-        功能:
-        - 根据用户输入的起始和结束位置删除字符
-        - 使用 sanitize_name 方法确保新名称有效
+        Features:
+        - Delete characters based on user input start and end positions
+        - Use sanitize_name method to ensure new names are valid
         """
         start = int(self.remove_first_field.text())
         end = int(self.remove_end_field.text())
@@ -301,16 +305,16 @@ class Editor_Rename_Module_UI(QtWidgets.QWidget):
             try:
                 cmds.rename(obj, new_name)
             except RuntimeError as e:
-                cmds.warning(f"无法重命名 {obj}: {str(e)}")
+                cmds.warning(f"Unable to rename {obj}: {str(e)}")
 
     def search_and_replace(self):
         """
-        在对象名称中搜索和替换文本
+        Search and replace text in object names
         
-        功能:
-        - 获取用户输入的搜索文本和替换文本
-        - 确定搜索范围（选择、层级或全部）
-        - 调用 _search_and_replace 方法执行替换
+        Features:
+        - Get user input for search text and replace text
+        - Determine search range (selected, hierarchy, or all)
+        - Call _search_and_replace method to execute replacement
         """
         search_text = self.search_field.text()
         replace_text = self.replace_field.text()
@@ -319,30 +323,30 @@ class Editor_Rename_Module_UI(QtWidgets.QWidget):
 
     def _search_and_replace(self, search_text, replace_text, search_method):
         """
-        执行搜索和替换操作
+        Execute search and replace operation
         
-        参数:
-        search_text (str): 要搜索的文本
-        replace_text (str): 替换文本
-        search_method (int): 搜索方法（0:选择, 1:层级, 2:全部）
+        Parameters:
+        search_text (str): Text to search
+        replace_text (str): Replace text
+        search_method (int): Search method (0: Selected, 1: Hierarchy, 2: All)
         
-        功能:
-        - 根据搜索方法选择对象
-        - 在对象名称中搜索和替换���本
-        - 使用 sanitize_name 方法确保新名称有效
-        - 递归处理层级中的所有子对象
+        Features:
+        - Select objects based on search method
+        - Search and replace text in object names
+        - Use sanitize_name method to ensure new names are valid
+        - Recursively process all child objects in the hierarchy
         """
         def rename_recursive(obj_list):
             renamed_objects = []
             for obj in obj_list:
-                # 检查对象是否仍然存在
+                # Check if the object still exists
                 if not cmds.objExists(obj):
                     continue
                 
-                # 获取对象的短名称
+                # Get the short name of the object
                 short_name = obj.split('|')[-1]
                 
-                # 跳过形状节点
+                # Skip shape nodes
                 if cmds.objectType(obj) == "shape":
                     continue
                 
@@ -351,42 +355,42 @@ class Editor_Rename_Module_UI(QtWidgets.QWidget):
                     try:
                         renamed = cmds.rename(obj, new_name)
                         renamed_objects.append(renamed)
-                        obj = renamed  # 更新对象的路径名称
+                        obj = renamed  # Update the object's path name
                     except RuntimeError as e:
-                        cmds.warning(f"无法重命名 {obj}: {str(e)}")
+                        cmds.warning(f"Unable to rename {obj}: {str(e)}")
                 
-                # 递归处理子对象
+                # Recursively process child objects
                 children = cmds.listRelatives(obj, children=True, fullPath=True) or []
                 renamed_objects.extend(rename_recursive(children))
             
             return renamed_objects
 
-        if search_method == 0:  # 选择
+        if search_method == 0:  # Selected
             selection = cmds.ls(selection=True, long=True)
-        elif search_method == 1:  # 层级
+        elif search_method == 1:  # Hierarchy
             selection = cmds.ls(selection=True, dag=True, long=True)
         else:  # All
             selection = cmds.ls(dag=True, long=True)
 
         renamed_objects = rename_recursive(selection)
 
-        # 更新选择（如果有重命名的对象）
+        # Update selection (if any objects were renamed)
         if renamed_objects:
             cmds.select(renamed_objects, replace=True)
         else:
             cmds.select(clear=True)
 
-        cmds.inViewMessage(amg=f'<span style="color:#fbca82;">已重命名 {len(renamed_objects)} 个对象</span>', pos='botRight', fade=True)
+        cmds.inViewMessage(amg=f'<span style="color:#fbca82;">Renamed {len(renamed_objects)} objects</span>', pos='botRight', fade=True)
 
     def create_small_button(self, text):
         """
-        创建一个小型按钮
+        Create a small button
         
-        参数:
-        text (str): 按钮文本
+        Parameters:
+        text (str): Button text
         
-        返回:
-        QPushButton: 创建的小型按钮
+        Returns:
+        QPushButton: Created small button
         """
         btn = QtWidgets.QPushButton(text)
         btn.setFixedSize(20, 20)
@@ -394,51 +398,51 @@ class Editor_Rename_Module_UI(QtWidgets.QWidget):
 
     def add_prefix_or_suffix(self, is_suffix):
         """
-        为选中的对象添加前缀或后缀
+        Add prefix or suffix to selected objects
         
-        参数:
-        is_suffix (bool): 如果为True，则添加后缀；如果为False，则添加前缀
+        Parameters:
+        is_suffix (bool): If True, add suffix; if False, add prefix
         
-        功能:
-        - 获取用户输入的前缀或后缀文本
-        - 为选中的对象添加前缀或后缀
-        - 使用 sanitize_name 方法确保新名称有效
-        - 只处理对象的短名称，不影响其在层级中的位置
+        Features:
+        - Get user input for prefix or suffix text
+        - Add prefix or suffix to selected objects
+        - Use sanitize_name method to ensure new names are valid
+        - Only process the short name of objects, not affecting their position in the hierarchy
         """
         text = self.suffix_field.text() if is_suffix else self.prefix_field.text()
         selection = cmds.ls(selection=True, long=True)
         renamed_objects = []
         for obj in selection:
-            # 获取对象的短名称
+            # Get the short name of the object
             short_name = obj.split('|')[-1]
-            # 创建新名称
+            # Create new name
             new_name = self.sanitize_name(f"{short_name}{text}" if is_suffix else f"{text}{short_name}")
             try:
-                # 使用长名称进行重命名，但只更改最后一部分
+                # Use long name for renaming, but only change the last part
                 renamed = cmds.rename(obj, new_name)
                 renamed_objects.append(renamed)
             except RuntimeError as e:
-                cmds.warning(f"无法重命名 {short_name}: {str(e)}")
+                cmds.warning(f"Unable to rename {short_name}: {str(e)}")
 
-        # 更新选择
+        # Update selection
         if renamed_objects:
             cmds.select(renamed_objects, replace=True)
         else:
             cmds.select(clear=True)
 
-        # 显示操作完成的消息
-        cmds.inViewMessage(amg=f'<span style="color:#fbca82;">已添加{"后缀" if is_suffix else "前缀"}: {text}</span>', pos='botRight', fade=True)
+        # Display operation completion message
+        cmds.inViewMessage(amg=f'<span style="color:#fbca82;">Added {"suffix" if is_suffix else "prefix"}: {text}</span>', pos='botRight', fade=True)
 
     def remove_first_or_last_char(self, remove_first):
         """
-        删除对象名称的第一个或最后一个字符
+        Remove the first or last character of object names
         
-        参数:
-        remove_first (bool): 如果为True，则删除第一个字符；如果为False，则删除最后一个字符
+        Parameters:
+        remove_first (bool): If True, remove the first character; if False, remove the last character
         
-        功能:
-        - 从选中对象的名称中删除指定位置的字符
-        - 使用 sanitize_name 方法确保新名称有效
+        Features:
+        - Remove specified character from selected object names
+        - Use sanitize_name method to ensure new names are valid
         """
         selection = cmds.ls(selection=True)
         for obj in selection:
@@ -447,27 +451,27 @@ class Editor_Rename_Module_UI(QtWidgets.QWidget):
             try:
                 cmds.rename(obj, new_name)
             except RuntimeError as e:
-                cmds.warning(f"无法重命名 {obj}: {str(e)}")
+                cmds.warning(f"Unable to rename {obj}: {str(e)}")
 
     def remove_pasted(self):
         """
-        删除对象名称中的'pasted__'前缀
+        Remove 'pasted__' prefix from object names
         
-        功能:
-        - 处理变换节点和形状节点
-        - 移除'pasted__'前缀
-        - 使用 sanitize_name 方法确保新名称有效
+        Features:
+        - Process transform nodes and shape nodes
+        - Remove 'pasted__' prefix
+        - Use sanitize_name method to ensure new names are valid
         """
-        # 首先处理变换节点
+        # First process transform nodes
         transform_nodes = cmds.ls("pasted__*", long=True, transforms=True)
         for obj in transform_nodes:
             new_name = self.sanitize_name(obj.split("|")[-1][8:])  # Remove "pasted__" prefix
             try:
                 cmds.rename(obj, new_name)
             except RuntimeError as e:
-                cmds.warning(f"无法重命名变换节点 {obj}: {str(e)}")
+                cmds.warning(f"Unable to rename transform node {obj}: {str(e)}")
         
-        # 然后处理形状节点
+        # Then process shape nodes
         shape_nodes = cmds.ls("pasted__*", long=True, shapes=True)
         for shape in shape_nodes:
             parent = cmds.listRelatives(shape, parent=True, fullPath=True)[0]
@@ -476,23 +480,23 @@ class Editor_Rename_Module_UI(QtWidgets.QWidget):
             try:
                 cmds.rename(shape, new_shape_name)
             except RuntimeError as e:
-                cmds.warning(f"无法重命名形状节点 {shape}: {str(e)}")
+                cmds.warning(f"Unable to rename shape node {shape}: {str(e)}")
 
     @staticmethod
     def sanitize_name(name):
         """
-        清理和验证对象名称
+        Clean and validate object names
         
-        参数:
-        name (str): 需要清理的名称
+        Parameters:
+        name (str): Name to be cleaned
         
-        返回:
-        str: 清理后的名称
+        Returns:
+        str: Cleaned name
         
-        功能:
-        - 替换非法字符
-        - 确保名称不以数字开头
-        - 返回有效的Maya对象名称
+        Features:
+        - Replace illegal characters
+        - Ensure name doesn't start with a number
+        - Return a valid Maya object name
         """
         name = name.replace(':', '_')
         name = re.sub(r'[^\w|]', '_', name)
@@ -502,21 +506,21 @@ class Editor_Rename_Module_UI(QtWidgets.QWidget):
 
 
 
-#======功能======
+#======Functions======
 
 def test_duplicate_name(obj_name):
     """
-    测试是否有重复的名称
+    Test for duplicate names
     
-    参数:
-    obj_name (str): 要测试的对象名称
+    Parameters:
+    obj_name (str): Object name to test
     
-    返回:
-    str: 对象的短名称
+    Returns:
+    str: Short name of the object
     
-    功能:
-    - 从完整路径中提取对象的短名称
-    - 处理可能的异常情况
+    Features:
+    - Extract short name from full path
+    - Handle potential exceptions
     """
     try:
         return obj_name.split("|")[-1]
@@ -527,15 +531,15 @@ def test_duplicate_name(obj_name):
 
 
 
-#======UI函数======
+#======UI Functions======
 
 def show():
     """
-    显示编辑器重命名模块的UI
+    Display the Editor Rename Module UI
     
-    功能:
-    - 关闭并删除现有的UI实例（如果存在）
-    - 创建新的UI实例并显示
+    Features:
+    - Close and delete existing UI instance (if it exists)
+    - Create new UI instance and display
     """
     global rename_window_ui
     try:
@@ -545,20 +549,8 @@ def show():
         pass
     
     rename_window_ui = Editor_Rename_Module_UI()
-    rename_window_ui.show()  # 修正缩进
+    rename_window_ui.show()
 
 
 if __name__ == "__main__":
     show()
-
-
-
-
-
-
-
-
-
-
-
-

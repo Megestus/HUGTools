@@ -9,8 +9,19 @@ MIN_WINDOW_WIDTH = 300
 MIN_WINDOW_HEIGHT = 400
 
 class RoundedButton(QtWidgets.QPushButton):
-    def __init__(self, text):
+    """
+    Custom rounded button class
+    
+    Features:
+    - Rounded design
+    - Custom color and hover effect
+    - Bold text
+    """
+    def __init__(self, text="", icon=None):
         super(RoundedButton, self).__init__(text)
+        if icon:
+            self.setIcon(icon)
+            self.setIconSize(QtCore.QSize(24, 24))
         self.setStyleSheet(
             """
             QPushButton {
@@ -19,6 +30,8 @@ class RoundedButton(QtWidgets.QPushButton):
                 border-radius: 10px;
                 padding: 5px;
                 font-weight: bold;
+                text-align: center;
+                
             }
             QPushButton:hover {
                 background-color: #E0E0E0;
@@ -34,7 +47,7 @@ class UVSetEditor_Module_UI(QtWidgets.QDialog):
         super(UVSetEditor_Module_UI, self).__init__(parent)
         self.setWindowTitle("UV Set Editor")
         self.setMinimumSize(MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT)
-        self.setWindowFlags(QtCore.Qt.Window | QtCore.Qt.WindowStaysOnTopHint)
+        self.setWindowFlags(QtCore.Qt.Window | QtCore.Qt.Tool)
         self.create_widgets()
         self.create_layouts()
         self.create_connections()

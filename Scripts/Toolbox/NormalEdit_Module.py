@@ -4,7 +4,15 @@ from PySide2 import QtWidgets, QtGui, QtCore
 from functools import partial
 
 class RoundedButton(QtWidgets.QPushButton):
-    def __init__(self, text, icon=None):
+    """
+    Custom rounded button class
+    
+    Features:
+    - Rounded design
+    - Custom color and hover effect
+    - Bold text
+    """
+    def __init__(self, text="", icon=None):
         super(RoundedButton, self).__init__(text)
         if icon:
             self.setIcon(icon)
@@ -18,6 +26,7 @@ class RoundedButton(QtWidgets.QPushButton):
                 padding: 5px;
                 font-weight: bold;
                 text-align: center;
+                
             }
             QPushButton:hover {
                 background-color: #E0E0E0;
