@@ -2,7 +2,7 @@
 
 ![HUGTool Logo](Icons/MainUI.png)
 
-[![版本](https://img.shields.io/badge/版本-1.0.1-blue.svg)](https://github.com/Megestus/HUGTool/releases)
+[![版本](https://img.shields.io/badge/版本-1.0.2-blue.svg)](https://github.com/Megestus/HUGTool/releases)
 
 
 ## 🌟 简介
@@ -32,6 +32,7 @@ HUGTool是一款强大的Maya插件，为3D艺术家提供了一套全面的建�
 - 快速重命名工具
 - 高级重命名功能
 - UV集便捷交换
+– 更多集成工具
 
 ## 🚀 快速开始
 
