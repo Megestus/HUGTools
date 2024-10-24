@@ -75,4 +75,4 @@ HUGTool是一款强大的Maya插件，为3D艺术家提供了一套全面的建�
 
 ---
 
-<p align="center">用❤️制作 by HUG团队</p>
+<p align="center">用肝制作 by abin </p>
