@@ -12,7 +12,7 @@ import maya.OpenMayaUI as omui
 from shiboken2 import wrapInstance
 
 # Define constants
-HUGTOOL_VERSION = "1.0.2"
+HUGTOOL_VERSION = "1.1.0 Beta"
 HUGTOOL_ICON = "MainUI.png"
 HUGTOOL_TITLE = "HUGTOOL"
 HUGTOOL_HELP_URL = "https://megestus.github.io/HUGTools/"
@@ -58,11 +58,11 @@ def get_script_path():
     return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Import other modules
-import Toolbox.Editor_Rename_Module as Editor_Rename_Module
-import Toolbox.Quick_Rename_Module as Quick_Rename_Module
-import Toolbox.UVSetEditor_Module as UVSetEditor_Module
-import Toolbox.NormalEdit_Module as NormalEdit_Module
-import Toolbox.More_Tools_Module as More_Tools_Module
+import Module.Editor_Rename_Module as Editor_Rename_Module
+import Module.Quick_Rename_Module as Quick_Rename_Module
+import Module.UVSetEditor_Module as UVSetEditor_Module
+import Module.NormalEdit_Module as NormalEdit_Module
+import Module.More_Tools_Module as More_Tools_Module
 
 # Function to get the system encoding
 def get_system_encoding():
@@ -153,7 +153,7 @@ class HUGToolsWindow(QtWidgets.QDialog):
             print(f"Warning: Icon file '{icon_path}' does not exist.")
 
         # set window flags to always stay on top
-        self.setWindowFlags(self.windowFlags() | QtCore.Qt.Tool | QtCore.Qt.WindowTitleHint)
+        self.setWindowFlags(self.windowFlags() | QtCore.Qt.Tool)
         
         # initialize toggle_state
         self.toggle_state = False
@@ -238,10 +238,12 @@ class HUGToolsWindow(QtWidgets.QDialog):
         # crease module
         self.crease_set_group = QtWidgets.QGroupBox(LANG[CURRENT_LANG]["Crease Control"])
         self.open_crease_editor_btn = RoundedButton(LANG[CURRENT_LANG]["Crease Editor"], icon=QtGui.QIcon(":polyCrease.png"))
-        self.create_fixed_crease_set_btn = RoundedButton(LANG[CURRENT_LANG]["Create Crease Set by Name"], icon=QtGui.QIcon(":polyCrease.png"))
 
-        self.crease_1_btn = RoundedButton(LANG[CURRENT_LANG]["Crease V2"], icon=QtGui.QIcon(":polyCrease.png"))
-        self.crease_3_btn = RoundedButton(LANG[CURRENT_LANG]["Crease V5"], icon=QtGui.QIcon(":polyCrease.png"))
+        # ===  this function is under development ===
+        # self.create_fixed_crease_set_btn = RoundedButton(LANG[CURRENT_LANG]["Create Crease Set by Name"], icon=QtGui.QIcon(":polyCrease.png"))
+        # self.crease_1_btn = RoundedButton(LANG[CURRENT_LANG]["Crease V2"], icon=QtGui.QIcon(":polyCrease.png"))
+        # self.crease_3_btn = RoundedButton(LANG[CURRENT_LANG]["Crease V5"], icon=QtGui.QIcon(":polyCrease.png"))
+
 
         #toolbox
         self.Toolbox_group = QtWidgets.QGroupBox(LANG[CURRENT_LANG]["Toolbox"])
@@ -302,15 +304,13 @@ class HUGToolsWindow(QtWidgets.QDialog):
         # crease control group layout
         crease_layout = QtWidgets.QVBoxLayout()
         crease_layout.addWidget(self.open_crease_editor_btn)
-        crease_layout.addWidget(self.create_fixed_crease_set_btn)
 
-        # create a horizontal layout to hold the two Crease buttons
-        crease_buttons_layout = QtWidgets.QHBoxLayout()
-        crease_buttons_layout.addWidget(self.crease_1_btn)
-        crease_buttons_layout.addWidget(self.crease_3_btn)
-
-        # add horizontal layout to crease control group layout
-        crease_layout.addLayout(crease_buttons_layout)
+        # ===  this function is under development ===
+        # crease_layout.addWidget(self.create_fixed_crease_set_btn)
+        #crease_buttons_layout = QtWidgets.QHBoxLayout()
+        #crease_buttons_layout.addWidget(self.crease_1_btn)
+        #crease_buttons_layout.addWidget(self.crease_3_btn)
+        # crease_layout.addLayout(crease_buttons_layout)
 
         self.crease_set_group.setLayout(crease_layout) 
 
@@ -378,10 +378,13 @@ class HUGToolsWindow(QtWidgets.QDialog):
         self.uvlayout_hardedges_btn.clicked.connect(self.UVLayout_By_hardEdges)
         self.planar_projection_btn.clicked.connect(self.apply_planar_projection)
 
-        self.create_fixed_crease_set_btn.clicked.connect(self.create_fixed_crease_set)
+
         self.open_crease_editor_btn.clicked.connect(self.open_crease_set_editor)
-        self.crease_1_btn.clicked.connect(partial(self.apply_crease_preset, 1))
-        self.crease_3_btn.clicked.connect(partial(self.apply_crease_preset, 3))
+
+        # ===  this function is under development ===
+        # self.create_fixed_crease_set_btn.clicked.connect(self.create_fixed_crease_set)
+        # self.crease_1_btn.clicked.connect(partial(self.apply_crease_preset, 1))
+        # self.crease_3_btn.clicked.connect(partial(self.apply_crease_preset, 3))
 
         self.Toolbox_QuickRename_btn.clicked.connect(self.quick_rename)
         self.Toolbox_Rename_btn.clicked.connect(self.rename_edit)
@@ -507,49 +510,30 @@ class HUGToolsWindow(QtWidgets.QDialog):
         cmds.selectMode(component=True)
         cmds.selectType(edge=True)
         cmds.inViewMessage(amg='<span style="color:#FFA500;">UV Border Edges</span>', pos='botRight', fade=True, fst=10, fad=1)
+        cmds.polySelectConstraint(sm=0)
 
 
     def select_hard_edges(*args):
         """
         Select all hard edges of the currently selected object
-        
-        Function:
-        - Switch to object mode
-        - Select all hard edges
-        - Return the list of selected hard edges
         """
-        cmds.selectMode(object=True)
-
-        selection = cmds.ls(selection=True, objectsOnly=True)
-        if not selection:
-            cmds.warning("No polygon object selected. Please select one or more polygon meshes.")
-            return []
+        cmds.polySelectConstraint(m=3, t=0x8000, sm=1)
+        sels = cmds.ls(sl=1)
+        cmds.polySelectConstraint(sm=0)   # Reset selection mode, ensure all edges can be selected
         
-        cmds.select(clear=True)
-        for obj in selection:
-            cmds.select(obj, add=True)
+        if sels:
+            message = '<span style="color:#FFA500;">已选中硬边</span>'
+            cmds.inViewMessage(amg=message, pos='botRight', fade=True, fst=10, fad=1)
         
-        cmds.polySelectConstraint(mode=3, type=0x8000, sm=1)
-        hard_edges = cmds.ls(selection=True, flatten=True)
-        cmds.polySelectConstraint(sm=0)
-        
-        if hard_edges:
-            cmds.inViewMessage(amg='<span style="color:#FFA500;">Hard Edges Selected</span>', pos='botRight', fade=True, fst=10, fad=1)
-        else:
-            cmds.inViewMessage(amg='<span style="color:#FFA500;">No Hard Edges Found</span>', pos='botRight', fade=True, fst=10, fad=1)
-        
-        return hard_edges
+        cmds.select(sels)
+        # switch to edge selection mode
+        cmds.selectMode(component=True)
+        cmds.selectType(edge=True)
 
     def UVLayout_By_hardEdges(self):
         """
         Perform a series of UV operations based on hard edges - optimize, unfold, and layout
-        
-        Functions:
-        - Apply planar projection to selected objects
-        - Select hard edges and perform UV cuts
-        - Unfold, layout, and optimize UVs
         """
-
         cmds.selectMode(object=True)  # Force switch to object mode
 
         selection = cmds.ls(selection=True, objectsOnly=True)
@@ -564,30 +548,43 @@ class HUGToolsWindow(QtWidgets.QDialog):
                 continue
 
             try:
+                # 1. 应用平面投影
                 cmds.select(f"{obj}.f[*]", r=True)
                 cmds.polyProjection(type='Planar', md='p')
 
+                # 2. 选择硬边
                 cmds.select(obj)
-                hard_edges = self.select_hard_edges()
+                cmds.polySelectConstraint(m=3, t=0x8000, sm=1)
+                hard_edges = cmds.ls(selection=True, flatten=True)
+                cmds.polySelectConstraint(sm=0)  # 重置选择约束
+
                 if not hard_edges:
                     cmds.warning(f"{obj} has no hard edges. Skipping UV cut and unfold steps.")
                     continue
 
+                # 3. 沿硬边切割UV
                 cmds.select(hard_edges)
                 cmds.polyMapCut(ch=1)
-                cmds.u3dUnfold(obj, ite=1, p=0, bi=1, tf=1, ms=1024, rs=0)
-                cmds.u3dLayout(obj, res=256, scl=1, spc=0.03125, mar=0.03125, box=(0, 1, 0, 1))
-                cmds.u3dOptimize(obj, ite=1, pow=1, sa=1, bi=0, tf=1, ms=1024, rs=0)
+
+                # 4. 展开和布局UV
+                cmds.select(obj)
+                cmds.u3dUnfold(ite=1, p=0, bi=1, tf=1, ms=1024, rs=0)
+                cmds.u3dLayout(res=256, scl=1, spc=0.03125, mar=0.03125, box=(0, 1, 0, 1))
+                cmds.u3dOptimize(ite=1, pow=1, sa=1, bi=0, tf=1, ms=1024, rs=0)
+
             except Exception as e:
                 cmds.warning(f"Error processing {obj}: {str(e)}")
             finally:
                 cmds.select(obj)
 
-        cmds.polySelectConstraint(sm=0)  # Reset selection mode
-        cmds.selectMode(object=True)  # Ensure we end in object mode
-        cmds.select(selection)
-        cmds.undoInfo(cck=True)
-        cmds.warning("UV operations based on hard edges completed.")
+        # 最后的清理工作
+        cmds.polySelectConstraint(sm=0)  # 重置选择约束
+        cmds.selectMode(object=True)  # 确保结束在物体模式
+
+        # 显示完成消息
+        message = '<span style="color:#FFA500;">UV布局完成</span>'
+        cmds.inViewMessage(amg=message, pos='botRight', fade=True, fst=10, fad=1)
+
 
     def apply_planar_projection(self):
         """

@@ -2,6 +2,11 @@ import maya.cmds as cmds
 import maya.mel as mel
 from PySide2 import QtWidgets, QtGui, QtCore
 from functools import partial
+import maya.OpenMayaUI as omui
+from shiboken2 import wrapInstance
+
+
+
 
 class RoundedButton(QtWidgets.QPushButton):
     """
@@ -42,7 +47,7 @@ class VertsNormalUI(QtWidgets.QDialog):
         super(VertsNormalUI, self).__init__(parent)
         self.setWindowTitle("Normal Editor")
         self.setFixedWidth(300)
-        self.setWindowFlags(QtCore.Qt.Window | QtCore.Qt.WindowStaysOnTopHint)
+        self.setWindowFlags(self.windowFlags() |  QtCore.Qt.Tool)
 
         self.create_widgets()
         self.create_layouts()
@@ -367,25 +372,26 @@ class VertsNormalUI(QtWidgets.QDialog):
         else:
             cmds.warning("No object selected!")
 
+# ----------------------
+# Global UI Functions
+# ----------------------
+
+def maya_main_window():
+    main_window_ptr = omui.MQtUtil.mainWindow()
+    return wrapInstance(int(main_window_ptr), QtWidgets.QWidget)
+
 def show_ui():
-    window_name = "VertsNormalUIWindow"
-    if cmds.window(window_name, exists=True):
-        # Get current window position
-        existing_window = QtWidgets.QApplication.activeWindow()
-        pos = existing_window.pos()
-        # Close existing window
-        cmds.deleteUI(window_name)
-    else:
-        # If window doesn't exist, set default position
-        pos = QtCore.QPoint(200, 200)
-    
-    ui = VertsNormalUI()
-    ui.setObjectName(window_name)
-    
-    # Set window position
-    ui.move(pos)
-    
-    ui.show()
+    global verts_normal_window
+    try:
+        verts_normal_window.close()
+        verts_normal_window.deleteLater()
+    except:
+        pass
+    parent = maya_main_window()
+    verts_normal_window = VertsNormalUI(parent)
+    verts_normal_window.show()
+    verts_normal_window.raise_()
+    verts_normal_window.activateWindow()
 
 if __name__ == "__main__":
     show_ui()

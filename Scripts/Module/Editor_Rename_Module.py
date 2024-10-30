@@ -5,7 +5,8 @@ import re
 import maya.cmds as cmds
 from functools import partial
 from PySide2 import QtWidgets, QtCore, QtGui
-
+import maya.OpenMayaUI as omui
+from shiboken2 import wrapInstance
 
 #======UI Button Components======
 
@@ -65,7 +66,7 @@ class Editor_Rename_Module_UI(QtWidgets.QWidget):
         self.setWindowIcon(QtGui.QIcon(":quickRename.png"))
         
         # Set window flags to always stay on top
-        self.setWindowFlags(self.windowFlags() | QtCore.Qt.Tool)    
+        self.setWindowFlags(self.windowFlags() | QtCore.Qt.Tool)
         
         self.create_widgets()
         self.create_layouts()
@@ -533,6 +534,14 @@ def test_duplicate_name(obj_name):
 
 #======UI Functions======
 
+
+def maya_main_window():
+    """获取Maya主窗口作为父窗口"""
+    main_window_ptr = omui.MQtUtil.mainWindow()
+    return wrapInstance(int(main_window_ptr), QtWidgets.QWidget)
+
+
+
 def show():
     """
     Display the Editor Rename Module UI
@@ -548,7 +557,8 @@ def show():
     except:
         pass
     
-    rename_window_ui = Editor_Rename_Module_UI()
+    parent = maya_main_window()
+    rename_window_ui = Editor_Rename_Module_UI(parent)
     rename_window_ui.show()
 
 

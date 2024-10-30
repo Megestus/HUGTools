@@ -1,6 +1,10 @@
 ﻿#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+#  maya window set Father-son relationship implement
+import maya.OpenMayaUI as omui
+from shiboken2 import wrapInstance
+
 import maya.cmds as cmds
 from PySide2 import QtWidgets, QtGui, QtCore
 
@@ -47,7 +51,7 @@ class UVSetEditor_Module_UI(QtWidgets.QDialog):
         super(UVSetEditor_Module_UI, self).__init__(parent)
         self.setWindowTitle("UV Set Editor")
         self.setMinimumSize(MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT)
-        self.setWindowFlags(QtCore.Qt.Window | QtCore.Qt.Tool)
+        self.setWindowFlags(self.windowFlags() | QtCore.Qt.Tool )
         self.create_widgets()
         self.create_layouts()
         self.create_connections()
@@ -442,15 +446,25 @@ class UVSetEditor_Module_UI(QtWidgets.QDialog):
         else:
             cmds.warning("Please select a UV set first.")
 
+def maya_main_window():
+    """获取Maya主窗口作为父窗口"""
+    main_window_ptr = omui.MQtUtil.mainWindow()
+    return wrapInstance(int(main_window_ptr), QtWidgets.QWidget)
+
 def show():
     global uv_editor_ui
     try:
         uv_editor_ui.close()
         uv_editor_ui.deleteLater()
     except:
-        pass
-    uv_editor_ui = UVSetEditor_Module_UI()
+        pass 
+
+    parent = maya_main_window()   
+    uv_editor_ui = UVSetEditor_Module_UI(parent)
+
     uv_editor_ui.show()
+    uv_editor_ui.raise_()
+    uv_editor_ui.activateWindow()
 
 if __name__ == "__main__":
     show()

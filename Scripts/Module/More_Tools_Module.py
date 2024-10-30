@@ -5,8 +5,32 @@ import sys
 import os
 import maya.cmds as cmds
 import traceback
+
+# maya window set Father-son relationship implement
 import maya.OpenMayaUI as omui
 from shiboken2 import wrapInstance
+
+# 修改导入语句
+import os
+import sys
+from pathlib import Path
+
+# 使用Path对象处理路径
+current_dir = Path(__file__).resolve().parent
+scripts_dir = current_dir.parent
+toolbox_dir = scripts_dir / "Toolbox"
+
+# 确保路径是字符串且使用正斜杠
+toolbox_path = str(toolbox_dir).replace("\\", "/")
+if toolbox_path not in sys.path:
+    sys.path.append(toolbox_path)
+
+# 直接导入melToPymelUI
+import melToPymelUI
+
+# 添加调试信息
+print(f"Toolbox path: {toolbox_path}")
+print(f"melToPymelUI loaded from: {melToPymelUI.__file__}")
 
 # ----------------------
 # Custom Widgets
@@ -50,19 +74,48 @@ class MoreToolsWindow(QtWidgets.QDialog):
         self.setWindowTitle("More Tools")
         self.setWindowFlags(self.windowFlags() | QtCore.Qt.FramelessWindowHint | QtCore.Qt.Tool)
         
+        # 工具配置字典：用于定义所有工具按钮的属性
+        # 结构说明：
+        # {
+        #     "分类名称": [
+        #         {
+        #             "name": "按钮名称",
+        #             "icon": "图标文件名",
+        #             "tooltip": "鼠标悬停提示",
+        #             "description": "工具描述"  # 可选
+        #         },
+        #         # ... 更多工具
+        #     ]
+        # }
         self.tool_config = {
             "Modeling": [
-                {"name": "Tool 1", "icon": "mao.png"},
-                {"name": "Tool 2", "icon": "boxuemao.png"},
-                {"name": "Tool 3", "icon": "sanhuamao.png"},
+                {
+                    "name": "MELtoPY",                          
+                    "icon": "mao.png",                          
+                    "tooltip": "Convert MEL code to Python code",
+                    "description": "A tool for converting MEL scripts to Python"
+                },
+                {
+                    "name": "ViewCapture",                      
+                    "icon": "boxuemao.png",                     
+                    "tooltip": "Maya Viewport Screenshot Tool",  
+                    "description": "Capture high quality screenshots of Maya viewport with custom path and name"
+                },
+                {
+                    "name": "MirrorTool",                      
+                    "icon": "K_Mirror_icons/ShelfIcon.png",                    
+                    "tooltip": "Mirror Objects Tool",
+                    "description": "Mirror objects across different axes with options"
+                },
                 {"name": "Tool 4", "icon": "xianluomao.png"},
-            ],
-            "Rigging": [
-                {"name": "Tool 5", "icon": "tianyuanmao.png"},
-                {"name": "Tool 6", "icon": "sanhuamao.png"},
-                {"name": "Tool 7", "icon": "mimiyanmao.png"},
-                {"name": "Tool 8", "icon": "heimao.png"},
-            ],
+            ]
+            # 暂时注释掉Rigging分类
+            # "Rigging": [
+            #     {"name": "Tool 5", "icon": "tianyuanmao.png"},
+            #     {"name": "Tool 6", "icon": "sanhuamao.png"},
+            #     {"name": "Tool 7", "icon": "mimiyanmao.png"},
+            #     {"name": "Tool 8", "icon": "heimao.png"},
+            # ],
         }
         self.init_ui()
 
@@ -130,34 +183,61 @@ class MoreToolsWindow(QtWidgets.QDialog):
         self.rigging_tab = QtWidgets.QWidget()
         
         # Set larger icon size
-        icon_size = QtCore.QSize(32, 32)  # Adjust size as needed
+        icon_size = QtCore.QSize(32, 32)
         self.tab_widget.setIconSize(icon_size)
         
         self.tab_widget.addTab(self.modeling_tab, modeling_icon, "")
         self.tab_widget.addTab(self.rigging_tab, rigging_icon, "")
         
+        # 方式1：禁用第二个标签页
+        self.tab_widget.setTabEnabled(1, False)
+        
+        # 或者方式2：完全移除第二个标签页
+        # self.tab_widget.removeTab(1)
+        
         # Set tooltips
         self.tab_widget.setTabToolTip(0, "Modeling")
-        self.tab_widget.setTabToolTip(1, "Rigging")
+        self.tab_widget.setTabToolTip(1, "Rigging (Coming Soon)")  # 修改提示文本
 
     def create_tool_buttons(self):
+        """
+        创建工具按钮的方法
+        步骤说明：
+        1. 遍历工具配置
+        2. 为每个分类创建标签页
+        3. 在标签页中创建按钮网格
+        4. 设置按钮属性和连接事件
+        """
         icon_path = os.path.join(os.path.dirname(__file__), "..", "..", "Icons")
         for i, (category, tools) in enumerate(self.tool_config.items()):
             tab = self.tab_widget.widget(i)
             tab_layout = QtWidgets.QVBoxLayout(tab)
-            tab_layout.setSpacing(10)
-            tab_layout.setContentsMargins(10, 10, 10, 10)
             
             grid_layout = QtWidgets.QGridLayout()
-            grid_layout.setSpacing(10)
             
             for j, tool in enumerate(tools):
+                # 创建按钮
                 icon = QtGui.QIcon(os.path.join(icon_path, tool["icon"]))
                 button = ModItButton(tool["name"], icon)
+                
+                # 设置按钮属性
                 button.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
                 button.setMinimumSize(100, 40)
-                button.clicked.connect(lambda checked=False, name=tool["name"]: self.tool_clicked(name))
-                row = j // 2
+                
+                # 设置提示信息
+                if "tooltip" in tool:
+                    tooltip_text = tool["tooltip"]
+                    if "description" in tool:
+                        tooltip_text += f"\n\n{tool['description']}"
+                    button.setToolTip(tooltip_text)
+                
+                # 连接按钮点击事件
+                button.clicked.connect(
+                    lambda checked=False, name=tool["name"]: self.tool_clicked(name)
+                )
+                
+                # 在网格中放置按钮
+                row = j // 2  # 每行两个按钮
                 col = j % 2
                 grid_layout.addWidget(button, row, col)
             
@@ -211,8 +291,45 @@ class MoreToolsWindow(QtWidgets.QDialog):
             event.accept()
 
     def tool_clicked(self, tool_name):
-        message = f'<span style="color:#FFA500;">{tool_name} - In development</span>'
-        cmds.inViewMessage(amg=message, pos='botRight', fade=True, fst=10, fad=1)
+        if tool_name == "MELtoPY":
+            try:
+                import melToPymelUI
+                importlib.reload(melToPymelUI)
+                print("Module reloaded successfully")
+                print(f"Available attributes: {dir(melToPymelUI)}")
+                melToPymelUI.show()
+            except Exception as e:
+                print(f"Error loading {tool_name}:")
+                traceback.print_exc()
+        elif tool_name == "ViewCapture":
+            try:
+                from Toolbox import screen_shot
+                importlib.reload(screen_shot)
+                screen_shot.show()
+            except Exception as e:
+                print(f"Error loading {tool_name}:")
+                traceback.print_exc()
+        elif tool_name == "MirrorTool":
+            try:
+                # 设置图标路径
+                icon_path = os.path.join(os.path.dirname(__file__), "..", "..", "Icons")
+                icon_path = icon_path.replace("\\", "/")
+                
+                # 添加到Maya的图标搜索路径
+                if "XBMLANGPATH" in os.environ:
+                    os.environ["XBMLANGPATH"] = f"{icon_path};{os.environ['XBMLANGPATH']}"
+                else:
+                    os.environ["XBMLANGPATH"] = icon_path
+                    
+                # 执行MEL脚本
+                import maya.mel as mel
+                mel.eval('source "k_mirrorToolStartUI.mel"')
+                mel.eval('k_mirrorToolStartUI()')
+            except Exception as e:
+                print(f"Error loading {tool_name}:")
+                traceback.print_exc()
+        else:
+            print(f"{tool_name} - In development")
 
 # ----------------------
 # Global Functions

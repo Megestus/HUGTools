@@ -5,7 +5,8 @@ import re
 import maya.cmds as cmds
 from functools import partial
 from PySide2 import QtWidgets, QtCore, QtGui
-
+import maya.OpenMayaUI as omui
+from shiboken2 import wrapInstance
 #====== UI Button Components ======
 
 class RoundedButton(QtWidgets.QPushButton):
@@ -54,7 +55,7 @@ class Quick_Rename_Module_UI(QtWidgets.QWidget):
         self.setWindowIcon(QtGui.QIcon(":annotation.png"))
 
         # Set window flags to always stay on top
-        self.setWindowFlags(self.windowFlags() | QtCore.Qt.WindowStaysOnTopHint)
+        self.setWindowFlags(self.windowFlags() | QtCore.Qt.Tool)
 
         self.create_widgets()
         self.create_layouts()
@@ -259,6 +260,11 @@ def sanitize_name(name):
 
 #====== UI Functions ======
 
+def maya_main_window():
+    main_window_ptr = omui.MQtUtil.mainWindow()
+    return wrapInstance(int(main_window_ptr), QtWidgets.QWidget)
+
+
 def show():
     """
     Display UI for the editor rename module
@@ -273,9 +279,11 @@ def show():
         rename_window_ui.deleteLater()
     except:
         pass
-    
-    rename_window_ui = Quick_Rename_Module_UI()
+    parent = maya_main_window()
+    rename_window_ui = Quick_Rename_Module_UI(parent)
     rename_window_ui.show()
+    rename_window_ui.raise_()
+    rename_window_ui.activateWindow()
 
 
 if __name__ == "__main__":

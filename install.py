@@ -13,7 +13,7 @@ import locale
 
 # Define constants for the toolbox
 TOOLBOX_NAME = "HUGTools"
-TOOLBOX_VERSION = "1.0.2"  # Update this to match HUGTOOL_VERSION in HUGTools_main.py
+TOOLBOX_VERSION = "1.1.0 Beta"  # Update this to match HUGTOOL_VERSION in HUGTools_main.py
 TOOLBOX_ICON = "MainUI.png"
 TOOLBOX_MAIN_MODULE = "HUGTools_main"
 TOOLBOX_HELP_URL = "https://megestus.github.io/HUGTools/"  

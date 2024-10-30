@@ -1,0 +1,583 @@
+/****************************************** Mirror Tool v_2.0 ***************************************************************
+     ________________________________________
+    |                                        |
+    |  Script done by: Klaudio Ladavac       |
+    |  Contact email : klaudio2u@gmail.com   |
+    |________________________________________|
+
+    
+>> HOW TO USE >>
+   // > +/- X, +/-Y, +/-Z - buttons
+        - Select your object (mesh) and press on of the buttons to Mirror on it's World axis. 
+   // > Rotate (custom input field)
+        - Set rotate angle or step rotate in the field then use Shift+LMB on +/- X, +/-Y, +/-Z - buttons to
+          step rotate Mirror plane.
+   // > MirrorT - Vertices merge treshold for last added mirror tool.   
+   // > Apply - button
+        - Once you are done with Mirroring, select the mesh object (Mirror result) and press - Done /Clean Button. 
+          It will clean History and everying else left behind by Mirroring.  
+
+           
+>> OTHER NOTES >> 
+        - You can use the script for personl or/and commercial work whether you are freelance artist or you are working in the
+          studio. 
+        - Please don't distribute/share, change or reuse the script code without at least some credits. 
+        - Script is free and available for download on my Gumroad site. If your friends/colleagues want to use it, send them direct
+          Gumroad link instead, that way they will be able to get notification if there is an update.
+        - If you have feedback or/and suggestions feel free to send me a message on email above. 
+
+***************************************************************************************************************************/
+
+/*
+
+- TO DO - 
+
+4. Option to work in "Isolate Selected" mode. If you mirror while the object is isolated - add the object and the mirror plane back to be visible.  - ADD LATER
+6. If possible option to move/separate both objects away after performing mirror (in World mode). - NEED MORE R&D IF WILL WORK
+7. Hide all extra stuff in Outliner if possible - visible only cut planes -- ADD LATER MAYBE
+8. Done/Clean all in the scene - if nothing is selected. If something is selected and if it is mirrored mesh - delete only on that one.
+9. Option to rotate mirror plane on axis (buttons in UI) when Mirror Plane is selected and then switch form -X to +X..etc. - ADD LATER MAYBE
+
+
+- DONE - 
+
+1. You can now rotate multiple object at once when Shift+LMB on buttons
+2. Rotation preset values when you RMB click on Rotate field.
+3. Update - mirror plane color changed to cyan to match the color in Outliner for the same node
+4. Add option to adjust vertices Merge Treshold from last applied Mirror. 
+5. Added option for Mirror Cut Plane positioning. Toggle button on top with option to postion the plane on
+   World Axis, Object Center or Selected component.
+
+
+*/
+
+
+//------------------------------------------------------------------------------------------------------------------------------------------------------
+// Main UI start
+//------------------------------------------------------------------------------------------------------------------------------------------------------
+global proc k_mirrorToolStartUI()
+{
+
+        if (!`optionVar -ex "kk_switchMirrorPObject"`){ optionVar -iv "kk_switchMirrorPObject" 2; }    // default option when open first - Object mode
+        if (!`optionVar -ex "k_MirrorOpton"`){ optionVar -iv "k_MirrorOpton" 15; }                     // the default state of Rotate if it doesn't exist yet
+        int $valAng = `optionVar -q "k_MirrorOpton"`;
+
+      
+        if ( `window -exists SymMirrors` ) { deleteUI SymMirrors; }
+        window -title "Mirror Tool " -tlb 1 SymMirrors;
+        columnLayout;
+
+                separator -height 2 -style "none";
+                rowLayout -numberOfColumns 1 -ct1 left -co1 2;
+                    int $getSwitchValue1 = `optionVar -q "kk_switchMirrorPObject"`;
+                    if ($getSwitchValue1 == 1)
+                    {
+                        iconTextButton -image1 "K_Mirror_icons/K_MirrorPWorld.png" -rpt 1 -c "switchMirrorPMode" switchbuttonMirror; 
+                    }
+                    if ($getSwitchValue1 == 2)
+                    {
+                        iconTextButton -image1 "K_Mirror_icons/K_MirrorPObject.png" -rpt 1 -c "switchMirrorPMode" switchbuttonMirror; 
+                    }
+                    if ($getSwitchValue1 == 3)
+                    {
+                        iconTextButton -image1 "K_Mirror_icons/K_MirrorPSelection2.png" -rpt 1 -c "switchMirrorPMode" switchbuttonMirror; 
+                    }
+                    if ($getSwitchValue1 == 4)
+                    {
+                        iconTextButton -image1 "K_Mirror_icons/K_MirrorPNormals.png" -rpt 1 -c "switchMirrorPMode" switchbuttonMirror; 
+                    }
+                    
+                        popupMenu -mm 1 -parent switchbuttonMirror;
+                        menuItem -bld 1 -rp "N" -l " World " -image "K_Mirror_icons/K_MirrorPWorld_mi.png" -c "switchMirrorPMode_menu1";
+                        menuItem -bld 1 -rp "S" -l " Object Center " -image "K_Mirror_icons/K_MirrorPObject_mi.png" -c "switchMirrorPMode_menu2";
+                        menuItem -bld 1 -rp "W" -l " Pivot Position" -image "K_Mirror_icons/K_MirrorPSelection_mi.png" -c "switchMirrorPMode_menu3";
+                        menuItem -bld 1 -rp "E" -l " Normals Direction " -image "K_Mirror_icons/K_MirrorPNormals_mi.png" -c "switchMirrorPMode_menu4";
+                setParent ..;
+                
+               
+                separator -height 6 -style "none";
+                
+                
+                columnLayout mirrorButtons;
+                        rowLayout -numberOfColumns 2; 
+                               iconTextButton -image1 "K_Mirror_icons/K_plusX.png" -rpt 1 -c "mainMirrorCommand(1, 1)"    -annotation "LMB Click -- Mirror  \nShift+LMB Click -- Step Rotate ";
+                               iconTextButton -image1 "K_Mirror_icons/K_minusX.png" -rpt 1 -c "mainMirrorCommand(1, 2)"  -annotation "LMB Click -- Mirror  \nShift+LMB Click -- Step Rotate ";
+                        setParent ..;  
+                        rowLayout -numberOfColumns 2;
+                               iconTextButton -image1 "K_Mirror_icons/K_plusY.png" -rpt 1 -c "mainMirrorCommand(2, 3)"    -annotation "LMB Click -- Mirror  \nShift+LMB Click -- Step Rotate ";
+                               iconTextButton -image1 "K_Mirror_icons/K_minusY.png" -rpt 1 -c "mainMirrorCommand(2, 4)"  -annotation "LMB Click -- Mirror  \nShift+LMB Click -- Step Rotate ";
+                        setParent ..; 
+                        rowLayout -numberOfColumns 2;
+                               iconTextButton -image1 "K_Mirror_icons/K_plusZ.png" -rpt 1 -c "mainMirrorCommand(3, 5)"     -annotation "LMB Click -- Mirror  \nShift+LMB Click -- Step Rotate ";
+                               iconTextButton -image1 "K_Mirror_icons/K_minusZ.png" -rpt 1 -c "mainMirrorCommand(3, 6)"   -annotation "LMB Click -- Mirror  \nShift+LMB Click -- Step Rotate ";
+                        setParent ..; 
+                setParent ..; 
+                separator -height 4 -style "none"; 
+                formLayout -h 104 -w 108 -numberOfDivisions 130 sliderOptions;
+                     // Merge vertice field
+                     attrFieldSliderGrp  -label "MergeT  " -fmn 0 -en 0 -cw2 60 55  mergeVertsValue;
+                     popupMenu -p mergeVertsValue;
+                     menuItem -l "0.1" -c "mergeTpreset_01";
+                     menuItem -l "0.01" -c "mergeTpreset_001";
+                     menuItem -l "0.001" -c "mergeTpreset_0001"; 
+                     menuItem -l "0.0001" -c "mergeTpreset_00001";                
+                     // if there is Merge Node (Mirror active) - and you open the UI again - get last node created and edit attribute
+                     string $k_mergeExist[] = `ls "K_MirrorMergeVert*"`;
+                     int $mergeExistNos = size ($k_mergeExist);
+                    
+                     if ($mergeExistNos >= 1)
+                     {       
+                        string $k_mergeExists[] = `ls -tail 1 "K_MirrorMergeVert*"`;
+                        attrFieldSliderGrp -e -en 1 -attribute ($k_mergeExists[0] + ".distance") -cw2 60 55 mergeVertsValue;
+                     }
+                       
+                     // Rotate field
+                     floatFieldGrp -numberOfFields 1 -columnWidth2 45 55 -ann "Step Rotate - set Angle to rotate." -label "Rotate   " -cc "saveCustomValue" -value1 $valAng -precision 2 angleAdjust;
+                         popupMenu -p angleAdjust;
+                         menuItem -l "   1" -c ("floatFieldGrp -e -value1 1 angleAdjust; saveCustomValue();");
+                         menuItem -l "   5" -c ("floatFieldGrp -e -value1 5 angleAdjust; saveCustomValue();");   
+                         menuItem -l "  10" -c ("floatFieldGrp -e -value1 10 angleAdjust; saveCustomValue();");
+                         menuItem -l "  15" -c ("floatFieldGrp -e -value1 15 angleAdjust; saveCustomValue();");
+                         menuItem -l "  30" -c ("floatFieldGrp -e -value1 30 angleAdjust; saveCustomValue();");         
+                         menuItem -l "  45" -c ("floatFieldGrp -e -value1 45 angleAdjust; saveCustomValue();");
+                         menuItem -l "  90" -c ("floatFieldGrp -e -value1 90 angleAdjust; saveCustomValue();");
+                         menuItem -l " 180" -c ("floatFieldGrp -e -value1 180 angleAdjust; saveCustomValue();");  
+              
+                               
+                     // CLEAR button
+                     iconTextButton -image1 "K_Mirror_icons/K_DoneClean.png" -c "mirrorCleanAll"  -annotation "Select Mirror result object. Clear everything in Outliner after Mirror." clearDoneButton;
+
+                 formLayout -edit
+                 -attachForm angleAdjust "top" 8          -attachForm angleAdjust "left" 4
+                 -attachForm mergeVertsValue "top" 33   -attachForm mergeVertsValue "left" -11
+                 -attachForm clearDoneButton "top" 68   -attachForm clearDoneButton "left" 4
+                 sliderOptions;
+                 setParent ..;  
+                
+            
+        showWindow SymMirrors;
+        setFocus SymMirrors;
+}
+
+
+//------------------------------------------------------------------------------------------------------------------------------------------------------
+// Switch Mirror Plane placing options - button
+//------------------------------------------------------------------------------------------------------------------------------------------------------
+global proc switchMirrorPMode()
+{
+    int $getSwitchValue2 = `optionVar -q "kk_switchMirrorPObject"`;  
+    if ($getSwitchValue2 == 1)
+    {
+        iconTextButton -e -image1 "K_Mirror_icons/K_MirrorPObject.png" switchbuttonMirror; 
+        optionVar -iv "kk_switchMirrorPObject" 2;
+    }
+    if ($getSwitchValue2 == 2)
+    {
+        iconTextButton -e -image1 "K_Mirror_icons/K_MirrorPSelection2.png" switchbuttonMirror;
+        optionVar -iv "kk_switchMirrorPObject" 3; 
+    }
+    if ($getSwitchValue2 == 3)
+    {
+        iconTextButton -e -image1 "K_Mirror_icons/K_MirrorPNormals.png" switchbuttonMirror; 
+        optionVar -iv "kk_switchMirrorPObject" 4;
+    }
+    if ($getSwitchValue2 == 4)
+    {
+        iconTextButton -e -image1 "K_Mirror_icons/K_MirrorPWorld.png" switchbuttonMirror; 
+        optionVar -iv "kk_switchMirrorPObject" 1;
+    }
+}
+
+
+// menu Itam quick switch
+global proc switchMirrorPMode_menu1() { iconTextButton -e -image1 "K_Mirror_icons/K_MirrorPWorld.png" switchbuttonMirror; optionVar -iv "kk_switchMirrorPObject" 1; }
+global proc switchMirrorPMode_menu2() { iconTextButton -e -image1 "K_Mirror_icons/K_MirrorPObject.png" switchbuttonMirror; optionVar -iv "kk_switchMirrorPObject" 2; }
+global proc switchMirrorPMode_menu3() { iconTextButton -e -image1 "K_Mirror_icons/K_MirrorPSelection2.png" switchbuttonMirror; optionVar -iv "kk_switchMirrorPObject" 3; }
+global proc switchMirrorPMode_menu4() { iconTextButton -e -image1 "K_Mirror_icons/K_MirrorPNormals.png" switchbuttonMirror; optionVar -iv "kk_switchMirrorPObject" 4; }
+
+
+//------------------------------------------------------------------------------------------------------------------------------------------------------
+// procedure to set, color and hide all the mirror related stuff soon after running mirror command
+//------------------------------------------------------------------------------------------------------------------------------------------------------
+global proc setAllMirrorCommand()
+{
+        // Selection of Mirror object transform - so that it can be hidden in Outliner
+        string $getMirrorNodes[] = `listConnections -scn 1`;
+        string $getMirrorNodes2[] = stringArrayRemoveDuplicates($getMirrorNodes);  // removed duplicate strings in the array
+        
+         // Get FIRST part of Mirror
+         string $renamedMirrorObj1;
+         for ($i=0; $i < size($getMirrorNodes2); $i++ ) 
+         { 
+             if ( gmatch($getMirrorNodes2[$i], "mirroredCutMesh*"))       
+             {
+                 $renamedMirrorObj1 = `rename $getMirrorNodes2[$i] "K_CustomMirror_Objs"`;
+                 //setAttr ($renamedMirrorObj1 + ".hiddenInOutliner") true;  // hide in Outliner
+             } 
+         } 
+         
+         // Get SECOND part of Mirror
+        string $getMirrorNodes_1[] = `listConnections -scn 1`;
+        string $getMirrorNodes_2[] = stringArrayRemoveDuplicates($getMirrorNodes_1); 
+          
+         string $getMirrorNodes3[];
+         string $getMirrorNodes4[];
+         string $getMirrorNodes5[];
+         string $getMirrorNodes6[];
+         string $renamedMirrorObj2;
+         
+         for ($j=0; $j < size($getMirrorNodes_2); $j++ ) 
+         { 
+              if ( gmatch($getMirrorNodes_2[$j], "transformGeometry*"))       
+              {
+                     $getMirrorNodes3 = `listConnections -d 0 -s 1 $getMirrorNodes_2[$j]`;
+                     for ($h=0; $h < size($getMirrorNodes3); $h++ ) 
+                     { 
+                         if ( gmatch($getMirrorNodes3[$h], "transform*"))       
+                         {
+                             $getMirrorNodes4 = `listRelatives -p $getMirrorNodes3[$h]`;
+                             $renamedMirrorObj2 = `rename $getMirrorNodes4[0] "K_CustomMirror_OrgM"`;
+                             //setAttr ($renamedMirrorObj2 + ".hiddenInOutliner") true; // hide in Outliner
+                         } 
+                         
+                         // assign Viewport color for the mirrorPlane
+                         if ( gmatch($getMirrorNodes3[$h], "mirrorCutPlane*"))       
+                         {
+                             // assign Viewport color on Shape node (if you override mirrorplane on Transform - Maya crashes.)
+                             $getMirrorNodes5 = `listRelatives -s $getMirrorNodes3[0]`;
+                             setAttr ($getMirrorNodes5[0] + ".overrideEnabled") 1 ;
+                             setAttr ($getMirrorNodes5[0] + ".overrideRGBColors") 1 ;
+                             setAttr ($getMirrorNodes5[0] + ".overrideColorRGB") 0.105 0.693 0.718;          
+                            
+                             // assign Outliner color on Transform node
+                             $getMirrorNodes6 = `listRelatives -p $getMirrorNodes5[0]`;
+                             setAttr ($getMirrorNodes6[0] + ".useOutlinerColor") 1;
+                             setAttr ($getMirrorNodes6[0] + ".outlinerColor") 0 (pow (0.518, 0.454)) (pow (0.539, 0.454));                                           
+                         }                                     
+                         
+                     }                                                                                      
+              } 
+         }
+         // rename Mirror Plane
+         renameSelectionList ("K_MirrorPlane_");   
+         
+}
+
+//------------------------------------------------------------------------------------------------------------------------------------------------------
+// presets for MERGE treshold
+//------------------------------------------------------------------------------------------------------------------------------------------------------
+global proc mergeTpreset_00001()
+{
+    string $getMAttribute = `attrFieldSliderGrp  -q -attribute mergeVertsValue`;
+    setAttr $getMAttribute 0.0001;
+}
+global proc mergeTpreset_0001()
+{
+    string $getMAttribute = `attrFieldSliderGrp  -q -attribute mergeVertsValue`;
+    setAttr $getMAttribute 0.001;
+}
+global proc mergeTpreset_001()
+{
+    string $getMAttribute = `attrFieldSliderGrp  -q -attribute mergeVertsValue`;
+    setAttr $getMAttribute 0.01;
+}
+global proc mergeTpreset_01()
+{
+    string $getMAttribute = `attrFieldSliderGrp  -q -attribute mergeVertsValue`;
+    setAttr $getMAttribute 0.1;
+}
+
+
+
+//------------------------------------------------------------------------------------------------------------------------------------------------------
+// Save custom rotation when used and UI is opened
+//------------------------------------------------------------------------------------------------------------------------------------------------------
+global proc saveCustomValue()
+{
+       int $valAng = ` floatFieldGrp -q -value1 angleAdjust`;
+       optionVar -iv "k_MirrorOpton" $valAng;  
+}
+
+
+
+//------------------------------------------------------------------------------------------------------------------------------------------------------
+// MAIN MIRROR COMMAND
+//------------------------------------------------------------------------------------------------------------------------------------------------------
+global proc mainMirrorCommand(int $mirrorCmdAxis, int $rotatePlane )
+{  
+      
+      int $getSwitchValue3 = `optionVar -q "kk_switchMirrorPObject"`;
+      int $getChkValueBUtton = `getModifiers`;
+      if (size(`ls -sl`) == 0 ) 
+      {
+          warning -n  " -- INFO -- No object selected! Select first some objects to rotate!"; 
+          return;
+      }
+          
+    // MIRROR - if no Modifier keys are pressed    
+      if ( $getChkValueBUtton == 0) 
+      {  
+               
+                string $toolCurrent = `currentCtx`;
+                setToolTo moveSuperContext;
+                float $posPivot[] = `manipMoveContext -q -p Move`;                 
+                setToolTo $toolCurrent;   
+                
+                         
+               float $rotValX; float $rotValY; float $rotValZ;
+             // Get which positioning button is currently ON
+               //$getSwitchValue3 = `optionVar -q "kk_switchMirrorPObject"`; 
+              
+
+             // MAIN MIRROR tools script - if object and just one is selected. 
+               if ( size(`filterExpand -sm 12`) && (size(`ls -sl`) == 1 ) ) 
+               {               
+                           
+                        //  Normal ON - get the Rotation values of the pivot - to set additional values down in the code
+                        if ($getSwitchValue3 == 4)    
+                        {       
+                            RotateTool;
+                            float $rad[] = `manipRotateContext -q -orientAxes Rotate`;
+                            $rotValX = `rad_to_deg $rad[0]`; 
+                            $rotValY = `rad_to_deg $rad[1]`;
+                            $rotValZ = `rad_to_deg $rad[2]`;
+                            setToolTo $toolCurrent;
+                        }
+                     
+                     
+                     // get Matterial
+                       string $mySelss[] = `ls -sl -tr`; 
+                       hyperShade -smn "";
+                       string $getMaterialSymMirrors[] = `ls -sl -mat`;                          
+                        
+                     // run MIRROR command  // $mirrorCmdAxis is getting the ints from n commands 1 = X, 2 = Y, 3 = Z default axis orientation when creating the mirror
+                       select -r $mySelss[0];
+                       polyMirrorCut $mirrorCmdAxis 1 0.001;   
+                              
+                     // procedure to set, color and hide all the mirror related stuff soon after running mirror command    
+                       setAllMirrorCommand();    
+                         
+
+                      // get the name of the mirror plane and Rotate properly
+                        string $cuttingPlaneSymMirrors[] = `ls -sl`; 
+                        if ($rotatePlane == 1)                                          // +X
+                        {
+                            setAttr ( $cuttingPlaneSymMirrors[0] + ".rotateY") -90; 
+                        }
+                        if ($rotatePlane == 2) { print "empty"; }                       // -X                                    
+                        
+                        if ($rotatePlane == 3)                                          // +Y
+                        {
+                            setAttr ( $cuttingPlaneSymMirrors[0] + ".rotateZ") -180; 
+                        }    
+                        if ($rotatePlane == 4) { print "empty"; }                       // -Y      
+                        
+                        if ($rotatePlane == 5)                                          // +Z  
+                        {
+                            setAttr ( $cuttingPlaneSymMirrors[0] + ".rotateY") -180;  
+                        }
+                        if ($rotatePlane == 6) { print "empty"; }                       // -Z  
+                                                              
+                        
+                      // MirorCut Plane positioning (if it's "Object" or the int value is "2" then just proced with the script - default.                       
+                        if ($getSwitchValue3 == 1)    // World
+                        {
+                            if ( ($rotatePlane == 1) || ($rotatePlane == 2) )  // X
+                            {        
+                                move -ws -a -moveX 0;  
+                            }
+                            if ( ($rotatePlane == 3) || ($rotatePlane == 4) )  // Y
+                            {        
+                                move -ws -a -moveY 0;  
+                            }  
+                            if ( ($rotatePlane == 5) || ($rotatePlane == 6) )  // Z
+                            {        
+                                move -ws -a -moveZ 0;  
+                            }                                                 
+                            
+                        }    
+                        if ($getSwitchValue3 == 3)    // Selections
+                        {            
+                            if ( ($rotatePlane == 1) || ($rotatePlane == 2) )  // X
+                            {          
+                                move -ws -a -moveX $posPivot[0]; 
+                            }  
+                            if ( ($rotatePlane == 3) || ($rotatePlane == 4) )  // Y
+                            { 
+                                move -ws -a -moveY $posPivot[1];  
+                            }
+                            if ( ($rotatePlane == 5) || ($rotatePlane == 6) )  // Z
+                            { 
+                                move -ws -a -moveZ $posPivot[2];  
+                            }                                                    
+                        }  
+                        if ($getSwitchValue3 == 4)    // Normals
+                        {                                      
+                            setAttr ( $cuttingPlaneSymMirrors[0] + ".translate") $posPivot[0] $posPivot[1] $posPivot[2];     // translate Mirror plane on the Pivot position
+                            setAttr ( $cuttingPlaneSymMirrors[0] + ".rotate") 0 0 0;                                         // reset Rotation set from before
+                            rotate -r -os -fo $rotValX $rotValY $rotValZ ;                                                   // set New Rotation get from Pivot before                                                                  
+                            if ($rotatePlane == 1) {         // +X
+                                rotate -r -os -fo 0 -90 0;  }                                                                // Additional rotation value to set it in correct position
+                            if ($rotatePlane == 2) {         // -X
+                                rotate -r -os -fo 0 90 0; }
+                            if ($rotatePlane == 3) {         // +Y
+                                rotate -r -os -fo 90 0 0; }   
+                            if ($rotatePlane == 4) {         // -Y
+                                rotate -r -os -fo -90 0 0; }                                                                                                  
+                            if ($rotatePlane == 5) {         // +Z
+                                rotate -r -os -fo 0 180 0; }   
+                            if ($rotatePlane == 6) {         // -Z
+                                rotate -r -os -fo 0 0 0; }                       
+                         }       
+                          
+                          
+                          // Rename/get Merge Verts node
+                            string $getIt[] = `listConnections -d on`;
+                            select -add $getIt;
+                            string $nodesMirrs[] = `listHistory  -pdo true -f true`;
+                            string $shorterList[] = stringArrayRemoveDuplicates($nodesMirrs);
+                            
+                            for ($i=0; $i < size($shorterList); $i++ ) 
+                            { 
+                                 if ( gmatch($shorterList[$i], "polyMergeVert*"))       
+                                 {   
+                                                            
+                                    select -r $shorterList[$i];                                
+                                    renameSelectionList ("K_MirrorMergeVert");   
+                                    
+                                    string $getmergeNode[] = `ls -sl`;     
+                                    attrFieldSliderGrp -e -en 1 -attribute ($getmergeNode[0] + ".distance") mergeVertsValue;
+                                         
+                                 }            
+                            }
+                            
+                          // from selected MergeVertices node > select main object Mirror result to reassign the matterial.
+                            string $getIt2[] = `listConnections -s on`;
+                            select -r $getIt2[0];
+                        
+                        hyperShade -a $getMaterialSymMirrors; 
+                        select -r $cuttingPlaneSymMirrors;
+                        MoveTool;
+
+                }
+                else 
+                {
+                    warning -n  " -- INFO -- Wrong selection! Select just ONE mesh object or make sure you have selected poly(mesh) object!";
+                    return;
+                }
+      } // MIRROR END
+                                         
+      // ROTATE - if SHIFT modifier is pressed
+      if ( ($getChkValueBUtton == 1) && (size(`ls -sl`) >= 1 ))  
+      {                         
+            string $objToRotate[] = `ls -sl -tr`; 
+            for ($everySelRotate in $objToRotate) 
+            {
+                  float $getSelAngle = `floatFieldGrp -q -value1 angleAdjust`;  
+                  
+                   // +X 
+                  if ($rotatePlane == 1)  
+                  {
+                     // If set to World, Object or Pivot mode - rotate in world space
+                     if ( ($getSwitchValue3 == 1) || ($getSwitchValue3 == 2) || ($getSwitchValue3 == 3) ) {    rotate -r -ws -fo $getSelAngle 0 0;     }
+                     // If set to Normal mode - rotate in object space
+                     if ($getSwitchValue3 == 4)   {     rotate -r -os -fo $getSelAngle 0 0;     }
+                  }
+                  
+                  // -X 
+                  if ($rotatePlane == 2)   
+                  {
+                     if ( ($getSwitchValue3 == 1) || ($getSwitchValue3 == 2) || ($getSwitchValue3 == 3) ) {    rotate -r -ws -fo ($getSelAngle * -1) 0 0;    }
+                     if ($getSwitchValue3 == 4)  {      rotate -r -os -fo ($getSelAngle * -1) 0 0;     }
+                  }  
+                  
+                  // +Y 
+                  if ($rotatePlane == 3)   
+                  {
+                     if ( ($getSwitchValue3 == 1) || ($getSwitchValue3 == 2) || ($getSwitchValue3 == 3) ) {    rotate -r -ws -fo 0 $getSelAngle 0;     }
+                     if ($getSwitchValue3 == 4)   {     rotate -r -os -fo 0 $getSelAngle 0;     }
+                  }  
+
+                  // -Y 
+                  if ($rotatePlane == 4)   
+                  {
+                     if ( ($getSwitchValue3 == 1) || ($getSwitchValue3 == 2) || ($getSwitchValue3 == 3) ) {    rotate -r -ws -fo 0 ($getSelAngle * -1) 0;    }
+                     if ($getSwitchValue3 == 4)  {      rotate -r -os -fo 0 ($getSelAngle * -1) 0;     }
+                  } 
+
+                  // +Z 
+                  if ($rotatePlane == 5)   
+                  {
+                     if ( ($getSwitchValue3 == 1) || ($getSwitchValue3 == 2) || ($getSwitchValue3 == 3) ) {    rotate -r -ws -fo 0 0 $getSelAngle;     }
+                     if ($getSwitchValue3 == 4)   {     rotate -r -os -fo 0 0 $getSelAngle;     }
+                  } 
+
+                  // -Z 
+                  if ($rotatePlane == 6)   
+                  {
+                     if ( ($getSwitchValue3 == 1) || ($getSwitchValue3 == 2) || ($getSwitchValue3 == 3) ) {    rotate -r -ws -fo 0 0 ($getSelAngle * -1);    }
+                     if ($getSwitchValue3 == 4)  {      rotate -r -os -fo 0 0 ($getSelAngle * -1);     }
+                  }                             
+                       
+            
+            } 
+           
+     } // ROTATE END
+}
+
+
+
+////////////////////////////////////////////////////////////
+// Selecting mesh - probably to delete - clean all without selecting anything or delete selected only
+////////////////////////////////////////////////////////////
+/****************
+// start from Mirror plane
+print $getMirrorNodes2;
+// select transformGeometry1
+listHistory -ac  (`ls -sl`);  // this selects "polyMergeVert*"
+select -r "polyMergeVert*";
+listConnections -sh 1 (`ls -sl`);  // this selects "polySurfaceShape*" - shape node of mirror result
+listRelatives -p (`ls -sl`);  // this selects MIRROR RESULT
+
+
+
+listConnections -sh 1 (`ls -sl`);   // this selects "mirroredCutMeshShape1" - shape node from one of the object used in mirror command
+listConnections -s 1 (`ls -sl`);   // this selects "polyUnite" node
+listHistory -ac  (`ls -sl`);  // this selects "polyMergeVert1"
+listConnections -sh 1 (`ls -sl`);  // this selects "polySurfaceShape*" - shape node of mirror result
+listRelatives -p (`ls -sl`);  // this selects MIRROR RESULT
+********************/
+
+//------------------------------------------------------------------------------------------------------------------------------------------------------
+// Mirror CLEAN - Apply button
+//------------------------------------------------------------------------------------------------------------------------------------------------------
+global proc mirrorCleanAll()
+{
+     if (size(`ls -sl`) == 1 ) 
+     {  
+          if (size(`filterExpand -sm 12`)) 
+          {
+                DeleteHistory;
+                select -r "K_MirrorPlane_*";
+                
+                string $getIt[] = `listConnections -d on`;
+                select -add $getIt;
+                
+                delete;
+                source cleanUpScene.mel;
+                deleteEmptyGroups();
+           }
+           else 
+           {
+                 warning -n  " -- INFO -- Wrong selection! Select the mesh object (Mirror result)!";
+                 return;    
+           }
+     }
+     else 
+     {
+           warning -n  " -- INFO -- Doesn't work on multiple selection. Select only ONE mesh object (Mirror result)!";
+           return;  
+     }
+         
+}
+
