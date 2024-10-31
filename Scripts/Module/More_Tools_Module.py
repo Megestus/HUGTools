@@ -25,12 +25,8 @@ toolbox_path = str(toolbox_dir).replace("\\", "/")
 if toolbox_path not in sys.path:
     sys.path.append(toolbox_path)
 
-# 直接导入melToPymelUI
-import melToPymelUI
-
 # 添加调试信息
 print(f"Toolbox path: {toolbox_path}")
-print(f"melToPymelUI loaded from: {melToPymelUI.__file__}")
 
 # ----------------------
 # Custom Widgets
@@ -91,23 +87,28 @@ class MoreToolsWindow(QtWidgets.QDialog):
             "Modeling": [
                 {
                     "name": "MELtoPY",                          
-                    "icon": "mao.png",                          
+                    "icon": "MelToPy/icons/mao.png",            # 更新图标路径                      
                     "tooltip": "Convert MEL code to Python code",
                     "description": "A tool for converting MEL scripts to Python"
                 },
                 {
                     "name": "ViewCapture",                      
-                    "icon": "boxuemao.png",                     
+                    "icon": "ViewCapture/icons/boxuemao.png",   # 更新图标路径                    
                     "tooltip": "Maya Viewport Screenshot Tool",  
                     "description": "Capture high quality screenshots of Maya viewport with custom path and name"
                 },
                 {
                     "name": "MirrorTool",                      
-                    "icon": "K_Mirror_icons/ShelfIcon.png",                    
+                    "icon": "MirrorTool/K_Mirror_icons/ShelfIcon.png",  # 已经更新的图标路径                  
                     "tooltip": "Mirror Objects Tool",
                     "description": "Mirror objects across different axes with options"
                 },
-                {"name": "Tool 4", "icon": "xianluomao.png"},
+                {
+                    "name": "IconView",
+                    "icon": "iconview/icons/xianluomao.png",
+                    "tooltip": "Maya Icon Viewer",
+                    "description": "Browse and view Maya's built-in icons"
+                }
             ]
             # 暂时注释掉Rigging分类
             # "Rigging": [
@@ -202,13 +203,8 @@ class MoreToolsWindow(QtWidgets.QDialog):
     def create_tool_buttons(self):
         """
         创建工具按钮的方法
-        步骤说明：
-        1. 遍历工具配置
-        2. 为每个分类创建标签页
-        3. 在标签页中创建按钮网格
-        4. 设置按钮属性和连接事件
         """
-        icon_path = os.path.join(os.path.dirname(__file__), "..", "..", "Icons")
+        # 使用toolbox_dir来构建图标路径
         for i, (category, tools) in enumerate(self.tool_config.items()):
             tab = self.tab_widget.widget(i)
             tab_layout = QtWidgets.QVBoxLayout(tab)
@@ -216,8 +212,12 @@ class MoreToolsWindow(QtWidgets.QDialog):
             grid_layout = QtWidgets.QGridLayout()
             
             for j, tool in enumerate(tools):
+                # 构建完整的图标路径
+                icon_path = str(toolbox_dir / tool["icon"])
+                icon_path = icon_path.replace("\\", "/")
+                
                 # 创建按钮
-                icon = QtGui.QIcon(os.path.join(icon_path, tool["icon"]))
+                icon = QtGui.QIcon(icon_path)
                 button = ModItButton(tool["name"], icon)
                 
                 # 设置按钮属性
@@ -243,6 +243,13 @@ class MoreToolsWindow(QtWidgets.QDialog):
             
             tab_layout.addLayout(grid_layout)
             tab_layout.addStretch()
+
+        # 添加调试信息
+        print("\n=== 图标路径信息 ===")
+        for category, tools in self.tool_config.items():
+            for tool in tools:
+                icon_path = str(toolbox_dir / tool["icon"])
+                print(f"{tool['name']}图标路径: {icon_path}")
 
     def create_layout(self):
         self.create_title_bar_layout()
@@ -293,40 +300,169 @@ class MoreToolsWindow(QtWidgets.QDialog):
     def tool_clicked(self, tool_name):
         if tool_name == "MELtoPY":
             try:
-                import melToPymelUI
-                importlib.reload(melToPymelUI)
-                print("Module reloaded successfully")
-                print(f"Available attributes: {dir(melToPymelUI)}")
+                # 构建MelToPy工具路径
+                mel_to_py_dir = toolbox_dir / "MelToPy"
+                mel_to_py_path = mel_to_py_dir / "melToPymelUI.py"
+                
+                # 检查文件是否存在
+                if not mel_to_py_path.exists():
+                    raise FileNotFoundError(f"找不到melToPymelUI.py文件: {mel_to_py_path}")
+                
+                # 确保模块所在目录在系统路径中
+                module_dir = str(mel_to_py_dir)
+                if module_dir not in sys.path:
+                    sys.path.insert(0, module_dir)
+
+                print("\n=== 工具路径信息 ===")
+                print(f"工具目录: {mel_to_py_dir}")
+                print(f"主程序文件: {mel_to_py_path}")
+                print(f"系统路径: {module_dir}")
+
+                try:
+                    import melToPymelUI
+                    importlib.reload(melToPymelUI)
+                except ImportError as ie:
+                    print(f"导入melToPymelUI模块失败: {ie}")
+                    print(f"当前sys.path: {sys.path}")
+                    return
+                
                 melToPymelUI.show()
+                
             except Exception as e:
-                print(f"Error loading {tool_name}:")
+                print(f"\n=== 错误信息 ===")
+                print(f"加载{tool_name}时出错:")
+                print(f"错误类型: {type(e).__name__}")
+                print(f"错误信息: {str(e)}")
                 traceback.print_exc()
+                
         elif tool_name == "ViewCapture":
             try:
-                from Toolbox import screen_shot
-                importlib.reload(screen_shot)
+                # 构建ViewCapture工具路径
+                view_capture_dir = toolbox_dir / "ViewCapture"
+                screen_shot_path = view_capture_dir / "screen_shot.py"
+                
+                # 检查文件是否存在
+                if not screen_shot_path.exists():
+                    raise FileNotFoundError(f"找不到screen_shot.py文件: {screen_shot_path}")
+                
+                # 确保模块所在目录在系统路径中
+                module_dir = str(view_capture_dir)
+                if module_dir not in sys.path:
+                    sys.path.insert(0, module_dir)
+
+                print("\n=== 工具路径信息 ===")
+                print(f"工具目录: {view_capture_dir}")
+                print(f"主程序文件: {screen_shot_path}")
+                print(f"系统路径: {module_dir}")
+
+                try:
+                    import screen_shot
+                    importlib.reload(screen_shot)
+                except ImportError as ie:
+                    print(f"导入screen_shot模块失败: {ie}")
+                    print(f"当前sys.path: {sys.path}")
+                    return
+                
                 screen_shot.show()
+                
             except Exception as e:
-                print(f"Error loading {tool_name}:")
+                print(f"\n=== 错误信息 ===")
+                print(f"加载{tool_name}时出错:")
+                print(f"错误类型: {type(e).__name__}")
+                print(f"错误信息: {str(e)}")
                 traceback.print_exc()
+
         elif tool_name == "MirrorTool":
             try:
-                # 设置图标路径
-                icon_path = os.path.join(os.path.dirname(__file__), "..", "..", "Icons")
-                icon_path = icon_path.replace("\\", "/")
+                # 构建工具特定的路径
+                mirror_tool_dir = toolbox_dir / "MirrorTool"
+                mirror_icons_dir = mirror_tool_dir / "K_Mirror_icons"
+                mel_script_path = mirror_tool_dir / "k_mirrorToolStartUI.mel"
                 
-                # 添加到Maya的图标搜索路径
-                if "XBMLANGPATH" in os.environ:
-                    os.environ["XBMLANGPATH"] = f"{icon_path};{os.environ['XBMLANGPATH']}"
+                # 确保所需目录都存在
+                required_dirs = {
+                    "镜像工具目录": mirror_tool_dir,
+                    "镜像工具图标目录": mirror_icons_dir,
+                    "MEL脚本文件": mel_script_path
+                }
+                
+                for dir_name, dir_path in required_dirs.items():
+                    if not dir_path.exists():
+                        raise FileNotFoundError(f"找不到{dir_name}: {dir_path}")
+                
+                # 设置MAYA_SCRIPT_PATH以找到MEL脚本
+                mirror_tool_path_str = str(mirror_tool_dir).replace("\\", "/")
+                if "MAYA_SCRIPT_PATH" in os.environ:
+                    if mirror_tool_path_str not in os.environ["MAYA_SCRIPT_PATH"]:
+                        os.environ["MAYA_SCRIPT_PATH"] = f"{mirror_tool_path_str};{os.environ['MAYA_SCRIPT_PATH']}"
                 else:
-                    os.environ["XBMLANGPATH"] = icon_path
-                    
+                    os.environ["MAYA_SCRIPT_PATH"] = mirror_tool_path_str
+                
+                # 设置XBMLANGPATH以找到图标
+                mirror_icons_path_str = str(mirror_icons_dir).replace("\\", "/")
+                if "XBMLANGPATH" in os.environ:
+                    if mirror_icons_path_str not in os.environ["XBMLANGPATH"]:
+                        os.environ["XBMLANGPATH"] = f"{mirror_icons_path_str};{os.environ['XBMLANGPATH']}"
+                else:
+                    os.environ["XBMLANGPATH"] = mirror_icons_path_str
+                
+                print("\n=== 工具路径信息 ===")
+                print(f"工具目录: {mirror_tool_dir}")
+                print(f"MEL脚本文件: {mel_script_path}")
+                print(f"图标目录: {mirror_icons_dir}")
+                print(f"MAYA_SCRIPT_PATH: {os.environ.get('MAYA_SCRIPT_PATH')}")
+                print(f"XBMLANGPATH: {os.environ.get('XBMLANGPATH')}")
+                
                 # 执行MEL脚本
                 import maya.mel as mel
                 mel.eval('source "k_mirrorToolStartUI.mel"')
                 mel.eval('k_mirrorToolStartUI()')
+                
             except Exception as e:
-                print(f"Error loading {tool_name}:")
+                print(f"\n=== 错误信息 ===")
+                print(f"加载{tool_name}时出错:")
+                print(f"错误类型: {type(e).__name__}")
+                print(f"错误信息: {str(e)}")
+                traceback.print_exc()
+
+
+
+                
+        elif tool_name == "IconView":
+            try:
+                # 构建IconView工具路径
+                icon_view_dir = toolbox_dir / "iconview"
+                icon_view_path = icon_view_dir / "iconview.py"
+                
+                # 检查文件是否存在
+                if not icon_view_path.exists():
+                    raise FileNotFoundError(f"找不到iconview.py文件: {icon_view_path}")
+                
+                # 确保模块所在目录在系统路径中
+                module_dir = str(icon_view_dir)
+                if module_dir not in sys.path:
+                    sys.path.insert(0, module_dir)
+
+                print("\n=== 工具路径信息 ===")
+                print(f"工具目录: {icon_view_dir}")
+                print(f"主程序文件: {icon_view_path}")
+                print(f"系统路径: {module_dir}")
+
+                try:
+                    import iconview
+                    importlib.reload(iconview)
+                except ImportError as ie:
+                    print(f"导入iconview模块失败: {ie}")
+                    print(f"当前sys.path: {sys.path}")
+                    return
+                
+                iconview.create_icon_viewer()
+                
+            except Exception as e:
+                print(f"\n=== 错误信息 ===")
+                print(f"加载{tool_name}时出错:")
+                print(f"错误类型: {type(e).__name__}")
+                print(f"错误信息: {str(e)}")
                 traceback.print_exc()
         else:
             print(f"{tool_name} - In development")
