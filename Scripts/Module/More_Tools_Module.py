@@ -4,6 +4,7 @@ import importlib
 import sys
 import os
 import maya.cmds as cmds
+import maya.mel as mel
 import traceback
 
 # maya window set Father-son relationship implement
@@ -41,21 +42,28 @@ class ModItButton(QtWidgets.QPushButton):
         self.setStyleSheet(
             """
             QPushButton {
-                background-color: #4B4B4B;
+                background-color: #2D2D2D;
                 color: #CCCCCC;
-                border: 1px solid #555555;
+                border: 1px solid #3C3C3C;
                 border-radius: 3px;
                 padding: 5px;
-                font-weight: bold;
-                text-align: center;
+                font: bold 9pt 'Microsoft YaHei UI';
+                min-height: 20px;
             }
             QPushButton:hover {
-                background-color: #5A5A5A;
-                border: 1px solid #666666;
+                background-color: #353535;
+                border-color: #444444;
+                color: #FFFFFF;
             }
             QPushButton:pressed {
-                background-color: #333333;
-                border: 1px solid #777777;
+                background-color: #252525;
+                border-color: #B87D4B;
+                color: #FFFFFF;
+            }
+            QPushButton:disabled {
+                background-color: #2A2A2A;
+                border-color: #333333;
+                color: #666666;
             }
             """
         )
@@ -70,53 +78,68 @@ class MoreToolsWindow(QtWidgets.QDialog):
         self.setWindowTitle("More Tools")
         self.setWindowFlags(self.windowFlags() | QtCore.Qt.FramelessWindowHint | QtCore.Qt.Tool)
         
-        # 工具配置字典：用于定义所有工具按钮的属性
-        # 结构说明：
-        # {
-        #     "分类名称": [
-        #         {
-        #             "name": "按钮名称",
-        #             "icon": "图标文件名",
-        #             "tooltip": "鼠标悬停提示",
-        #             "description": "工具描述"  # 可选
-        #         },
-        #         # ... 更多工具
-        #     ]
-        # }
+        # 添加帮助信息显示状态标记
+        self.help_message_visible = False
+        
+        # 重新组织工具配置
         self.tool_config = {
             "Modeling": [
                 {
-                    "name": "MELtoPY",                          
-                    "icon": "MelToPy/icons/mao.png",            # 更新图标路径                      
-                    "tooltip": "Convert MEL code to Python code",
-                    "description": "A tool for converting MEL scripts to Python"
-                },
-                {
-                    "name": "ViewCapture",                      
-                    "icon": "ViewCapture/icons/boxuemao.png",   # 更新图标路径                    
-                    "tooltip": "Maya Viewport Screenshot Tool",  
-                    "description": "Capture high quality screenshots of Maya viewport with custom path and name"
-                },
-                {
                     "name": "MirrorTool",                      
-                    "icon": "MirrorTool/K_Mirror_icons/ShelfIcon.png",  # 已经更新的图标路径                  
+                    "icon": "MirrorTool/K_Mirror_icons/ShelfIcon.png",               
                     "tooltip": "Mirror Objects Tool",
                     "description": "Mirror objects across different axes with options"
+                },
+                {
+                    "name": "SpeedCut",
+                    "icon": "Im3dJoe/icons/speedCut.png",
+                    "tooltip": "Speed Cut Tool", 
+                    "description": "Quick mesh cutting and modeling tool"
+                },
+                {
+                    "name": "UnBevel",
+                    "icon": "polyBevel.png",
+                    "tooltip": "UnBevel Tool\n\nInstructions:\n- Select at least three edge loop\n- Click and drag to resize bevel\n- Alt: unbevel with steps 0.1\n- Ctrl + Shift: instant remove bevel\n- Shift: falloff A side\n- Ctrl: falloff B side\n- Ctrl + Shift + Alt: super slow",
+                    "description": "Tool for removing bevels from meshes",
+                    "help_message": """
+                    UnBevel Tool Instructions:
+                    - Select at least three edge loop
+                    - Click and drag to resize bevel
+                    - Alt: unbevel with steps 0.1
+                    - Ctrl + Shift: instant remove bevel
+                    - Shift: falloff A side
+                    - Ctrl: falloff B side
+                    - Ctrl + Shift + Alt: super slow
+                    """
+                }
+            ],
+            "Dev": [
+                {
+                    "name": "MELtoPY",                          
+                    "icon": "MelToPy/icons/mao.png",                    
+                    "tooltip": "Convert MEL code to Python code",
+                    "description": "A tool for converting MEL scripts to Python"
                 },
                 {
                     "name": "IconView",
                     "icon": "iconview/icons/xianluomao.png",
                     "tooltip": "Maya Icon Viewer",
                     "description": "Browse and view Maya's built-in icons"
+                },
+                {
+                    "name": "SmartMeshTools",
+                    "icon": "dpSmartMeshTools/icons/SmartMeshTools.png",
+                    "tooltip": "智能网格处理工具集",
+                    "description": "提供网格的智能合并、分离、提取和复制功能"
+                },
+                {
+                    "name": "NitroPoly",
+                    "icon": "NitroPoly/icons/NitroPoly.png",
+                    "tooltip": "NitroPoly Modeling Tool (In Development)",
+                    "description": "Advanced polygon modeling toolset",
+                    "disabled": True  # 添加禁用标记
                 }
             ]
-            # 暂时注释掉Rigging分类
-            # "Rigging": [
-            #     {"name": "Tool 5", "icon": "tianyuanmao.png"},
-            #     {"name": "Tool 6", "icon": "sanhuamao.png"},
-            #     {"name": "Tool 7", "icon": "mimiyanmao.png"},
-            #     {"name": "Tool 8", "icon": "heimao.png"},
-            # ],
         }
         self.init_ui()
 
@@ -166,45 +189,51 @@ class MoreToolsWindow(QtWidgets.QDialog):
                 left: 5px;
             }
             QTabBar::tab {
-                background: transparent;
-                border: none;
-                padding: 5px;
-                margin-right: 5px;
+                background: #3C3C3C;
+                border: 1px solid #555555;
+                border-bottom: none;
+                border-top-left-radius: 4px;
+                border-top-right-radius: 4px;
+                padding: 8px 15px;
+                margin-right: 2px;
+                color: #CCCCCC;
+                min-width: 80px;
+                text-align: center;
+                font: normal 9pt 'Microsoft YaHei UI';
             }
-            QTabBar::tab:selected, QTabBar::tab:hover {
-                background: #4B4B4B;
+            QTabBar::tab:selected {
+                background: #2D2D2D;
+                border-color: #666666;
+                border-bottom: 2px solid #B87D4B;
+                margin-top: -2px;
+                padding-top: 10px;
+                color: #FFFFFF;
+                font: bold 9pt 'Microsoft YaHei UI';
+            }
+            QTabBar::tab:hover:!selected {
+                background: #454545;
+                border-bottom: 1px solid #B87D4B;
+            }
+            QTabBar::tab:disabled {
+                color: #666666;
+                background: #2A2A2A;
             }
         """)
-
-        icon_path = os.path.join(os.path.dirname(__file__), "..", "..", "Icons")
-        modeling_icon = QtGui.QIcon(os.path.join(icon_path, "Modeling.png"))
-        rigging_icon = QtGui.QIcon(os.path.join(icon_path, "screenshot.png"))
         
         self.modeling_tab = QtWidgets.QWidget()
         self.rigging_tab = QtWidgets.QWidget()
         
-        # Set larger icon size
-        icon_size = QtCore.QSize(32, 32)
-        self.tab_widget.setIconSize(icon_size)
+        self.tab_widget.addTab(self.modeling_tab, "Modeling")
+        self.tab_widget.addTab(self.rigging_tab, "Dev")
         
-        self.tab_widget.addTab(self.modeling_tab, modeling_icon, "")
-        self.tab_widget.addTab(self.rigging_tab, rigging_icon, "")
-        
-        # 方式1：禁用第二个标签页
-        self.tab_widget.setTabEnabled(1, False)
-        
-        # 或者方式2：完全移除第二个标签页
-        # self.tab_widget.removeTab(1)
-        
-        # Set tooltips
-        self.tab_widget.setTabToolTip(0, "Modeling")
-        self.tab_widget.setTabToolTip(1, "Rigging (Coming Soon)")  # 修改提示文本
+        # 更新提示文本
+        self.tab_widget.setTabToolTip(0, "Modeling Tools")
+        self.tab_widget.setTabToolTip(1, "Development Tools")
 
     def create_tool_buttons(self):
         """
         创建工具按钮的方法
         """
-        # 使用toolbox_dir来构建图标路径
         for i, (category, tools) in enumerate(self.tool_config.items()):
             tab = self.tab_widget.widget(i)
             tab_layout = QtWidgets.QVBoxLayout(tab)
@@ -212,17 +241,24 @@ class MoreToolsWindow(QtWidgets.QDialog):
             grid_layout = QtWidgets.QGridLayout()
             
             for j, tool in enumerate(tools):
-                # 构建完整的图标路径
-                icon_path = str(toolbox_dir / tool["icon"])
-                icon_path = icon_path.replace("\\", "/")
+                # 检查是否使用Qt标准图标
+                if tool["icon"].startswith("SP_"):
+                    icon = self.style().standardIcon(getattr(QtWidgets.QStyle, tool["icon"].replace(".png", "")))
+                else:
+                    icon_path = str(toolbox_dir / tool["icon"])
+                    icon_path = icon_path.replace("\\", "/")
+                    icon = QtGui.QIcon(icon_path)
                 
                 # 创建按钮
-                icon = QtGui.QIcon(icon_path)
                 button = ModItButton(tool["name"], icon)
                 
                 # 设置按钮属性
                 button.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
                 button.setMinimumSize(100, 40)
+                
+                # 如果工具被标记为禁用,则禁用按钮
+                if tool.get("disabled", False):
+                    button.setEnabled(False)
                 
                 # 设置提示信息
                 if "tooltip" in tool:
@@ -335,46 +371,9 @@ class MoreToolsWindow(QtWidgets.QDialog):
                 print(f"错误信息: {str(e)}")
                 traceback.print_exc()
                 
-        elif tool_name == "ViewCapture":
-            try:
-                # 构建ViewCapture工具路径
-                view_capture_dir = toolbox_dir / "ViewCapture"
-                screen_shot_path = view_capture_dir / "screen_shot.py"
-                
-                # 检查文件是否存在
-                if not screen_shot_path.exists():
-                    raise FileNotFoundError(f"找不到screen_shot.py文件: {screen_shot_path}")
-                
-                # 确保模块所在目录在系统路径中
-                module_dir = str(view_capture_dir)
-                if module_dir not in sys.path:
-                    sys.path.insert(0, module_dir)
-
-                print("\n=== 工具路径信息 ===")
-                print(f"工具目录: {view_capture_dir}")
-                print(f"主程序文件: {screen_shot_path}")
-                print(f"系统路径: {module_dir}")
-
-                try:
-                    import screen_shot
-                    importlib.reload(screen_shot)
-                except ImportError as ie:
-                    print(f"导入screen_shot模块失败: {ie}")
-                    print(f"当前sys.path: {sys.path}")
-                    return
-                
-                screen_shot.show()
-                
-            except Exception as e:
-                print(f"\n=== 错误信息 ===")
-                print(f"加载{tool_name}时出错:")
-                print(f"错误类型: {type(e).__name__}")
-                print(f"错误信息: {str(e)}")
-                traceback.print_exc()
-
         elif tool_name == "MirrorTool":
             try:
-                # 构建工具特定的路径
+                # 构建工特定的路径
                 mirror_tool_dir = toolbox_dir / "MirrorTool"
                 mirror_icons_dir = mirror_tool_dir / "K_Mirror_icons"
                 mel_script_path = mirror_tool_dir / "k_mirrorToolStartUI.mel"
@@ -406,14 +405,14 @@ class MoreToolsWindow(QtWidgets.QDialog):
                 else:
                     os.environ["XBMLANGPATH"] = mirror_icons_path_str
                 
-                print("\n=== 工具路径信息 ===")
-                print(f"工具目录: {mirror_tool_dir}")
+                print("\n=== 具路径信息 ===")
+                print(f"工具录: {mirror_tool_dir}")
                 print(f"MEL脚本文件: {mel_script_path}")
                 print(f"图标目录: {mirror_icons_dir}")
                 print(f"MAYA_SCRIPT_PATH: {os.environ.get('MAYA_SCRIPT_PATH')}")
                 print(f"XBMLANGPATH: {os.environ.get('XBMLANGPATH')}")
                 
-                # 执行MEL脚本
+                # 执MEL本
                 import maya.mel as mel
                 mel.eval('source "k_mirrorToolStartUI.mel"')
                 mel.eval('k_mirrorToolStartUI()')
@@ -421,7 +420,7 @@ class MoreToolsWindow(QtWidgets.QDialog):
             except Exception as e:
                 print(f"\n=== 错误信息 ===")
                 print(f"加载{tool_name}时出错:")
-                print(f"错误类型: {type(e).__name__}")
+                print(f"错误型: {type(e).__name__}")
                 print(f"错误信息: {str(e)}")
                 traceback.print_exc()
 
@@ -430,7 +429,7 @@ class MoreToolsWindow(QtWidgets.QDialog):
                 
         elif tool_name == "IconView":
             try:
-                # 构建IconView工具路径
+                # 构建IconView工路径
                 icon_view_dir = toolbox_dir / "iconview"
                 icon_view_path = icon_view_dir / "iconview.py"
                 
@@ -457,6 +456,218 @@ class MoreToolsWindow(QtWidgets.QDialog):
                     return
                 
                 iconview.create_icon_viewer()
+                
+            except Exception as e:
+                print(f"\n=== 错误信息 ===")
+                print(f"加载{tool_name}时出错:")
+                print(f"错误类型: {type(e).__name__}")
+                print(f"错误信息: {str(e)}")
+                traceback.print_exc()
+        elif tool_name == "SmartMeshTools":
+            try:
+                # 构建MEL脚本路径
+                smart_mesh_dir = toolbox_dir / "dpSmartMeshTools"
+                mel_script_path = smart_mesh_dir / "dpSmartMeshTools.mel"
+                
+                # 检查文件是否存在
+                if not mel_script_path.exists():
+                    raise FileNotFoundError(f"找不到dpSmartMeshTools.mel文件: {mel_script_path}")
+                    
+                # 确保MEL脚本目录在Maya脚本路径中
+                mel_dir = str(smart_mesh_dir).replace("\\", "/")
+                if "MAYA_SCRIPT_PATH" in os.environ:
+                    if mel_dir not in os.environ["MAYA_SCRIPT_PATH"]:
+                        os.environ["MAYA_SCRIPT_PATH"] = f"{mel_dir};{os.environ['MAYA_SCRIPT_PATH']}"
+                else:
+                    os.environ["MAYA_SCRIPT_PATH"] = mel_dir
+
+                print("\n=== 工具路径信息 ===")
+                print(f"工具目录: {smart_mesh_dir}")
+                print(f"MEL脚本文件: {mel_script_path}")
+                print(f"MAYA_SCRIPT_PATH: {os.environ.get('MAYA_SCRIPT_PATH')}")
+
+                # 执行MEL脚本
+                import maya.mel as mel
+                mel.eval('source "dpSmartMeshTools.mel"')
+                mel.eval('dpSmartMeshTools()')
+                
+            except Exception as e:
+                print(f"\n=== 错误信息 ===")
+                print(f"加载{tool_name}时出错:")
+                print(f"错误类型: {type(e).__name__}")
+                print(f"错误信息: {str(e)}")
+                traceback.print_exc()
+
+
+                
+        elif tool_name == "QuickExport":
+            try:
+                # 构建QuickExport工具路径
+                quick_export_dir = toolbox_dir / "QuickExport"
+                quick_export_path = quick_export_dir / "QuickExport.py"
+                
+                # 检查文件是否存在
+                if not quick_export_path.exists():
+                    raise FileNotFoundError(f"找不到QuickExport.py文件: {quick_export_path}")
+                
+                # 确保模块所在目录在系统路中
+                module_dir = str(quick_export_dir)
+                if module_dir not in sys.path:
+                    sys.path.insert(0, module_dir)
+
+                print("\n=== 工具路径信息 ===")
+                print(f"工具目录: {quick_export_dir}")
+                print(f"主程序文件: {quick_export_path}")
+                print(f"系统路径: {module_dir}")
+
+                try:
+                    import QuickExport
+                    importlib.reload(QuickExport)
+                    QuickExport.show_quick_export_window()
+                except ImportError as ie:
+                    print(f"导入QuickExport模块失败: {ie}")
+                    print(f"当前sys.path: {sys.path}")
+                    return
+                
+            except Exception as e:
+                print(f"\n=== 错误信息 ===")
+                print(f"加载{tool_name}时出错:")
+                print(f"错误类型: {type(e).__name__}")
+                print(f"错误信息: {str(e)}")
+                traceback.print_exc()
+
+
+
+
+        elif tool_name == "NitroPoly":
+            try:
+                # 构建NitroPoly工具路径
+                nitro_poly_dir = toolbox_dir / "NitroPoly"
+                nitro_poly_path = nitro_poly_dir / "NitroPoly.py"
+                
+                # 检查文件是否存在
+                if not nitro_poly_path.exists():
+                    raise FileNotFoundError(f"找不到NitroPoly.py文件: {nitro_poly_path}")
+                
+                # 确保模块所在目录在系统路径中
+                module_dir = str(nitro_poly_dir)
+                if module_dir not in sys.path:
+                    sys.path.insert(0, module_dir)
+
+                print("\n=== 工具路径信息 ===")
+                print(f"工具目录: {nitro_poly_dir}")
+                print(f"主程序文件: {nitro_poly_path}")
+
+                try:
+                    import NitroPoly
+                    importlib.reload(NitroPoly)
+                    NitroPoly.main()
+                except ImportError as ie:
+                    print(f"导入NitroPoly模块失败: {ie}")
+                    print(f"当前sys.path: {sys.path}")
+                    return
+                
+            except Exception as e:
+                print(f"\n=== 错误信息 ===")
+                print(f"加载{tool_name}时出错:")
+                print(f"错误类型: {type(e).__name__}")
+                print(f"错误信息: {str(e)}")
+                traceback.print_exc()
+
+
+
+        elif tool_name == "SpeedCut":
+            try:
+                # 构建SpeedCut工具路径，使用Im3dJoe文件夹下的1.69版本
+                speed_cut_dir = toolbox_dir / "Im3dJoe"
+                speed_cut_path = speed_cut_dir / "speedCut1.69.py"
+                
+                # 检查文件是否存在
+                if not speed_cut_path.exists():
+                    raise FileNotFoundError(f"找不到speedCut1.69.py文件: {speed_cut_path}")
+
+                print("\n=== 工具路径信息 ===")
+                print(f"工具目录: {speed_cut_dir}")
+                print(f"主程序文件: {speed_cut_path}")
+
+                # 直接执行文件
+                script_path = str(speed_cut_path).replace("\\", "/")
+                
+                # 使用 exec() 和 open() 来执行文件
+                cmds.evalDeferred(
+                    f'with open("{script_path}", "r", encoding="utf-8") as f: exec(f.read())'
+                )
+                
+            except Exception as e:
+                print(f"\n=== 错误信息 ===")
+                print(f"加载{tool_name}时出错:")
+                print(f"错误类型: {type(e).__name__}")
+                print(f"错误信息: {str(e)}")
+                traceback.print_exc()
+
+
+                
+        elif tool_name == "UnBevel":
+            try:
+                # 构建UnBevel工具路径
+                unbevel_dir = toolbox_dir / "Im3dJoe"
+                unbevel_path = unbevel_dir / "unBevel1.54.py"
+                
+                # 检查文件是否存在
+                if not unbevel_path.exists():
+                    raise FileNotFoundError(f"找不到unBevel1.54.py文件: {unbevel_path}")
+
+                print("\n=== 工具路径信息 ===")
+                print(f"工具目录: {unbevel_dir}")
+                print(f"主程序文件: {unbevel_path}")
+
+                # 创建说明窗口
+                if cmds.window("unBevelHelpWindow", exists=True):
+                    cmds.deleteUI("unBevelHelpWindow")
+                    
+                help_window = cmds.window("unBevelHelpWindow", 
+                                         title="UnBevel Tool Help", 
+                                         widthHeight=(280, 150),  # 设置固定宽高
+                                         sizeable=False,  # 禁止调整大小
+                                         resizeToFitChildren=False)  # 禁止自动调整大小
+
+                main_layout = cmds.columnLayout(adjustableColumn=True, 
+                                               columnAttach=('both', 5),
+                                               height=290)  # 设置布局高度
+                
+                # 英文说明
+                cmds.text(label="UnBevel Tool Instructions:", align="left", font="boldLabelFont")
+                cmds.text(label="- Select at least three edge loop", align="left")
+                cmds.text(label="- Click and drag to resize bevel", align="left")
+                cmds.text(label="- Alt: unbevel with steps 0.1", align="left")
+                cmds.text(label="- Ctrl + Shift: instant remove bevel", align="left")
+                cmds.text(label="- Shift: falloff A side", align="left")
+                cmds.text(label="- Ctrl: falloff B side", align="left")
+                cmds.text(label="- Ctrl + Shift + Alt: super slow", align="left")
+                
+                cmds.separator(height=10, style='double')
+                
+                # 中文说明
+                cmds.text(label="UnBevel 工具说明：", align="left", font="boldLabelFont")
+                cmds.text(label="- 选择至少三个连续的边环", align="left")
+                cmds.text(label="- 点击并拖动以调整倒角大小", align="left")
+                cmds.text(label="- Alt: 以 0.1 的步长移除倒角", align="left")
+                cmds.text(label="- Ctrl + Shift: 立即移除倒角", align="left")
+                cmds.text(label="- Shift: A 侧衰减", align="left")
+                cmds.text(label="- Ctrl: B 侧衰减", align="left")
+                cmds.text(label="- Ctrl + Shift + Alt: 超慢速模式", align="left")
+                
+
+                
+                cmds.showWindow(help_window)
+
+                # 直接执行文件
+                script_path = str(unbevel_path).replace("\\", "/")
+                
+                # 使用 cmds.evalDeferred 直接执行文件
+                cmds.evalDeferred(
+                    f'with open("{script_path}", "r", encoding="utf-8") as f: exec(f.read(), globals())'
+                )
                 
             except Exception as e:
                 print(f"\n=== 错误信息 ===")

@@ -12,7 +12,7 @@ import maya.OpenMayaUI as omui
 from shiboken2 import wrapInstance
 
 # Define constants
-HUGTOOL_VERSION = "1.1.1 Beta"
+HUGTOOL_VERSION = "1.1.2 Beta"
 HUGTOOL_ICON = "MainUI.png"
 HUGTOOL_TITLE = "HUGTOOL"
 HUGTOOL_HELP_URL = "https://megestus.github.io/HUGTools/"
@@ -63,6 +63,8 @@ import Module.Quick_Rename_Module as Quick_Rename_Module
 import Module.UVSetEditor_Module as UVSetEditor_Module
 import Module.NormalEdit_Module as NormalEdit_Module
 import Module.More_Tools_Module as More_Tools_Module
+from Toolbox.QuickExport import QuickExport
+from Toolbox.ViewCapture import screen_shot
 
 # Function to get the system encoding
 def get_system_encoding():
@@ -100,16 +102,27 @@ LANG = {
         "QuickRename": "QuickRename",
         "Rename": "Rename",
         "UVSetSwap": "UVSetSwap",
+        "QuickExport": "QuickExport",
+        "ScreenShot": "ScreenShot",
         "document": "document",
         "Help": "Help",
         "Switch Language": "Switch Language",
         "More": "More",
         "More Tools": "More Tools",
+        "QuickRename_tip": "Quick rename tool for batch renaming objects",
+        "Rename_tip": "Advanced rename editor with more options",
+        "UVSetSwap_tip": "UV set editor for managing and swapping UV sets",
+        "QuickExport_tip": "Quick export tool for exporting objects",
+        "ScreenShot_tip": "Capture viewport screenshots",
+        "More_tip": "More independent tools",
+        "Select Control": "Select Control",
+        "Crease": "Crease",
+        "Crease_tip": "Toggle crease edge display",
     },
     'zh_CN': {
         "Display Control": "显示控制",
         "Normal": "法线",
-        "Normal Size:": "法线大小：",
+        "Normal Size:": "法线大小",
         "NormalEdit": "法线编辑器",
         "Edge Display Control": "边显示控制",
         "Soft": "软边",
@@ -127,11 +140,22 @@ LANG = {
         "QuickRename": "快速重命名",
         "Rename": "重命名",
         "UVSetSwap": "UV集交换",
+        "QuickExport": "快速导出",
+        "ScreenShot": "截图",
         "document": "文档",
         "Help": "帮助",
         "Switch Language": "切换语言",
         "More": "更多",
         "More Tools": "更多工具",
+        "QuickRename_tip": "批量重命名工具",
+        "Rename_tip": "高级重命名编辑器",
+        "UVSetSwap_tip": "UV集编辑器，用于管理和交换UV集",
+        "QuickExport_tip": "快速导出工具",
+        "ScreenShot_tip": "视口截图工具",
+        "More_tip": "更多独立工具",
+        "Select Control": "选择控制",
+        "Crease": "折边",
+        "Crease_tip": "切换折边显示",
     }
 }
 
@@ -220,9 +244,9 @@ class HUGToolsWindow(QtWidgets.QDialog):
         self.toggle_hardedge_btn = RoundedButton("Hard", icon=QtGui.QIcon(":polyHardEdge.png"))
         self.toggle_hardedge_btn.setMinimumSize(80, 40)
         self.toggle_hardedge_btn.setToolTip("Toggle hard edge display")
-        self.toggle_crease_edge_btn = RoundedButton("Crease", icon=QtGui.QIcon(":polyCrease.png"))
+        self.toggle_crease_edge_btn = RoundedButton(LANG[CURRENT_LANG]["Crease"], icon=QtGui.QIcon(":polyCrease.png"))
         self.toggle_crease_edge_btn.setMinimumSize(80, 40)
-        self.toggle_crease_edge_btn.setToolTip("Toggle crease edge display")
+        self.toggle_crease_edge_btn.setToolTip(LANG[CURRENT_LANG]["Crease_tip"])
 
         # select module
         self.select_group = QtWidgets.QGroupBox("Select Control")
@@ -248,14 +272,32 @@ class HUGToolsWindow(QtWidgets.QDialog):
         #toolbox
         self.Toolbox_group = QtWidgets.QGroupBox(LANG[CURRENT_LANG]["Toolbox"])
         self.Toolbox_QuickRename_btn = RoundedButton(LANG[CURRENT_LANG]["QuickRename"], icon=QtGui.QIcon(":annotation.png"))
+        self.Toolbox_QuickRename_btn.setToolTip(LANG[CURRENT_LANG]["QuickRename_tip"])
         self.Toolbox_Rename_btn = RoundedButton(LANG[CURRENT_LANG]["Rename"], icon=QtGui.QIcon(":quickRename.png"))
+        self.Toolbox_Rename_btn.setToolTip(LANG[CURRENT_LANG]["Rename_tip"])
         self.Toolbox_UVset_btn = RoundedButton(LANG[CURRENT_LANG]["UVSetSwap"], icon=QtGui.QIcon(":polyUVSetEditor.png"))
+        self.Toolbox_UVset_btn.setToolTip(LANG[CURRENT_LANG]["UVSetSwap_tip"])
+        self.Toolbox_QuickExport_btn = RoundedButton(LANG[CURRENT_LANG]["QuickExport"], icon=QtGui.QIcon(":sourceScript.png"))
+        self.Toolbox_QuickExport_btn.setToolTip(LANG[CURRENT_LANG]["QuickExport_tip"])
+        self.Toolbox_ScreenShot_btn = RoundedButton(LANG[CURRENT_LANG]["ScreenShot"], icon=QtGui.QIcon(":out_snapshot.png"))
+        self.Toolbox_ScreenShot_btn.setToolTip(LANG[CURRENT_LANG]["ScreenShot_tip"])
         self.Toolbox_More_btn = RoundedButton(LANG[CURRENT_LANG]["More"], icon=QtGui.QIcon(":loadPreset.png"))
+        self.Toolbox_More_btn.setToolTip(LANG[CURRENT_LANG]["More_tip"])
 
-        # set button size policy
-        for btn in [self.Toolbox_QuickRename_btn, self.Toolbox_Rename_btn, self.Toolbox_UVset_btn, self.Toolbox_More_btn]:
-            btn.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
-            btn.setMinimumSize(100, 40)  
+        # 统一设置所有Toolbox按钮的大小策略和尺寸
+        toolbox_buttons = [
+            self.Toolbox_QuickRename_btn,
+            self.Toolbox_Rename_btn,
+            self.Toolbox_UVset_btn,
+            self.Toolbox_QuickExport_btn,
+            self.Toolbox_ScreenShot_btn,
+            self.Toolbox_More_btn
+        ]
+        
+        for btn in toolbox_buttons:
+            btn.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
+            btn.setMinimumSize(100, 40)
+            btn.setFixedHeight(40)  # 固定高度为40
 
 
 
@@ -318,8 +360,10 @@ class HUGToolsWindow(QtWidgets.QDialog):
         Toolbox_layout = QtWidgets.QGridLayout()
         Toolbox_layout.addWidget(self.Toolbox_QuickRename_btn, 0, 0)
         Toolbox_layout.addWidget(self.Toolbox_Rename_btn, 0, 1)
-        Toolbox_layout.addWidget(self.Toolbox_UVset_btn, 1, 0)
-        Toolbox_layout.addWidget(self.Toolbox_More_btn, 1, 1)
+        Toolbox_layout.addWidget(self.Toolbox_QuickExport_btn, 1, 0)
+        Toolbox_layout.addWidget(self.Toolbox_UVset_btn, 1, 1)
+        Toolbox_layout.addWidget(self.Toolbox_ScreenShot_btn, 2, 0)
+        Toolbox_layout.addWidget(self.Toolbox_More_btn, 2, 1)
         self.Toolbox_group.setLayout(Toolbox_layout)
 
         # add groups to main layout
@@ -389,6 +433,8 @@ class HUGToolsWindow(QtWidgets.QDialog):
         self.Toolbox_QuickRename_btn.clicked.connect(self.quick_rename)
         self.Toolbox_Rename_btn.clicked.connect(self.rename_edit)
         self.Toolbox_UVset_btn.clicked.connect(self.UVset_swap) 
+        self.Toolbox_QuickExport_btn.clicked.connect(self.quick_export)
+        self.Toolbox_ScreenShot_btn.clicked.connect(self.screen_shot)
         self.Toolbox_More_btn.clicked.connect(self.show_more_tools)
 
         # connect help button
@@ -566,7 +612,7 @@ class HUGToolsWindow(QtWidgets.QDialog):
                 cmds.select(hard_edges)
                 cmds.polyMapCut(ch=1)
 
-                # 4. 展开和布局UV
+                # 4. 展和布局UV
                 cmds.select(obj)
                 cmds.u3dUnfold(ite=1, p=0, bi=1, tf=1, ms=1024, rs=0)
                 cmds.u3dLayout(res=256, scl=1, spc=0.03125, mar=0.03125, box=(0, 1, 0, 1))
@@ -811,6 +857,10 @@ class HUGToolsWindow(QtWidgets.QDialog):
 
     #============toolbox function modules===============
 
+    def quick_rename(self):
+        importlib.reload(Quick_Rename_Module)
+        Quick_Rename_Module.show()
+
 
     def rename_edit(self):
         importlib.reload(Editor_Rename_Module)
@@ -820,13 +870,24 @@ class HUGToolsWindow(QtWidgets.QDialog):
         importlib.reload(UVSetEditor_Module)
         UVSetEditor_Module.show()
 
-    def quick_rename(self):
-        importlib.reload(Quick_Rename_Module)
-        Quick_Rename_Module.show()
+
+    def quick_export(self):
+        importlib.reload(QuickExport)
+        QuickExport.show()
+
+    def screen_shot(self):
+        importlib.reload(screen_shot)
+        screen_shot.show()
+
 
     def show_more_tools(self):
         importlib.reload(More_Tools_Module)
         More_Tools_Module.show()
+
+
+
+
+
 
 
 
@@ -870,14 +931,18 @@ class HUGToolsWindow(QtWidgets.QDialog):
         
         self.crease_set_group.setTitle(LANG[CURRENT_LANG]["Crease Control"])
         self.open_crease_editor_btn.setText(LANG[CURRENT_LANG]["Crease Editor"])
-        self.create_fixed_crease_set_btn.setText(LANG[CURRENT_LANG]["Create Crease Set by Name"])
-        self.crease_1_btn.setText(LANG[CURRENT_LANG]["Crease V2"])
-        self.crease_3_btn.setText(LANG[CURRENT_LANG]["Crease V5"])
+        
+        # 移除被注释掉的按钮的翻译
+        # self.create_fixed_crease_set_btn.setText(LANG[CURRENT_LANG]["Create Crease Set by Name"])
+        # self.crease_1_btn.setText(LANG[CURRENT_LANG]["Crease V2"])
+        # self.crease_3_btn.setText(LANG[CURRENT_LANG]["Crease V5"])
         
         self.Toolbox_group.setTitle(LANG[CURRENT_LANG]["Toolbox"])
         self.Toolbox_QuickRename_btn.setText(LANG[CURRENT_LANG]["QuickRename"])
         self.Toolbox_Rename_btn.setText(LANG[CURRENT_LANG]["Rename"])
         self.Toolbox_UVset_btn.setText(LANG[CURRENT_LANG]["UVSetSwap"])
+        self.Toolbox_QuickExport_btn.setText(LANG[CURRENT_LANG]["QuickExport"])
+        self.Toolbox_ScreenShot_btn.setText(LANG[CURRENT_LANG]["ScreenShot"])
         self.Toolbox_More_btn.setText(LANG[CURRENT_LANG]["More"])
 
         self.select_group.setTitle(LANG[CURRENT_LANG]["Select Control"])
@@ -886,6 +951,16 @@ class HUGToolsWindow(QtWidgets.QDialog):
         self.planar_projection_btn.setText(LANG[CURRENT_LANG]["Planar Projection"])
         self.uvlayout_hardedges_btn.setText(LANG[CURRENT_LANG]["UV Layout by Hard Edges"])
 
+        # 更新工具箱按钮的工具提示
+        self.Toolbox_QuickRename_btn.setToolTip(LANG[CURRENT_LANG]["QuickRename_tip"])
+        self.Toolbox_Rename_btn.setToolTip(LANG[CURRENT_LANG]["Rename_tip"])
+        self.Toolbox_UVset_btn.setToolTip(LANG[CURRENT_LANG]["UVSetSwap_tip"])
+        self.Toolbox_QuickExport_btn.setToolTip(LANG[CURRENT_LANG]["QuickExport_tip"])
+        self.Toolbox_ScreenShot_btn.setToolTip(LANG[CURRENT_LANG]["ScreenShot_tip"])
+        self.Toolbox_More_btn.setToolTip(LANG[CURRENT_LANG]["More_tip"])
+
+        self.toggle_crease_edge_btn.setText(LANG[CURRENT_LANG]["Crease"])
+        self.toggle_crease_edge_btn.setToolTip(LANG[CURRENT_LANG]["Crease_tip"])
 
 
 def show():
