@@ -400,39 +400,41 @@ class Editor_Rename_Module_UI(QtWidgets.QWidget):
     def add_prefix_or_suffix(self, is_suffix):
         """
         Add prefix or suffix to selected objects
-        
-        Parameters:
-        is_suffix (bool): If True, add suffix; if False, add prefix
-        
-        Features:
-        - Get user input for prefix or suffix text
-        - Add prefix or suffix to selected objects
-        - Use sanitize_name method to ensure new names are valid
-        - Only process the short name of objects, not affecting their position in the hierarchy
         """
         text = self.suffix_field.text() if is_suffix else self.prefix_field.text()
         selection = cmds.ls(selection=True, long=True)
         renamed_objects = []
+        
         for obj in selection:
-            # Get the short name of the object
+            # 获取短名称
             short_name = obj.split('|')[-1]
-            # Create new name
-            new_name = self.sanitize_name(f"{short_name}{text}" if is_suffix else f"{text}{short_name}")
+            
+            # 移除现有的后缀（如果存在）
+            if is_suffix and '_' in short_name:
+                base_name = short_name.rsplit('_', 1)[0]
+                new_name = self.sanitize_name(f"{base_name}{text}")
+            else:
+                new_name = self.sanitize_name(f"{short_name}{text}" if is_suffix else f"{text}{short_name}")
+                
             try:
-                # Use long name for renaming, but only change the last part
                 renamed = cmds.rename(obj, new_name)
                 renamed_objects.append(renamed)
             except RuntimeError as e:
-                cmds.warning(f"Unable to rename {short_name}: {str(e)}")
+                cmds.warning(f"无法重命名 {short_name}: {str(e)}")
 
-        # Update selection
+        # 更新选择
         if renamed_objects:
             cmds.select(renamed_objects, replace=True)
         else:
             cmds.select(clear=True)
 
-        # Display operation completion message
-        cmds.inViewMessage(amg=f'<span style="color:#fbca82;">Added {"suffix" if is_suffix else "prefix"}: {text}</span>', pos='botRight', fade=True)
+        # 显示操作完成消息
+        operation_type = "后缀" if is_suffix else "前缀"
+        cmds.inViewMessage(
+            amg=f'<span style="color:#fbca82;">已添加{operation_type}: {text}</span>', 
+            pos='botRight', 
+            fade=True
+        )
 
     def remove_first_or_last_char(self, remove_first):
         """
