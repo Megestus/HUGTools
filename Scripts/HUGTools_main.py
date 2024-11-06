@@ -12,7 +12,7 @@ import maya.OpenMayaUI as omui
 from shiboken2 import wrapInstance
 
 # Define constants
-HUGTOOL_VERSION = "1.1.2 Beta"
+HUGTOOL_VERSION = "1.1.3 Beta"
 HUGTOOL_ICON = "MainUI.png"
 HUGTOOL_TITLE = "HUGTOOL"
 HUGTOOL_HELP_URL = "https://megestus.github.io/HUGTools/"
@@ -63,6 +63,7 @@ import Module.Quick_Rename_Module as Quick_Rename_Module
 import Module.UVSetEditor_Module as UVSetEditor_Module
 import Module.NormalEdit_Module as NormalEdit_Module
 import Module.More_Tools_Module as More_Tools_Module
+import Module.UnBevel_Module as UnBevel_Module
 from Toolbox.QuickExport import QuickExport
 from Toolbox.ViewCapture import screen_shot
 
@@ -118,6 +119,8 @@ LANG = {
         "Select Control": "Select Control",
         "Crease": "Crease",
         "Crease_tip": "Toggle crease edge display",
+        "UnBevel": "UnBevel",
+        "UnBevel_tip": "Tool for unbeveling edges",
     },
     'zh_CN': {
         "Display Control": "显示控制",
@@ -156,6 +159,8 @@ LANG = {
         "Select Control": "选择控制",
         "Crease": "折边",
         "Crease_tip": "切换折边显示",
+        "UnBevel": "倒角还原",
+        "UnBevel_tip": "边缘倒角还原工具",
     }
 }
 
@@ -279,6 +284,8 @@ class HUGToolsWindow(QtWidgets.QDialog):
         self.Toolbox_UVset_btn.setToolTip(LANG[CURRENT_LANG]["UVSetSwap_tip"])
         self.Toolbox_QuickExport_btn = RoundedButton(LANG[CURRENT_LANG]["QuickExport"], icon=QtGui.QIcon(":sourceScript.png"))
         self.Toolbox_QuickExport_btn.setToolTip(LANG[CURRENT_LANG]["QuickExport_tip"])
+        self.Toolbox_UnBevel_btn = RoundedButton(LANG[CURRENT_LANG]["UnBevel"], icon=QtGui.QIcon(":polyBevel.png"))
+        self.Toolbox_UnBevel_btn.setToolTip(LANG[CURRENT_LANG]["UnBevel_tip"])
         self.Toolbox_ScreenShot_btn = RoundedButton(LANG[CURRENT_LANG]["ScreenShot"], icon=QtGui.QIcon(":out_snapshot.png"))
         self.Toolbox_ScreenShot_btn.setToolTip(LANG[CURRENT_LANG]["ScreenShot_tip"])
         self.Toolbox_More_btn = RoundedButton(LANG[CURRENT_LANG]["More"], icon=QtGui.QIcon(":loadPreset.png"))
@@ -291,6 +298,7 @@ class HUGToolsWindow(QtWidgets.QDialog):
             self.Toolbox_UVset_btn,
             self.Toolbox_QuickExport_btn,
             self.Toolbox_ScreenShot_btn,
+            self.Toolbox_UnBevel_btn,
             self.Toolbox_More_btn
         ]
         
@@ -362,8 +370,9 @@ class HUGToolsWindow(QtWidgets.QDialog):
         Toolbox_layout.addWidget(self.Toolbox_Rename_btn, 0, 1)
         Toolbox_layout.addWidget(self.Toolbox_QuickExport_btn, 1, 0)
         Toolbox_layout.addWidget(self.Toolbox_UVset_btn, 1, 1)
-        Toolbox_layout.addWidget(self.Toolbox_ScreenShot_btn, 2, 0)
-        Toolbox_layout.addWidget(self.Toolbox_More_btn, 2, 1)
+        Toolbox_layout.addWidget(self.Toolbox_UnBevel_btn, 2, 0)
+        Toolbox_layout.addWidget(self.Toolbox_ScreenShot_btn, 2, 1)
+        Toolbox_layout.addWidget(self.Toolbox_More_btn, 3, 0)
         self.Toolbox_group.setLayout(Toolbox_layout)
 
         # add groups to main layout
@@ -435,6 +444,7 @@ class HUGToolsWindow(QtWidgets.QDialog):
         self.Toolbox_UVset_btn.clicked.connect(self.UVset_swap) 
         self.Toolbox_QuickExport_btn.clicked.connect(self.quick_export)
         self.Toolbox_ScreenShot_btn.clicked.connect(self.screen_shot)
+        self.Toolbox_UnBevel_btn.clicked.connect(self.unbevel_tool)
         self.Toolbox_More_btn.clicked.connect(self.show_more_tools)
 
         # connect help button
@@ -879,11 +889,14 @@ class HUGToolsWindow(QtWidgets.QDialog):
         importlib.reload(screen_shot)
         screen_shot.show()
 
+    def unbevel_tool(self):
+        """Launch UnBevel tool UI"""
+        importlib.reload(UnBevel_Module)
+        UnBevel_Module.show_ui()
 
     def show_more_tools(self):
         importlib.reload(More_Tools_Module)
         More_Tools_Module.show()
-
 
 
 
@@ -943,6 +956,7 @@ class HUGToolsWindow(QtWidgets.QDialog):
         self.Toolbox_UVset_btn.setText(LANG[CURRENT_LANG]["UVSetSwap"])
         self.Toolbox_QuickExport_btn.setText(LANG[CURRENT_LANG]["QuickExport"])
         self.Toolbox_ScreenShot_btn.setText(LANG[CURRENT_LANG]["ScreenShot"])
+        self.Toolbox_UnBevel_btn.setText(LANG[CURRENT_LANG]["UnBevel"])
         self.Toolbox_More_btn.setText(LANG[CURRENT_LANG]["More"])
 
         self.select_group.setTitle(LANG[CURRENT_LANG]["Select Control"])
@@ -957,11 +971,13 @@ class HUGToolsWindow(QtWidgets.QDialog):
         self.Toolbox_UVset_btn.setToolTip(LANG[CURRENT_LANG]["UVSetSwap_tip"])
         self.Toolbox_QuickExport_btn.setToolTip(LANG[CURRENT_LANG]["QuickExport_tip"])
         self.Toolbox_ScreenShot_btn.setToolTip(LANG[CURRENT_LANG]["ScreenShot_tip"])
+        self.Toolbox_UnBevel_btn.setToolTip(LANG[CURRENT_LANG]["UnBevel_tip"])
         self.Toolbox_More_btn.setToolTip(LANG[CURRENT_LANG]["More_tip"])
 
         self.toggle_crease_edge_btn.setText(LANG[CURRENT_LANG]["Crease"])
         self.toggle_crease_edge_btn.setToolTip(LANG[CURRENT_LANG]["Crease_tip"])
 
+    
 
 def show():
     global hug_tools_window

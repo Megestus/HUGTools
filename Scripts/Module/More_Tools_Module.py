@@ -95,22 +95,6 @@ class MoreToolsWindow(QtWidgets.QDialog):
                     "icon": "Im3dJoe/icons/speedCut.png",
                     "tooltip": "Speed Cut Tool", 
                     "description": "Quick mesh cutting and modeling tool"
-                },
-                {
-                    "name": "UnBevel",
-                    "icon": "polyBevel.png",
-                    "tooltip": "UnBevel Tool\n\nInstructions:\n- Select at least three edge loop\n- Click and drag to resize bevel\n- Alt: unbevel with steps 0.1\n- Ctrl + Shift: instant remove bevel\n- Shift: falloff A side\n- Ctrl: falloff B side\n- Ctrl + Shift + Alt: super slow",
-                    "description": "Tool for removing bevels from meshes",
-                    "help_message": """
-                    UnBevel Tool Instructions:
-                    - Select at least three edge loop
-                    - Click and drag to resize bevel
-                    - Alt: unbevel with steps 0.1
-                    - Ctrl + Shift: instant remove bevel
-                    - Shift: falloff A side
-                    - Ctrl: falloff B side
-                    - Ctrl + Shift + Alt: super slow
-                    """
                 }
             ],
             "Dev": [
@@ -607,74 +591,6 @@ class MoreToolsWindow(QtWidgets.QDialog):
 
 
                 
-        elif tool_name == "UnBevel":
-            try:
-                # 构建UnBevel工具路径
-                unbevel_dir = toolbox_dir / "Im3dJoe"
-                unbevel_path = unbevel_dir / "unBevel1.54.py"
-                
-                # 检查文件是否存在
-                if not unbevel_path.exists():
-                    raise FileNotFoundError(f"找不到unBevel1.54.py文件: {unbevel_path}")
-
-                print("\n=== 工具路径信息 ===")
-                print(f"工具目录: {unbevel_dir}")
-                print(f"主程序文件: {unbevel_path}")
-
-                # 创建说明窗口
-                if cmds.window("unBevelHelpWindow", exists=True):
-                    cmds.deleteUI("unBevelHelpWindow")
-                    
-                help_window = cmds.window("unBevelHelpWindow", 
-                                         title="UnBevel Tool Help", 
-                                         widthHeight=(280, 150),  # 设置固定宽高
-                                         sizeable=False,  # 禁止调整大小
-                                         resizeToFitChildren=False)  # 禁止自动调整大小
-
-                main_layout = cmds.columnLayout(adjustableColumn=True, 
-                                               columnAttach=('both', 5),
-                                               height=290)  # 设置布局高度
-                
-                # 英文说明
-                cmds.text(label="UnBevel Tool Instructions:", align="left", font="boldLabelFont")
-                cmds.text(label="- Select at least three edge loop", align="left")
-                cmds.text(label="- Click and drag to resize bevel", align="left")
-                cmds.text(label="- Alt: unbevel with steps 0.1", align="left")
-                cmds.text(label="- Ctrl + Shift: instant remove bevel", align="left")
-                cmds.text(label="- Shift: falloff A side", align="left")
-                cmds.text(label="- Ctrl: falloff B side", align="left")
-                cmds.text(label="- Ctrl + Shift + Alt: super slow", align="left")
-                
-                cmds.separator(height=10, style='double')
-                
-                # 中文说明
-                cmds.text(label="UnBevel 工具说明：", align="left", font="boldLabelFont")
-                cmds.text(label="- 选择至少三个连续的边环", align="left")
-                cmds.text(label="- 点击并拖动以调整倒角大小", align="left")
-                cmds.text(label="- Alt: 以 0.1 的步长移除倒角", align="left")
-                cmds.text(label="- Ctrl + Shift: 立即移除倒角", align="left")
-                cmds.text(label="- Shift: A 侧衰减", align="left")
-                cmds.text(label="- Ctrl: B 侧衰减", align="left")
-                cmds.text(label="- Ctrl + Shift + Alt: 超慢速模式", align="left")
-                
-
-                
-                cmds.showWindow(help_window)
-
-                # 直接执行文件
-                script_path = str(unbevel_path).replace("\\", "/")
-                
-                # 使用 cmds.evalDeferred 直接执行文件
-                cmds.evalDeferred(
-                    f'with open("{script_path}", "r", encoding="utf-8") as f: exec(f.read(), globals())'
-                )
-                
-            except Exception as e:
-                print(f"\n=== 错误信息 ===")
-                print(f"加载{tool_name}时出错:")
-                print(f"错误类型: {type(e).__name__}")
-                print(f"错误信息: {str(e)}")
-                traceback.print_exc()
         else:
             print(f"{tool_name} - In development")
 

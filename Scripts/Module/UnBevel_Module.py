@@ -1,76 +1,335 @@
 ##--------------------------------------------------------------------------
 ##
-## ScriptName : unBevel
-## Author     : Joe Wu
-## URL        : http://im3djoe.com
-## LastUpdate : 2024/10
-##            : unbevel edge ring, there are limitation, it will need at least three edges to calculate unbevel point.
-## Version    : 1.0  First version for public test
-##            : 1.1  add slide function, can be use for reAdjust bevel size
-##            : 1.11 add +shift key for instant unBevel
-##            : 1.12 bug fix
-##            : 1.14 bug fix in maya 2022
-##            : 1.15 adding hud display and steps 0.1
-##            : 1.5  adding falloff
-##            : 1.51 fix headsUpDisplay bug
-##            : 1.53 fixing bug when single edge loop selected
-##            : 1.54 fixing bug ls not return seperate item
-## Other Note : test in maya 2023.3 windows
+## ScriptName : UnBevel Module
+## Contents   : UnBevel tool for Maya
+## Author     : Megesuts
+## Credits    : Special thanks to Joe Wu (http://im3djoe.com) for the original unBevel code
+## LastUpdate : 2024/03
 ##
-## Install    : copy and paste script into a python tab in maya script editor
-## how to use : select at least three edge loop (also work for multi edge ring), and run the script, recommand assign it to a hot key.
-##              click and drag for resize bevel,
-##              + alt  : unbevel with steps 0.1  
-##              + ctrl + shift: instant remove bevel            
-##              + shift: falloff A side
-##              + ctrl : falloff B side
-##              + ctrl + shift + alt: super slow
 ##--------------------------------------------------------------------------
 
-
+#====== Imports ======
 import maya.cmds as mc
+import maya.mel as mel
 import math
 import re
-import maya.mel as mel
 import maya.api.OpenMaya as om2
+from PySide2 import QtWidgets, QtCore, QtGui
+from maya import OpenMayaUI as omui
+from shiboken2 import wrapInstance
 
 
-def createUnBevelUI():
-    if mc.window('unBevelWindow', exists=True):
-        mc.deleteUI('unBevelWindow')
-    
-    window = mc.window('unBevelWindow', title='UnBevel Settings', widthHeight=(300, 100))
-    mc.columnLayout(adjustableColumn=True)
-    
-    global unBevelSlider
-    unBevelSlider = mc.floatSliderGrp(
-        label='UnBevel Value', 
-        field=True,
-        minValue=0.0,
-        maxValue=100.0,
-        value=50.0,
-        step=0.1,
-        dc=lambda *args: updateUnBevelValue(),
-        cc=lambda *args: updateUnBevelValue()
-    )
-    
-    mc.showWindow(window)
 
-def updateUnBevelValue(*args):
-    global lockCount, viewPortCount
-    value = mc.floatSliderGrp(unBevelSlider, query=True, value=True)
-    lockCount = value
-    viewPortCount = value
+#====== Global Variables ======
+viewPortCount = 0
+lockCount = 50
+screenX = 0
+screenY = 0
+ppData = []
+vLData = []
+cLData = []
+cumulative_fractions = []
+
+#====== UI Class ======
+class RoundedButton(QtWidgets.QPushButton):
+    """Custom rounded button class"""
+    def __init__(self, text="", icon=None):
+        super(RoundedButton, self).__init__(text)
+        if icon:
+            self.setIcon(icon)
+            self.setIconSize(QtCore.QSize(24, 24))
+        self.setStyleSheet(
+            """
+            QPushButton {
+                background-color: #D0D0D0;
+                color: #303030;
+                border-radius: 10px;
+                padding: 5px;
+                font-weight: bold;
+                text-align: center;
+            }
+            QPushButton:hover {
+                background-color: #E0E0E0;
+            }
+            QPushButton:pressed {
+                background-color: #C0C0C0;
+            }
+            """
+        )
+
+class UnBevelUI(QtWidgets.QDialog):
+    def __init__(self, parent=None):
+        super(UnBevelUI, self).__init__(parent)
+        self.setWindowTitle("UnBevel Tool")
+        self.setMinimumWidth(300)
+        self.setWindowFlags(self.windowFlags() | QtCore.Qt.Tool)
+        self.current_language = 'en'  # 添加语言状态标记
+        self.create_widgets()
+        self.create_layouts()
+        self.create_connections()
+
+    def create_widgets(self):
+        # 创建语言切换按钮
+        self.lang_btn = QtWidgets.QPushButton()
+        self.lang_btn.setFixedSize(24, 24)
+        self.lang_btn.setStyleSheet("""
+            QPushButton {
+                background-color: transparent;
+                border: none;
+                color: #666666;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                color: #888888;
+            }
+        """)
+        self.update_lang_button_text()
+
+        # 创建初始化按钮
+        self.init_btn = RoundedButton("UnBevel", icon=QtGui.QIcon(":polyBevel.png"))
+        self.init_btn.setMinimumHeight(40)
+
+        # 创建说明标签
+        self.info_label_en = QtWidgets.QLabel(
+            "UnBevel Tool Instructions:\n"
+            "1. Select at least three edge loop\n"
+            "2. Click UnBevel\n"
+            "3. Middle click and drag to resize bevel\n\n"
+            "Hotkeys while dragging:\n"
+            "+ Alt: unbevel with steps 0.1\n"
+            "+ Ctrl + Shift: instant remove bevel\n"
+            "+ Shift: falloff A side\n"
+            "+ Ctrl: falloff B side\n"
+            "+ Ctrl + Shift + Alt: super slow"
+        )
+        self.info_label_en.setStyleSheet("color: #666666;")
+
+        # 创建中文说明标签
+        self.info_label_cn = QtWidgets.QLabel(
+            "UnBevel 工具说明：\n"
+            "1. 选择至少三个连续的边环\n"
+            "2. 点击UnBevel\n"
+            "3. 中键点击拖动以调整倒角大小\n\n"
+            "快捷键说明：\n"
+            "+ Alt: 以 0.1 的步长移除倒角\n"
+            "+ Ctrl + Shift: 立即移除倒角\n"
+            "+ Shift: A 侧衰减\n"
+            "+ Ctrl: B 侧衰减\n"
+            "+ Ctrl + Shift + Alt: 超慢速模式"
+        )
+        self.info_label_cn.setStyleSheet("color: #666666;")
+        self.info_label_cn.hide()  # 默认隐藏中文说明
+
+        # 添加UnBevel值滑块
+        self.unbevel_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
+        self.unbevel_slider.setMinimum(0)
+        self.unbevel_slider.setMaximum(1000)  # 对应0-100的值乘以10
+        self.unbevel_slider.setValue(1000)     # 修改为1000，对应100.0
+        
+        self.value_label = QtWidgets.QLabel("100.0")  # 修改默认显示值
+        self.value_label.setAlignment(QtCore.Qt.AlignCenter)
+        
+        # 添加应用按钮
+        self.apply_btn = RoundedButton("Apply")
+        self.apply_btn.setMinimumHeight(35)
+
+    def create_layouts(self):
+        main_layout = QtWidgets.QVBoxLayout(self)
+        main_layout.setContentsMargins(10, 10, 10, 10)
+        main_layout.setSpacing(7)
+
+        # 创建说明组
+        info_group = QtWidgets.QGroupBox("Instructions")
+        info_layout = QtWidgets.QVBoxLayout()
+        
+        # 添加语言切换按钮到右上角
+        title_layout = QtWidgets.QHBoxLayout()
+        title_layout.addStretch()
+        title_layout.addWidget(self.lang_btn)
+        info_layout.addLayout(title_layout)
+        
+        # 添加说明标签
+        info_layout.addWidget(self.info_label_en)
+        info_layout.addWidget(self.info_label_cn)
+        info_group.setLayout(info_layout)
+
+        # 创建工具组
+        tool_group = QtWidgets.QGroupBox("Tools")
+        tool_layout = QtWidgets.QVBoxLayout()
+        
+        # 添加UnBevel按钮
+        tool_layout.addWidget(self.init_btn)
+        
+        # 添加滑块和值标签
+        slider_layout = QtWidgets.QHBoxLayout()
+        slider_layout.addWidget(QtWidgets.QLabel("UnBevel Value:"))
+        slider_layout.addWidget(self.unbevel_slider)
+        slider_layout.addWidget(self.value_label)
+        tool_layout.addLayout(slider_layout)
+        
+        # 添加应用按钮
+        tool_layout.addWidget(self.apply_btn)
+        
+        tool_group.setLayout(tool_layout)
+
+        # 添加到主布局
+        main_layout.addWidget(info_group)
+        main_layout.addWidget(tool_group)
+
+    def create_connections(self):
+        # 添加语言切换按钮的连接
+        self.lang_btn.clicked.connect(self.toggle_language)
+        
+        # 其他连接保持不变...
+        self.init_btn.clicked.connect(unBevel)
+        self.unbevel_slider.valueChanged.connect(self.update_unbevel_value)
+        self.apply_btn.clicked.connect(self.apply_and_close)
+        
+    def update_unbevel_value(self):
+        value = self.unbevel_slider.value() / 10.0
+        self.value_label.setText(f"{value:.1f}")
+        
+        # 更新模型
+        global lockCount, viewPortCount
+        lockCount = value
+        viewPortCount = value
+        
+        if hasattr(mc, 'refresh'):
+            for i in range(len(ppData)):
+                for v in range(len(vLData[i])):
+                    moveX = ppData[i][0] - (cLData[i][v][0] * lockCount)
+                    moveY = ppData[i][1] - (cLData[i][v][1] * lockCount)
+                    moveZ = ppData[i][2] - (cLData[i][v][2] * lockCount)
+                    mc.move(moveX, moveY, moveZ, vLData[i][v], absolute=1, ws=1)
+            mc.refresh(f=True)
+            
+    def apply_and_close(self):
+        """应用当前设置并切换到对象模式，同时设置硬边"""
+        global vLData
+        
+        # 合并顶点
+        flattenList = []
+        for v in vLData:
+            for x in range(len(v)):
+                flattenList.append(v[x])
+                
+        # 获取原始选择的边（在合并前）
+        meshName = flattenList[0].split('.')[0]
+        original_edges = mc.ls('saveSel', fl=True)
+        
+        # 执行合并
+        mc.polyMergeVertex(flattenList, d=0.001, am=0, ch=0)
+        
+        
+        # 处理选择集
+        if mc.objExists('saveSel'):
+            mc.select('saveSel')
+            mc.delete('saveSel')
+        
+        # 切换到对象模式
+        mc.selectMode(object=True)
+        mc.setToolTo('selectSuperContext')
+
+    def update_lang_button_text(self):
+        """更新语言切换按钮的文本"""
+        self.lang_btn.setText('中' if self.current_language == 'en' else 'En')
+
+    def toggle_language(self):
+        """切换显示语言"""
+        if self.current_language == 'en':
+            self.info_label_en.hide()
+            self.info_label_cn.show()
+            self.current_language = 'cn'
+        else:
+            self.info_label_cn.hide()
+            self.info_label_en.show()
+            self.current_language = 'en'
+        self.update_lang_button_text()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#====== Core Functions ======
+# 从unBevel1.54.py复制的代码
+def unBevelPress():
+    global viewPortCount, lockCount, screenX, screenY
+    viewPortCount = 0
+    lockCount = 50
+    vpX, vpY, _ = mc.draggerContext('unBevelCtx', query=True, anchorPoint=True)
+    screenX = vpX
+    screenY = vpY
     
-    # 更新模型
-    if hasattr(mc, 'refresh'):
+    mc.headsUpDisplay('HUDunBevelStep',
+                     section=3,
+                     block=1,
+                     blockSize='large',
+                     label='unBevel',
+                     labelFontSize='large',
+                     command=currentStep,
+                     atr=1,
+                     ao=1)
+
+def unBevelDrag():
+    global viewPortCount, lockCount, screenX, screenY, ppData, vLData, cLData
+    modifiers = mc.getModifiers()
+    vpX, vpY, _ = mc.draggerContext('unBevelCtx', query=True, dragPoint=True)
+    
+    if modifiers == 5:  # Shift + Ctrl
         for i in range(len(ppData)):
-            for v in range(len(vLData[i])):
-                moveX = ppData[i][0] - (cLData[i][v][0] * lockCount)
-                moveY = ppData[i][1] - (cLData[i][v][1] * lockCount)
-                moveZ = ppData[i][2] - (cLData[i][v][2] * lockCount)
-                mc.move(moveX, moveY, moveZ, vLData[i][v], absolute=1, ws=1)
-        mc.refresh(f=True)
+            mc.scale(0, 0, 0, vLData[i], cs=1, r=1, p=(ppData[i][0], ppData[i][1], ppData[i][2]))
+        viewPortCount = 0
+    else:
+        if screenX > vpX:
+            lockCount -= 5
+        else:
+            lockCount += 5
+            
+        screenX = vpX
+        
+        if lockCount > 0:
+            for i in range(len(ppData)):
+                for v in range(len(vLData[i])):
+                    moveX = ppData[i][0] - (cLData[i][v][0] * lockCount)
+                    moveY = ppData[i][1] - (cLData[i][v][1] * lockCount)
+                    moveZ = ppData[i][2] - (cLData[i][v][2] * lockCount)
+                    mc.move(moveX, moveY, moveZ, vLData[i][v], absolute=1, ws=1)
+            viewPortCount = lockCount
+        else:
+            viewPortCount = 0.1
+            
+    mc.refresh(f=True)
+
+def unBevelOff():
+    global vLData
+    mc.headsUpDisplay('HUDunBevelStep', rem=True)
+    flattenList = []
+    for v in vLData:
+        for x in range(len(v)):
+            flattenList.append(v[x])
+            
+    mc.polyMergeVertex(flattenList, d=0.001, am=0, ch=0)
+    mc.select('saveSel')
+    meshName = flattenList[0].split('.')[0]
+    cmd = 'doMenuNURBComponentSelection("' + meshName + '", "edge");'
+    mel.eval(cmd)
+    mc.setToolTo('selectSuperContext')
+    
+    if mc.objExists('saveSel'):
+        mc.delete('saveSel')
+
 
 def unBevel():
     #checCurrentkHUD =  mc.headsUpDisplay(lh=1)
@@ -133,8 +392,6 @@ def unBevel():
         # Create dragger context and set it to the active tool
         mc.draggerContext(ctx, pressCommand = unBevelPress, rc = unBevelOff, dragCommand = unBevelDrag, name=ctx, cursor='crossHair',undoMode='step')
         mc.setToolTo(ctx)
-
-        createUnBevelUI()
 
 def unBevelOff():
     # 删除UI窗口
@@ -502,4 +759,65 @@ def calculate_edge_distances(vertex_list):
 
 
 
-unBevel()
+
+
+
+
+def show():
+    """执行UnBevel"""
+    global ppData, vLData, cLData, cumulative_fractions
+    ppData = []
+    vLData = []
+    cLData = []
+    cumulative_fractions = []
+    
+    selEdge = mc.filterExpand(expand=True, sm=32)
+    if selEdge:
+        if mc.objExists('saveSel'):
+            mc.delete('saveSel')
+        mc.sets(name="saveSel", text="saveSel")
+        sortGrp = getEdgeRingGroup()
+        
+        for e in sortGrp:
+            pPoint, vList, cList = unBevelEdgeLoop(e)
+            ppData.append(pPoint)
+            vLData.append(vList)
+            cLData.append(cList)
+            
+        # 创建拖拽上下文
+        if mc.draggerContext('unBevelCtx', exists=True):
+            mc.deleteUI('unBevelCtx')
+            
+        mc.draggerContext(
+            'unBevelCtx',
+            pressCommand=unBevelPress,
+            dragCommand=unBevelDrag,
+            releaseCommand=unBevelOff,
+            name='unBevelCtx',
+            cursor='crossHair',
+            undoMode='step'
+        )
+        
+        mc.setToolTo('unBevelCtx')
+
+#====== UI Functions ======
+def maya_main_window():
+    main_window_ptr = omui.MQtUtil.mainWindow()
+    return wrapInstance(int(main_window_ptr), QtWidgets.QWidget)
+
+def show_ui():
+    """显示UnBevel工具UI窗口"""
+    global unbevel_window
+    try:
+        unbevel_window.close()
+        unbevel_window.deleteLater()
+    except:
+        pass
+    
+    parent = maya_main_window()
+    unbevel_window = UnBevelUI(parent)
+    unbevel_window.show()
+
+#====== Main ======
+if __name__ == "__main__":
+    show_ui()

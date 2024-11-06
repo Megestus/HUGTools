@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 from PySide2 import QtWidgets, QtCore, QtGui
 import maya.cmds as cmds
 import maya.mel as mel
@@ -139,22 +141,16 @@ class QuickExportFBX_UI(QtWidgets.QDialog):
         # 使用ModItButton替换原来的按钮
         self.browse_btn = ModItButton("Browse", icon=QtGui.QIcon(":fileOpen.png"))
         
-        # 选项组
-        self.options_group = QtWidgets.QGroupBox("Options")
-        
-        # 几何体选项
-        self.geo_label = QtWidgets.QLabel("Geometry Options:")
-        self.smooth_groups_cb = QtWidgets.QCheckBox("Smooth Groups")
-        self.hard_edges_cb = QtWidgets.QCheckBox("Hard Edges")
-        self.tangents_cb = QtWidgets.QCheckBox("Tangents and Binormals")
-        self.smooth_mesh_cb = QtWidgets.QCheckBox("Smooth Mesh")
-        self.triangulate_cb = QtWidgets.QCheckBox("Triangulate")
-        self.instances_cb = QtWidgets.QCheckBox("Keep Instances")
-        
-        # 文件格式选项
-        self.format_label = QtWidgets.QLabel("File Format:")
-        self.file_type_combo = QtWidgets.QComboBox()
-        self.file_type_combo.addItems(["Binary", "ASCII"])
+        # 添加导出格式单选框
+        self.format_group = QtWidgets.QGroupBox("Export Format")
+        self.format_button_group = QtWidgets.QButtonGroup(self)  # 创建按钮组
+        self.fbx_format_rb = QtWidgets.QRadioButton("FBX")
+        self.obj_format_rb = QtWidgets.QRadioButton("OBJ")
+        # 将单选框添加到按钮组
+        self.format_button_group.addButton(self.fbx_format_rb)
+        self.format_button_group.addButton(self.obj_format_rb)
+        # 默认选中FBX
+        self.fbx_format_rb.setChecked(True)
         
         # 导出按钮
         self.export_btn = ModItButton("Export Selected Objects", icon=QtGui.QIcon(":fileNew.png"))
@@ -179,29 +175,12 @@ class QuickExportFBX_UI(QtWidgets.QDialog):
         path_layout.addWidget(self.path_line)
         path_layout.addWidget(self.browse_btn)
         
-        # 选项布局
-        options_layout = QtWidgets.QVBoxLayout()
-        
-        # 几何体选项网格布局
-        geo_grid = QtWidgets.QGridLayout()
-        geo_grid.addWidget(self.geo_label, 0, 0, 1, 2)
-        geo_grid.addWidget(self.smooth_groups_cb, 1, 0)
-        geo_grid.addWidget(self.hard_edges_cb, 1, 1)
-        geo_grid.addWidget(self.tangents_cb, 2, 0)
-        geo_grid.addWidget(self.smooth_mesh_cb, 2, 1)
-        geo_grid.addWidget(self.triangulate_cb, 3, 0)
-        geo_grid.addWidget(self.instances_cb, 3, 1)
-        
-        # 文件格式布局
+        # 导出格式单选框布局
         format_layout = QtWidgets.QHBoxLayout()
-        format_layout.addWidget(self.format_label)
-        format_layout.addWidget(self.file_type_combo)
+        format_layout.addWidget(self.fbx_format_rb)
+        format_layout.addWidget(self.obj_format_rb)
         format_layout.addStretch()
-        
-        # 将所有选项添加到选项组
-        options_layout.addLayout(geo_grid)
-        options_layout.addLayout(format_layout)
-        self.options_group.setLayout(options_layout)
+        self.format_group.setLayout(format_layout)
         
         # 导出按钮布局
         export_layout = QtWidgets.QHBoxLayout()
@@ -216,7 +195,7 @@ class QuickExportFBX_UI(QtWidgets.QDialog):
         
         # 添加所有元素到主布局
         main_layout.addLayout(path_layout)
-        main_layout.addWidget(self.options_group)
+        main_layout.addWidget(self.format_group)  # 添加格式选择组
         main_layout.addLayout(export_layout)
         main_layout.addWidget(self.status_text)
 
@@ -224,6 +203,8 @@ class QuickExportFBX_UI(QtWidgets.QDialog):
         self.browse_btn.clicked.connect(self.browse_path)
         self.open_folder_btn.clicked.connect(self.open_export_folder)
         self.export_btn.clicked.connect(self.export_objects)
+        # 连接单选框信号
+        self.format_button_group.buttonClicked.connect(self._handle_format_change)
 
     def browse_path(self):
         """选择导出路径"""
@@ -260,6 +241,17 @@ class QuickExportFBX_UI(QtWidgets.QDialog):
             else:  # Linux
                 subprocess.Popen(['xdg-open', path])
 
+    def _check_nested_groups(self, obj):
+        """检查是否存在嵌套组"""
+        if cmds.objectType(obj) == "transform":
+            children = cmds.listRelatives(obj, children=True, fullPath=True) or []
+            for child in children:
+                if cmds.objectType(child) == "transform":
+                    grandchildren = cmds.listRelatives(child, children=True, fullPath=True) or []
+                    if grandchildren and any(cmds.objectType(gc) == "transform" for gc in grandchildren):
+                        return True
+        return False
+
     def export_objects(self):
         """导出选中的物体"""
         # 获取导出路径
@@ -268,41 +260,133 @@ class QuickExportFBX_UI(QtWidgets.QDialog):
             self.status_text.setText("Error: Please select export path!")
             self.status_text.setStyleSheet("background-color: #663333;")
             return
-            
-        # 确保导出路径存在
-        if not os.path.exists(export_path):
-            try:
-                os.makedirs(export_path)
-            except Exception as e:
-                self.status_text.setText(f"Error: Failed to create export directory: {str(e)}")
-                self.status_text.setStyleSheet("background-color: #663333;")
-                return
         
-        # 获取选中的物体
+        # 获取选中的对象
         selected_objects = cmds.ls(selection=True)
         if not selected_objects:
             self.status_text.setText("Error: Please select objects to export!")
             self.status_text.setStyleSheet("background-color: #663333;")
             return
         
-        # 获取导出选项
-        smooth_groups = self.smooth_groups_cb.isChecked()
-        hard_edges = self.hard_edges_cb.isChecked()
-        tangents = self.tangents_cb.isChecked()
-        smooth_mesh = self.smooth_mesh_cb.isChecked()
-        triangulate = self.triangulate_cb.isChecked()
-        instances = self.instances_cb.isChecked()
-        file_type = self.file_type_combo.currentText()
+        # 检查是否有嵌套组
+        for obj in selected_objects:
+            if self._check_nested_groups(obj):
+                self.status_text.setText("Error: Nested groups are not supported!\nExample:\nRetopo\n  └─low\n      └─cube.fbx\n\nPlease select single-level groups only.")
+                self.status_text.setStyleSheet("background-color: #663333;")
+                return
         
+        # 初始化导出文件记录字典
+        exported_files = {"root": []}
+        
+        # 检查选择的导出格式
+        try:
+            if self.fbx_format_rb.isChecked():
+                total_exported = self._export_fbx(selected_objects, export_path, exported_files)
+            else:  # OBJ format
+                total_exported = self._export_obj(selected_objects, export_path, exported_files)
+                
+            # 构建完成信息
+            status_message = "Export Complete:\n"
+            status_message += f"Total Files Exported: {total_exported}\n"
+            status_message += f"Export Path: {export_path}\n\n"
+            
+            # 添加文件信息
+            for group_name, files in exported_files.items():
+                if files:
+                    if group_name == "root":
+                        for file_name in files:
+                            status_message += f"- {file_name}\n"
+                    else:
+                        status_message += f"{group_name}/\n"
+                        for file_name in files:
+                            status_message += f"   - {file_name}\n"
+            
+            self.status_text.setText(status_message)
+            self.status_text.setStyleSheet("background-color: #335533;")
+            
+        except Exception as e:
+            self.status_text.setText(f"Error: {str(e)}")
+            self.status_text.setStyleSheet("background-color: #663333;")
+
+    def _export_obj(self, objects, export_path, exported_files):
+        """导出OBJ格式文件"""
         total_exported = 0
         processed_groups = []
-        exported_files = {}  # {组名: [文件名列表]}
         
-        # 更新状态
-        self.status_text.setText("Exporting...")
+        for obj in objects:
+            try:
+                # 检查是否是组
+                is_group = False
+                if cmds.objectType(obj) == "transform":
+                    children = cmds.listRelatives(obj, children=True, fullPath=True) or []
+                    if children:
+                        child_types = [cmds.objectType(child) for child in children]
+                        is_group = not all(t == 'mesh' for t in child_types)
+
+                if is_group:
+                    # 处理组
+                    group_name = obj.split(":")[-1].split("|")[-1]
+                    group_dir = os.path.join(export_path, group_name)
+                    
+                    # 创建组文件夹
+                    if not os.path.exists(group_dir):
+                        os.makedirs(group_dir)
+                    
+                    # 获取组内的所有子对象
+                    children = [child for child in (cmds.listRelatives(obj, children=True, fullPath=True, type='transform') or [])
+                              if cmds.objectType(child) == 'transform']
+                    
+                    if children:
+                        processed_groups.append(group_name)
+                        exported_files[group_name] = []
+                        
+                        # 导出每个子对象
+                        for child in children:
+                            try:
+                                # 选择当前子对象
+                                cmds.select(child, replace=True)
+                                
+                                # 获取子对象名称
+                                child_name = child.split(":")[-1].split("|")[-1]
+                                
+                                # 构建导出文件路径
+                                file_path = os.path.normpath(os.path.join(group_dir, f"{child_name}.obj"))
+                                file_path = file_path.replace("\\", "/")
+                                
+                                # 使用默认设置导出OBJ
+                                cmds.file(file_path, force=True, exportSelected=True, type="OBJexport", pr=True)
+                                
+                                exported_files[group_name].append(f"{child_name}.obj")
+                                total_exported += 1
+                                
+                            except Exception as e:
+                                raise Exception(f"导出组 {group_name} 中的 {child_name} 时出错: {str(e)}")
+                else:
+                    # 导出单个对象
+                    cmds.select(obj, replace=True)
+                    obj_name = obj.split(":")[-1].split("|")[-1]
+                    
+                    # 构建导出文件路径
+                    file_path = os.path.normpath(os.path.join(export_path, f"{obj_name}.obj"))
+                    file_path = file_path.replace("\\", "/")
+                    
+                    # 使用默认设置导出OBJ
+                    cmds.file(file_path, force=True, exportSelected=True, type="OBJexport", pr=True)
+                    
+                    exported_files["root"].append(f"{obj_name}.obj")
+                    total_exported += 1
+                    
+            except Exception as e:
+                raise Exception(f"处理 {obj} 时出错: {str(e)}")
         
-        # 遍历选中的物体
-        for obj in selected_objects:
+        return total_exported
+
+    def _export_fbx(self, objects, export_path, exported_files):
+        """导出FBX格式文件"""
+        total_exported = 0
+        processed_groups = []
+        
+        for obj in objects:
             try:
                 # 检查是否是组
                 is_group = False
@@ -328,77 +412,76 @@ class QuickExportFBX_UI(QtWidgets.QDialog):
                         exported_files[group_name] = []
                         
                         for child in children:
-                            child_name = child.split(":")[-1].split("|")[-1]
-                            self._export_single_object(child, group_dir, smooth_groups, hard_edges, 
-                                                    tangents, smooth_mesh, triangulate, instances, file_type)
-                            exported_files[group_name].append(f"{child_name}.fbx")
-                            total_exported += 1
+                            try:
+                                # 选择当前子对象
+                                cmds.select(child, replace=True)
+                                
+                                # 获取子对象名称
+                                child_name = child.split(":")[-1].split("|")[-1]
+                                
+                                # 构建导出文件路径
+                                file_path = os.path.normpath(os.path.join(group_dir, f"{child_name}.fbx"))
+                                file_path = file_path.replace("\\", "/")
+                                
+                                # 使用默认设置导出FBX
+                                cmds.file(file_path, force=True, exportSelected=True, type="FBX export", pr=True)
+                                
+                                exported_files[group_name].append(f"{child_name}.fbx")
+                                total_exported += 1
+                            
+                            except Exception as e:
+                                raise Exception(f"导出组 {group_name} 中的 {child_name} 时出错: {str(e)}")
                 else:
-                    # 直接导出单个物体
+                    # 导出单个对象
+                    cmds.select(obj, replace=True)
                     obj_name = obj.split(":")[-1].split("|")[-1]
-                    self._export_single_object(obj, export_path, smooth_groups, hard_edges, 
-                                            tangents, smooth_mesh, triangulate, instances, file_type)
-                    if "root" not in exported_files:
-                        exported_files["root"] = []
+                    
+                    # 构建导出文件路径
+                    file_path = os.path.normpath(os.path.join(export_path, f"{obj_name}.fbx"))
+                    file_path = file_path.replace("\\", "/")
+                    
+                    # 使用默认设置导出FBX
+                    cmds.file(file_path, force=True, exportSelected=True, type="FBX export", pr=True)
+                    
                     exported_files["root"].append(f"{obj_name}.fbx")
                     total_exported += 1
                     
             except Exception as e:
-                self.status_text.setText(f"Error: Failed to process {obj}: {str(e)}")
-                self.status_text.setStyleSheet("background-color: #663333;")
-                continue
+                raise Exception(f"处理 {obj} 时出错: {str(e)}")
         
-        # 完成后恢复选择
-        cmds.select(selected_objects)
-        
-        # 构建英文的完成信息
-        status_message = "Export Complete:\n"
-        status_message += f"Total Files Exported: {total_exported}\n"
-        status_message += f"Export Path: {export_path}\n\n"
-        
-        # 添加组和文件信息
-        for group_name, files in exported_files.items():
-            if group_name == "root":
-                # 直接导出到根目录的文件
-                for file_name in files:
-                    status_message += f"- {file_name}\n"
-            else:
-                # 组内的文件
-                status_message += f"{group_name}\n"
-                for file_name in files:
-                    status_message += f"   - {file_name}\n"
-        
-        # 更新状态显示
-        self.status_text.setText(status_message)
-        self.status_text.setStyleSheet("background-color: #335533;")
+        return total_exported
 
-    def _export_single_object(self, obj, export_path, smooth_groups, hard_edges, 
-                            tangents, smooth_mesh, triangulate, instances, file_type):
-        """导出单个物体的辅助函数"""
-        # 选择当前物体
-        cmds.select(obj, replace=True)
+    def _handle_format_change(self, button):
+        """处理格式选择变化"""
+        pass  # 由于移除了选项组，这个函数现在不需要做任何事
+
+    def export_obj(self):
+        # 首先获取选中的对象
+        selected_objects = cmds.ls(selection=True)
         
-        # 删除历史记录
-        cmds.delete(constructionHistory=True)
+        if not selected_objects:
+            cmds.warning("请先选择要导出的对象！")
+            return
+            
+        # 获取导出路径
+        file_path = cmds.fileDialog2(fileFilter="OBJ Files (*.obj)", dialogStyle=2, fileMode=0)
         
-        # 设置FBX导出选项
-        mel.eval(f'FBXProperty Export|IncludeGrp|Geometry|SmoothingGroups -v {str(smooth_groups).lower()}')
-        mel.eval(f'FBXProperty Export|IncludeGrp|Geometry|expHardEdges -v {str(hard_edges).lower()}')
-        mel.eval(f'FBXProperty Export|IncludeGrp|Geometry|TangentsandBinormals -v {str(tangents).lower()}')
-        mel.eval(f'FBXProperty Export|IncludeGrp|Geometry|SmoothMesh -v {str(smooth_mesh).lower()}')
-        mel.eval(f'FBXProperty Export|IncludeGrp|Geometry|Triangulate -v {str(triangulate).lower()}')
-        mel.eval(f'FBXProperty Export|IncludeGrp|Geometry|Instances -v {str(instances).lower()}')
-        mel.eval(f'FBXProperty Export|AdvOptGrp|Fbx|AsciiFbx -v "{file_type}"')
+        if not file_path:
+            return
+            
+        file_path = file_path[0]
         
-        # 获取物体的短名称
-        obj_name = obj.split(":")[-1].split("|")[-1]
-        
-        # 构建导出文件路径
-        file_path = os.path.normpath(os.path.join(export_path, f"{obj_name}.fbx"))
-        file_path = file_path.replace("\\", "/")
-        
-        # 导出FBX
-        mel.eval(f'FBXExport -f "{file_path}" -s')
+        try:
+            # 导出选中的对象为OBJ
+            cmds.file(file_path, 
+                     force=True, 
+                     exportSelected=True, 
+                     type="OBJ",
+                     preserveReferences=True)
+            
+            cmds.confirmDialog(title="成功", message="OBJ导出成功！", button=["确定"])
+        except Exception as e:
+            cmds.confirmDialog(title="错误", message=f"导出OBJ时出错: {str(e)}", button=["确定"])
 
 #====== UI Functions ======
 
