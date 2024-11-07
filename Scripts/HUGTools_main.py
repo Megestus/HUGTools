@@ -12,7 +12,7 @@ import maya.OpenMayaUI as omui
 from shiboken2 import wrapInstance
 
 # Define constants
-HUGTOOL_VERSION = "1.1.3 Beta"
+HUGTOOL_VERSION = "1.2.0 Beta"
 HUGTOOL_ICON = "MainUI.png"
 HUGTOOL_TITLE = "HUGTOOL"
 HUGTOOL_HELP_URL = "https://megestus.github.io/HUGTools/"
@@ -90,11 +90,11 @@ LANG = {
         "Edge Display Control": "Edge Display Control",
         "Soft": "Soft",
         "Hard": "Hard",
-        "Select Hard Edges": "Select Hard Edges",
-        "Select UV Border Edge": "Select UV Border Edge",
-        "Planar Projection": "Planar Projection",
-        "UV Layout by Hard Edges": "UV Layout by Hard Edges",
-        "Crease Control": "Crease Control",
+        "Select Hard Edges": "Hard Edges",
+        "Select UV Border Edge": "UV Border",
+        "Planar Projection": "Planar UV",
+        "UV Layout by Hard Edges": "UV Layout",
+        "Editor": "Editor",
         "Crease Editor": "Crease Editor",
         "Create Crease Set by Name": "Create Crease Set by Name",
         "Crease V2": "Crease V2",
@@ -121,6 +121,12 @@ LANG = {
         "Crease_tip": "Toggle crease edge display",
         "UnBevel": "UnBevel",
         "UnBevel_tip": "Tool for unbeveling edges",
+        "Distance": "Distance",
+        "Distance_tip": "Calculate edge length",
+        "EdgeToCurve": "Edge2Curve",
+        "EdgeToCurve_tip": "Convert edges to NURBS curves",
+        "UV Editor": "UV Editor",
+        "UV Editor_tip": "Open UV Editor window",
     },
     'zh_CN': {
         "Display Control": "显示控制",
@@ -133,8 +139,8 @@ LANG = {
         "Select Hard Edges": "选择硬边",
         "Select UV Border Edge": "选择UV边界边",
         "Planar Projection": "平面投影",
-        "UV Layout by Hard Edges": "基硬边的UV布局",
-        "Crease Control": "折痕控制",
+        "UV Layout by Hard Edges": "基于硬边UV布局",
+        "Editor": "编辑器",
         "Crease Editor": "折痕编辑器",
         "Create Crease Set by Name": "按名称创建折痕集",
         "Crease V2": "折痕 V2",
@@ -161,6 +167,12 @@ LANG = {
         "Crease_tip": "切换折边显示",
         "UnBevel": "倒角还原",
         "UnBevel_tip": "边缘倒角还原工具",
+        "Distance": "测距",
+        "Distance_tip": "计算边长",
+        "EdgeToCurve": "边转曲线",
+        "EdgeToCurve_tip": "将边转换为NURBS曲线",
+        "UV Editor": "UV编辑器",
+        "UV Editor_tip": "打开UV编辑器窗口",
     }
 }
 
@@ -237,12 +249,8 @@ class HUGToolsWindow(QtWidgets.QDialog):
         self.normal_size_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
         self.normal_size_slider.setRange(1, 1000)
         self.normal_size_slider.setValue(40)
-        self.open_NormalEdit_btn = RoundedButton("NormalEdit", icon=QtGui.QIcon(":nodeGrapherModeAllLarge.png"))
-        self.open_NormalEdit_btn.setToolTip("Open Normal Edit window") 
-
 
         # Edge display module
-        self.edge_display_group = QtWidgets.QGroupBox("Display Control")
         self.toggle_softEdge_btn = RoundedButton("Soft", icon=QtGui.QIcon(":polySoftEdge.png"))
         self.toggle_softEdge_btn.setMinimumSize(80, 40)
         self.toggle_softEdge_btn.setToolTip("Toggle soft edge display")
@@ -263,10 +271,19 @@ class HUGToolsWindow(QtWidgets.QDialog):
         self.planar_projection_btn.setToolTip("Apply planar UV projection")
         self.uvlayout_hardedges_btn = RoundedButton(LANG[CURRENT_LANG]["UV Layout by Hard Edges"], icon=QtGui.QIcon(":polyLayoutUV.png"))
         self.uvlayout_hardedges_btn.setToolTip("Perform UV layout based on hard edges")
+        self.edge_to_curve_btn = RoundedButton(LANG[CURRENT_LANG]["EdgeToCurve"], icon=QtGui.QIcon(":polyEdgeToCurves.png"))
+        self.edge_to_curve_btn.setToolTip(LANG[CURRENT_LANG]["EdgeToCurve_tip"])
 
         # crease module
-        self.crease_set_group = QtWidgets.QGroupBox(LANG[CURRENT_LANG]["Crease Control"])
-        self.open_crease_editor_btn = RoundedButton(LANG[CURRENT_LANG]["Crease Editor"], icon=QtGui.QIcon(":polyCrease.png"))
+        self.editor_group = QtWidgets.QGroupBox(LANG[CURRENT_LANG]["Editor"])
+        self.open_NormalEdit_btn = RoundedButton(LANG[CURRENT_LANG]["NormalEdit"], 
+                                                icon=QtGui.QIcon(":nodeGrapherModeAllLarge.png"))
+        self.open_NormalEdit_btn.setToolTip("Open Normal Edit window")
+        self.open_crease_editor_btn = RoundedButton(LANG[CURRENT_LANG]["Crease Editor"], 
+                                                   icon=QtGui.QIcon(":polyCrease.png"))
+        self.open_uv_editor_btn = RoundedButton(LANG[CURRENT_LANG]["UV Editor"], 
+                                               icon=QtGui.QIcon(":textureEditor.png"))
+        self.open_uv_editor_btn.setToolTip(LANG[CURRENT_LANG]["UV Editor_tip"])
 
         # ===  this function is under development ===
         # self.create_fixed_crease_set_btn = RoundedButton(LANG[CURRENT_LANG]["Create Crease Set by Name"], icon=QtGui.QIcon(":polyCrease.png"))
@@ -290,6 +307,11 @@ class HUGToolsWindow(QtWidgets.QDialog):
         self.Toolbox_ScreenShot_btn.setToolTip(LANG[CURRENT_LANG]["ScreenShot_tip"])
         self.Toolbox_More_btn = RoundedButton(LANG[CURRENT_LANG]["More"], icon=QtGui.QIcon(":loadPreset.png"))
         self.Toolbox_More_btn.setToolTip(LANG[CURRENT_LANG]["More_tip"])
+        self.Toolbox_CalcDistance_btn = RoundedButton("Distance", icon=QtGui.QIcon(":distanceDim.png"))
+        self.Toolbox_CalcDistance_btn.setToolTip("Calculate edge length")
+        self.Toolbox_CalcDistance_btn.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
+        self.Toolbox_CalcDistance_btn.setMinimumSize(100, 40)
+        self.Toolbox_CalcDistance_btn.setFixedHeight(40)
 
         # 统一设置所有Toolbox按钮的大小策略和尺寸
         toolbox_buttons = [
@@ -299,7 +321,8 @@ class HUGToolsWindow(QtWidgets.QDialog):
             self.Toolbox_QuickExport_btn,
             self.Toolbox_ScreenShot_btn,
             self.Toolbox_UnBevel_btn,
-            self.Toolbox_More_btn
+            self.Toolbox_More_btn,
+            self.Toolbox_CalcDistance_btn
         ]
         
         for btn in toolbox_buttons:
@@ -319,50 +342,39 @@ class HUGToolsWindow(QtWidgets.QDialog):
 
         # display control group layout
         display_layout = QtWidgets.QVBoxLayout()
+        
+        # Normal controls
         normal_display_layout = QtWidgets.QHBoxLayout()
         normal_display_layout.addWidget(self.toggle_normal_display_btn)
         normal_display_layout.addWidget(self.normal_size_label)
         normal_display_layout.addWidget(self.normal_size_field)
         display_layout.addLayout(normal_display_layout)
         display_layout.addWidget(self.normal_size_slider)
-        display_layout.addWidget(self.open_NormalEdit_btn)
-        self.display_group.setLayout(display_layout)
-
-        # edge display control group layout
-        edge_display_layout = QtWidgets.QVBoxLayout()
+        
+        # Edge display controls
         edge_toggle_layout = QtWidgets.QHBoxLayout()
         edge_toggle_layout.addWidget(self.toggle_softEdge_btn)
         edge_toggle_layout.addWidget(self.toggle_hardedge_btn)
-        edge_toggle_layout.addWidget(self.toggle_crease_edge_btn)  
-        edge_display_layout.addLayout(edge_toggle_layout)
+        edge_toggle_layout.addWidget(self.toggle_crease_edge_btn)
+        display_layout.addLayout(edge_toggle_layout)
         
-        edge_display_layout.addWidget(self.select_hardedges_btn)
-        edge_display_layout.addWidget(self.select_uvborder_btn)
-        edge_display_layout.addWidget(self.planar_projection_btn)
-        edge_display_layout.addWidget(self.uvlayout_hardedges_btn)
-
-        self.edge_display_group.setLayout(edge_display_layout)
+        self.display_group.setLayout(display_layout)
 
         # select control group layout
-        select_layout = QtWidgets.QVBoxLayout()
-        select_layout.addWidget(self.select_hardedges_btn)
-        select_layout.addWidget(self.select_uvborder_btn)
-        select_layout.addWidget(self.planar_projection_btn)
-        select_layout.addWidget(self.uvlayout_hardedges_btn)
+        select_layout = QtWidgets.QGridLayout()
+        select_layout.addWidget(self.select_hardedges_btn, 0, 0)
+        select_layout.addWidget(self.select_uvborder_btn, 0, 1)
+        select_layout.addWidget(self.edge_to_curve_btn, 1, 0)
+        select_layout.addWidget(self.planar_projection_btn, 1, 1)
+        select_layout.addWidget(self.uvlayout_hardedges_btn, 2, 0)
         self.select_group.setLayout(select_layout)
 
         # crease control group layout
-        crease_layout = QtWidgets.QVBoxLayout()
-        crease_layout.addWidget(self.open_crease_editor_btn)
-
-        # ===  this function is under development ===
-        # crease_layout.addWidget(self.create_fixed_crease_set_btn)
-        #crease_buttons_layout = QtWidgets.QHBoxLayout()
-        #crease_buttons_layout.addWidget(self.crease_1_btn)
-        #crease_buttons_layout.addWidget(self.crease_3_btn)
-        # crease_layout.addLayout(crease_buttons_layout)
-
-        self.crease_set_group.setLayout(crease_layout) 
+        editor_layout = QtWidgets.QVBoxLayout()
+        editor_layout.addWidget(self.open_NormalEdit_btn)
+        editor_layout.addWidget(self.open_crease_editor_btn)
+        editor_layout.addWidget(self.open_uv_editor_btn)
+        self.editor_group.setLayout(editor_layout)
 
         #toolbox group layout
         Toolbox_layout = QtWidgets.QGridLayout()
@@ -372,14 +384,15 @@ class HUGToolsWindow(QtWidgets.QDialog):
         Toolbox_layout.addWidget(self.Toolbox_UVset_btn, 1, 1)
         Toolbox_layout.addWidget(self.Toolbox_UnBevel_btn, 2, 0)
         Toolbox_layout.addWidget(self.Toolbox_ScreenShot_btn, 2, 1)
-        Toolbox_layout.addWidget(self.Toolbox_More_btn, 3, 0)
+        Toolbox_layout.addWidget(self.Toolbox_CalcDistance_btn, 3, 0)
+        Toolbox_layout.addWidget(self.Toolbox_More_btn, 3, 1)
+
         self.Toolbox_group.setLayout(Toolbox_layout)
 
         # add groups to main layout
         main_layout.addWidget(self.display_group)
-        main_layout.addWidget(self.edge_display_group)
-        main_layout.addWidget(self.select_group)  
-        main_layout.addWidget(self.crease_set_group)
+        main_layout.addWidget(self.editor_group)
+        main_layout.addWidget(self.select_group)
         main_layout.addWidget(self.Toolbox_group)
 
         # change bottom layout
@@ -433,6 +446,7 @@ class HUGToolsWindow(QtWidgets.QDialog):
 
 
         self.open_crease_editor_btn.clicked.connect(self.open_crease_set_editor)
+        self.open_uv_editor_btn.clicked.connect(self.open_uv_editor)
 
         # ===  this function is under development ===
         # self.create_fixed_crease_set_btn.clicked.connect(self.create_fixed_crease_set)
@@ -446,12 +460,16 @@ class HUGToolsWindow(QtWidgets.QDialog):
         self.Toolbox_ScreenShot_btn.clicked.connect(self.screen_shot)
         self.Toolbox_UnBevel_btn.clicked.connect(self.unbevel_tool)
         self.Toolbox_More_btn.clicked.connect(self.show_more_tools)
+        self.Toolbox_CalcDistance_btn.clicked.connect(self.calculate_distance)
 
         # connect help button
         self.help_btn.clicked.connect(self.show_help)
 
         # connect language switch button
         self.lang_btn.clicked.connect(self.toggle_language)
+
+        # connect edge to curve button
+        self.edge_to_curve_btn.clicked.connect(self.convert_edge_to_curve)
 
 
 
@@ -586,6 +604,47 @@ class HUGToolsWindow(QtWidgets.QDialog):
         cmds.selectMode(component=True)
         cmds.selectType(edge=True)
 
+
+    def convert_edge_to_curve(self):
+        """Convert selected edges to NURBS curves and move pivot to center"""
+        try:
+            # 检查选择
+            selection = cmds.ls(selection=True, flatten=True)
+            edges = [edge for edge in selection if '.e[' in edge]
+            
+            if not edges:
+                cmds.warning("Please select edges to convert")
+                return
+                
+            # 执行转换
+            curves = mel.eval('polyToCurve -form 2 -degree 3 -conformToSmoothMeshPreview 1')
+            
+            if curves:
+                # 选择新创建的曲线
+                cmds.select(curves)
+                
+                # 将坐标轴移动到曲线的中心
+                for curve in curves:
+                    # 获取曲线的边界框
+                    bbox = cmds.exactWorldBoundingBox(curve)
+                    # 计算中心点
+                    center_x = (bbox[0] + bbox[3]) / 2
+                    center_y = (bbox[1] + bbox[4]) / 2
+                    center_z = (bbox[2] + bbox[5]) / 2
+                    # 移动坐标轴到中心点
+                    cmds.xform(curve, pivots=[center_x, center_y, center_z])
+                
+                message = "Converted to curves and centered pivot"
+                cmds.inViewMessage(amg=f'<span style="color:#48AAB5">{message}</span>', 
+                                 pos='topCenter', fade=True, fst=3)
+        except Exception as e:
+            cmds.warning(f"Error converting edges to curves: {str(e)}")
+
+
+
+
+
+
     def UVLayout_By_hardEdges(self):
         """
         Perform a series of UV operations based on hard edges - optimize, unfold, and layout
@@ -618,7 +677,7 @@ class HUGToolsWindow(QtWidgets.QDialog):
                     cmds.warning(f"{obj} has no hard edges. Skipping UV cut and unfold steps.")
                     continue
 
-                # 3. 沿硬边切割UV
+                # 3. 沿硬边切UV
                 cmds.select(hard_edges)
                 cmds.polyMapCut(ch=1)
 
@@ -856,13 +915,21 @@ class HUGToolsWindow(QtWidgets.QDialog):
 
 
 
-
-
     #external function modules
 
     def open_normal_edit(self):
         importlib.reload(NormalEdit_Module)
         NormalEdit_Module.show_ui()
+
+
+    def open_uv_editor(self):
+        """Open UV Editor window"""
+        try:
+            mel.eval('TextureViewWindow')
+        except Exception as e:
+            cmds.warning(f"Error opening UV Editor: {str(e)}")
+
+
 
 
     #============toolbox function modules===============
@@ -893,6 +960,53 @@ class HUGToolsWindow(QtWidgets.QDialog):
         """Launch UnBevel tool UI"""
         importlib.reload(UnBevel_Module)
         UnBevel_Module.show_ui()
+
+    def calculate_distance(self):
+        """Calculate the total length of selected edges"""
+        # Get selected edges
+        selection = cmds.ls(selection=True, flatten=True)
+        if not selection:
+            cmds.warning("Please select one or more edges")
+            return
+            
+        # Filter for edges only
+        edges = [edge for edge in selection if '.e[' in edge]
+        if not edges:
+            cmds.warning("Please select edges to measure")
+            return
+            
+        # Calculate total length
+        total_length = 0
+        unit = cmds.currentUnit(q=True, linear=True)
+        
+        try:
+            for edge in edges:
+                # Create temporary curve from edge
+                temp_curve = cmds.createNode('curveFromMeshEdge')
+                mesh = edge.split('.')[0]
+                edge_id = edge.split('[')[1].split(']')[0]
+                
+                cmds.setAttr(f"{temp_curve}.ihi", 1)
+                cmds.connectAttr(f"{mesh}.worldMesh[0]", f"{temp_curve}.inputMesh")
+                cmds.setAttr(f"{temp_curve}.edgeIndex[0]", int(edge_id))
+                
+                # Create curve info node to get length
+                curve_info = cmds.createNode('curveInfo')
+                cmds.connectAttr(f"{temp_curve}.outputCurve", f"{curve_info}.inputCurve")
+                
+                # Get length
+                length = cmds.getAttr(f"{curve_info}.arcLength")
+                total_length += length
+                
+                # Clean up temporary nodes
+                cmds.delete(temp_curve, curve_info)
+                
+            # Display result
+            message = f'Length: <hl>{total_length:.3f}</hl> {unit}'
+            cmds.inViewMessage(amg=f'<span style="color:#48AAB5">{message}</span>', pos='topCenter', fade=True, fst=3)
+            
+        except Exception as e:
+            cmds.warning(f"Error calculating length: {str(e)}")
 
     def show_more_tools(self):
         importlib.reload(More_Tools_Module)
@@ -934,16 +1048,9 @@ class HUGToolsWindow(QtWidgets.QDialog):
         self.normal_size_label.setText(LANG[CURRENT_LANG]["Normal Size:"])
         self.open_NormalEdit_btn.setText(LANG[CURRENT_LANG]["NormalEdit"])
         
-        self.edge_display_group.setTitle(LANG[CURRENT_LANG]["Edge Display Control"])
-        self.toggle_softEdge_btn.setText(LANG[CURRENT_LANG]["Soft"])
-        self.toggle_hardedge_btn.setText(LANG[CURRENT_LANG]["Hard"])
-        self.select_hardedges_btn.setText(LANG[CURRENT_LANG]["Select Hard Edges"])
-        self.select_uvborder_btn.setText(LANG[CURRENT_LANG]["Select UV Border Edge"])
-        self.planar_projection_btn.setText(LANG[CURRENT_LANG]["Planar Projection"])
-        self.uvlayout_hardedges_btn.setText(LANG[CURRENT_LANG]["UV Layout by Hard Edges"])
-        
-        self.crease_set_group.setTitle(LANG[CURRENT_LANG]["Crease Control"])
+        self.editor_group.setTitle(LANG[CURRENT_LANG]["Editor"])
         self.open_crease_editor_btn.setText(LANG[CURRENT_LANG]["Crease Editor"])
+        self.open_uv_editor_btn.setText(LANG[CURRENT_LANG]["UV Editor"])
         
         # 移除被注释掉的按钮的翻译
         # self.create_fixed_crease_set_btn.setText(LANG[CURRENT_LANG]["Create Crease Set by Name"])
@@ -958,6 +1065,8 @@ class HUGToolsWindow(QtWidgets.QDialog):
         self.Toolbox_ScreenShot_btn.setText(LANG[CURRENT_LANG]["ScreenShot"])
         self.Toolbox_UnBevel_btn.setText(LANG[CURRENT_LANG]["UnBevel"])
         self.Toolbox_More_btn.setText(LANG[CURRENT_LANG]["More"])
+        self.Toolbox_CalcDistance_btn.setText(LANG[CURRENT_LANG]["Distance"])
+        self.Toolbox_CalcDistance_btn.setToolTip(LANG[CURRENT_LANG]["Distance_tip"])
 
         self.select_group.setTitle(LANG[CURRENT_LANG]["Select Control"])
         self.select_hardedges_btn.setText(LANG[CURRENT_LANG]["Select Hard Edges"])
@@ -973,11 +1082,19 @@ class HUGToolsWindow(QtWidgets.QDialog):
         self.Toolbox_ScreenShot_btn.setToolTip(LANG[CURRENT_LANG]["ScreenShot_tip"])
         self.Toolbox_UnBevel_btn.setToolTip(LANG[CURRENT_LANG]["UnBevel_tip"])
         self.Toolbox_More_btn.setToolTip(LANG[CURRENT_LANG]["More_tip"])
+        self.Toolbox_CalcDistance_btn.setToolTip(LANG[CURRENT_LANG]["Distance_tip"])
 
         self.toggle_crease_edge_btn.setText(LANG[CURRENT_LANG]["Crease"])
         self.toggle_crease_edge_btn.setToolTip(LANG[CURRENT_LANG]["Crease_tip"])
 
-    
+        self.edge_to_curve_btn.setText(LANG[CURRENT_LANG]["EdgeToCurve"])
+        self.edge_to_curve_btn.setToolTip(LANG[CURRENT_LANG]["EdgeToCurve_tip"])
+
+        self.open_uv_editor_btn.setText(LANG[CURRENT_LANG]["UV Editor"])
+        self.open_uv_editor_btn.setToolTip(LANG[CURRENT_LANG]["UV Editor_tip"])
+
+
+
 
 def show():
     global hug_tools_window
@@ -994,7 +1111,6 @@ def show():
 
 if __name__ == "__main__":
     show()
-
 
 
 

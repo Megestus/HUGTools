@@ -4,44 +4,30 @@
 // Define global procedure for installing HUGTools
 global proc installHUGTools()
 {
+    // 检查Python版本的简单代码
+    string $versionCheck = 
+        "import sys\n" + 
+        "import maya.cmds as cmds\n" + 
+        "if sys.version_info[0] < 3:\n" + 
+        "    cmds.error('错误: HUGTools 需要 Python 3.0 或更高版本。当前版本: ' + sys.version)\n";
+    
+    python($versionCheck);
+
     // Get the path of the installHUGTools procedure
     string $scriptPath = `whatIs installHUGTools`;
-    
-    // Extract the directory part from the path
-    // Note: This assumes the first 25 characters of the path string are not needed
     string $dirPath = `substring $scriptPath 25 (size($scriptPath))`;
-    
-    // Get the parent directory path
     $dirPath = `dirname $dirPath`;
-    
-    // Construct the full path for the Python installation script
     string $pythonPath = $dirPath + "/install.py";
-    
-    // Replace all backslashes with forward slashes to ensure correct path format
     $pythonPath = substituteAllString($pythonPath, "\\", "/");
     
     // Python code to handle different encodings
-    string $pythonCode = "import os, sys, codecs\n";
-    $pythonCode += "script_path = r'" + $pythonPath + "'\n";
-    $pythonCode += "sys.path.append(os.path.dirname(script_path))\n";
-    $pythonCode += "def read_file_with_fallback(file_path, encodings=['utf-8', 'gbk', 'cp437', 'iso-8859-1']):\n";
-    $pythonCode += "    for encoding in encodings:\n";
-    $pythonCode += "        try:\n";
-    $pythonCode += "            with open(file_path, 'rb') as file:\n";
-    $pythonCode += "                content = file.read()\n";
-    $pythonCode += "                return content.decode(encoding)\n";
-    $pythonCode += "        except UnicodeDecodeError:\n";
-    $pythonCode += "            print(f'Failed to decode with {encoding}')\n";
-    $pythonCode += "            continue\n";
-    $pythonCode += "        except Exception as e:\n";
-    $pythonCode += "            print(f'Error reading file with {encoding}: {str(e)}')\n";
-    $pythonCode += "            continue\n";
-    $pythonCode += "    raise UnicodeDecodeError('Unable to decode the file with the given encodings')\n";
-    $pythonCode += "try:\n";
-    $pythonCode += "    script_content = read_file_with_fallback(script_path)\n";
-    $pythonCode += "    exec(script_content)\n";
-    $pythonCode += "except Exception as e:\n";
-    $pythonCode += "    print(f'Error executing script: {str(e)}')\n";
+    string $pythonCode = 
+        "import os, sys\n" + 
+        "script_path = r'" + $pythonPath + "'\n" + 
+        "sys.path.append(os.path.dirname(script_path))\n" + 
+        "with open(script_path, 'rb') as f:\n" + 
+        "    content = f.read().decode('utf-8')\n" + 
+        "exec(content)\n";
 
     // Execute the Python code
     python($pythonCode);

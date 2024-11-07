@@ -13,7 +13,7 @@ import locale
 
 # Define constants for the toolbox
 TOOLBOX_NAME = "HUGTools"
-TOOLBOX_VERSION = "1.1.3 Beta"  # Update this to match HUGTOOL_VERSION in HUGTools_main.py
+TOOLBOX_VERSION = "1.2.0 Beta"  # Update this to match HUGTOOL_VERSION in HUGTools_main.py
 TOOLBOX_ICON = "MainUI.png"
 TOOLBOX_MAIN_MODULE = "HUGTools_main"
 TOOLBOX_HELP_URL = "https://megestus.github.io/HUGTools/"  
@@ -131,8 +131,8 @@ class InstallDialog(QtWidgets.QDialog):
     def __init__(self, parent=maya_main_window()):
         super(InstallDialog, self).__init__(parent)
         self.setWindowTitle(f"{TOOLBOX_NAME} {LANG[CURRENT_LANG]['install']}")
-        self.setFixedSize(220, 150)  # window size  
-        self.setWindowFlags(self.windowFlags() | QtCore.Qt.WindowContextHelpButtonHint)
+        self.setFixedSize(220, 150)  
+        self.setWindowFlags(self.windowFlags() & ~QtCore.Qt.WindowContextHelpButtonHint)
 
         # Set window icon
         icon_path = os.path.join(get_script_path(), "Icons", TOOLBOX_ICON)
@@ -147,11 +147,25 @@ class InstallDialog(QtWidgets.QDialog):
 
     # Create UI widgets
     def create_widgets(self):
+        self.help_button = QtWidgets.QPushButton("?")
+        self.help_button.setFixedSize(20, 20)
+        self.help_button.setStyleSheet("""
+            QPushButton {
+                border-radius: 10px;
+                background-color: #B0B0B0;
+                color: #303030;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #C0C0C0;
+            }
+        """)
+        
         self.new_shelf_toggle = QtWidgets.QCheckBox(LANG[CURRENT_LANG]['create_new_shelf'])
         self.new_shelf_toggle.setChecked(False)
         self.install_button = RoundedButton(LANG[CURRENT_LANG]['install'] + " " + TOOLBOX_NAME)
         self.uninstall_button = RoundedButton(LANG[CURRENT_LANG]['uninstall'] + " " + TOOLBOX_NAME)
-        self.reinstall_button = RoundedButton(LANG[CURRENT_LANG]['reinstall'] + " " + TOOLBOX_NAME)  
+        self.reinstall_button = RoundedButton(LANG[CURRENT_LANG]['reinstall'] + " " + TOOLBOX_NAME)
 
     # Create UI layouts
     def create_layouts(self):
@@ -188,6 +202,7 @@ class InstallDialog(QtWidgets.QDialog):
         toggle_layout.addWidget(self.toggle_button)
         toggle_layout.addWidget(label)
         toggle_layout.addStretch()
+        toggle_layout.addWidget(self.help_button)
         
         main_layout.addLayout(toggle_layout)
         main_layout.addWidget(self.install_button)
@@ -203,6 +218,7 @@ class InstallDialog(QtWidgets.QDialog):
 
     # Connect UI elements to their respective functions
     def create_connections(self):
+        self.help_button.clicked.connect(self.open_help_url)
         self.install_button.clicked.connect(self.install)
         self.uninstall_button.clicked.connect(self.uninstall)
         self.reinstall_button.clicked.connect(self.reinstall)
@@ -222,12 +238,7 @@ class InstallDialog(QtWidgets.QDialog):
 
     # Handle close event
     def closeEvent(self, event):
-        super(InstallDialog, self).closeEvent(event)
-
-    # Handle help event
-    def helpEvent(self, event):
-        self.open_help_url()
-        event.accept()
+        QtWidgets.QDialog.closeEvent(self, event)
 
     # Create a styled message box
     def create_styled_message_box(self, title, text):
@@ -547,21 +558,37 @@ def read_file_with_fallback(file_path, encodings=['utf-8', 'gbk', 'cp437', 'iso-
 
 # Main execution
 if __name__ == "__main__":
+    # 首先声明全局变量
+    global install_dialog
+    install_dialog = None
+    
+    # 检查 Maya 版本
     maya_ver = get_maya_version()
     if check_maya_version():
         try:
-            install_dialog.close()
-            install_dialog.deleteLater()
-        except:
-            pass
+            if install_dialog is not None:
+                try:
+                    install_dialog.close()
+                    install_dialog.deleteLater()
+                except:
+                    pass
+        except Exception as e:
+            print(f"Warning: {e}")
+            
+        # 创建新的对话框实例
         install_dialog = InstallDialog()
         install_dialog.show()
     else:
-        # Show error message for unsupported Maya version
+        # 显示Maya版本不支持的错误消息
         msg_box = QtWidgets.QMessageBox()
         msg_box.setIcon(QtWidgets.QMessageBox.Warning)
-        msg_box.setWindowTitle("Unsupported Maya Version")
-        msg_box.setText(f"{TOOLBOX_NAME} requires Maya 2022 or later. Your version: {maya_ver.num}.{maya_ver.extnum}")
+        msg_box.setWindowTitle("不支持的Maya版本")
+        msg_box.setText(f"{TOOLBOX_NAME} 需要 Maya 2022 或更高版本。您的版本: {maya_ver.num}.{maya_ver.extnum}")
         msg_box.setStandardButtons(QtWidgets.QMessageBox.Ok)
+        
+        # 应用按钮样式
+        for button in msg_box.buttons():
+            button.setStyleSheet(BUTTON_STYLE)
+            
         msg_box.exec_()
 
