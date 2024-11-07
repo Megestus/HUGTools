@@ -63,13 +63,13 @@ class UnBevelUI(QtWidgets.QDialog):
         self.setWindowTitle("UnBevel Tool")
         self.setMinimumWidth(300)
         self.setWindowFlags(self.windowFlags() | QtCore.Qt.Tool)
-        self.current_language = 'en'  # 添加语言状态标记
+        self.current_language = 'en'  # add language status mark
         self.create_widgets()
         self.create_layouts()
         self.create_connections()
 
     def create_widgets(self):
-        # 创建语言切换按钮
+        # create language switch button
         self.lang_btn = QtWidgets.QPushButton()
         self.lang_btn.setFixedSize(24, 24)
         self.lang_btn.setStyleSheet("""
@@ -85,11 +85,11 @@ class UnBevelUI(QtWidgets.QDialog):
         """)
         self.update_lang_button_text()
 
-        # 创建初始化按钮
+        # create initialize button
         self.init_btn = RoundedButton("UnBevel", icon=QtGui.QIcon(":polyBevel.png"))
         self.init_btn.setMinimumHeight(40)
 
-        # 创建说明标签
+        # create information label
         self.info_label_en = QtWidgets.QLabel(
             "UnBevel Tool Instructions:\n"
             "1. Select at least three edge loop\n"
@@ -104,7 +104,7 @@ class UnBevelUI(QtWidgets.QDialog):
         )
         self.info_label_en.setStyleSheet("color: #666666;")
 
-        # 创建中文说明标签
+        # create Chinese information label
         self.info_label_cn = QtWidgets.QLabel(
             "UnBevel 工具说明：\n"
             "1. 选择至少三个连续的边环\n"
@@ -118,18 +118,18 @@ class UnBevelUI(QtWidgets.QDialog):
             "+ Ctrl + Shift + Alt: 超慢速模式"
         )
         self.info_label_cn.setStyleSheet("color: #666666;")
-        self.info_label_cn.hide()  # 默认隐藏中文说明
+        self.info_label_cn.hide()  # default hide Chinese information
 
-        # 添加UnBevel值滑块
+        # add UnBevel value slider
         self.unbevel_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
         self.unbevel_slider.setMinimum(0)
-        self.unbevel_slider.setMaximum(1000)  # 对应0-100的值乘以10
-        self.unbevel_slider.setValue(1000)     # 修改为1000，对应100.0
+        self.unbevel_slider.setMaximum(1000)  # corresponds to 0-100 values multiplied by 10
+        self.unbevel_slider.setValue(1000)     # set to 1000, corresponding to 100.0
         
-        self.value_label = QtWidgets.QLabel("100.0")  # 修改默认显示值
+        self.value_label = QtWidgets.QLabel("100.0")  # modify default display value
         self.value_label.setAlignment(QtCore.Qt.AlignCenter)
         
-        # 添加应用按钮
+        # add apply button
         self.apply_btn = RoundedButton("Apply")
         self.apply_btn.setMinimumHeight(35)
 
@@ -138,49 +138,49 @@ class UnBevelUI(QtWidgets.QDialog):
         main_layout.setContentsMargins(10, 10, 10, 10)
         main_layout.setSpacing(7)
 
-        # 创建说明组
+        # create information group
         info_group = QtWidgets.QGroupBox("Instructions")
         info_layout = QtWidgets.QVBoxLayout()
         
-        # 添加语言切换按钮到右上角
+        # add language switch button to the top right
         title_layout = QtWidgets.QHBoxLayout()
         title_layout.addStretch()
         title_layout.addWidget(self.lang_btn)
         info_layout.addLayout(title_layout)
         
-        # 添加说明标签
+        # add information label
         info_layout.addWidget(self.info_label_en)
         info_layout.addWidget(self.info_label_cn)
         info_group.setLayout(info_layout)
 
-        # 创建工具组
+        # create tool group
         tool_group = QtWidgets.QGroupBox("Tools")
         tool_layout = QtWidgets.QVBoxLayout()
         
-        # 添加UnBevel按钮
+        # add UnBevel button
         tool_layout.addWidget(self.init_btn)
         
-        # 添加滑块和值标签
+        # add slider and value label
         slider_layout = QtWidgets.QHBoxLayout()
         slider_layout.addWidget(QtWidgets.QLabel("UnBevel Value:"))
         slider_layout.addWidget(self.unbevel_slider)
         slider_layout.addWidget(self.value_label)
         tool_layout.addLayout(slider_layout)
         
-        # 添加应用按钮
+        # add apply button
         tool_layout.addWidget(self.apply_btn)
         
         tool_group.setLayout(tool_layout)
 
-        # 添加到主布局
+        # add to main layout
         main_layout.addWidget(info_group)
         main_layout.addWidget(tool_group)
 
     def create_connections(self):
-        # 添加语言切换按钮的连接
+        # add language switch button connection
         self.lang_btn.clicked.connect(self.toggle_language)
         
-        # 其他连接保持不变...
+        
         self.init_btn.clicked.connect(unBevel)
         self.unbevel_slider.valueChanged.connect(self.update_unbevel_value)
         self.apply_btn.clicked.connect(self.apply_and_close)
@@ -189,7 +189,7 @@ class UnBevelUI(QtWidgets.QDialog):
         value = self.unbevel_slider.value() / 10.0
         self.value_label.setText(f"{value:.1f}")
         
-        # 更新模型
+        # update model
         global lockCount, viewPortCount
         lockCount = value
         viewPortCount = value
@@ -204,38 +204,38 @@ class UnBevelUI(QtWidgets.QDialog):
             mc.refresh(f=True)
             
     def apply_and_close(self):
-        """应用当前设置并切换到对象模式，同时设置硬边"""
+        """apply current settings and switch to object mode, also set hard edges"""
         global vLData
         
-        # 合并顶点
+        # merge vertices
         flattenList = []
         for v in vLData:
             for x in range(len(v)):
                 flattenList.append(v[x])
                 
-        # 获取原始选择的边（在合并前）
+        # get original selected edges (before merging)
         meshName = flattenList[0].split('.')[0]
         original_edges = mc.ls('saveSel', fl=True)
         
-        # 执行合并
+        # execute merging
         mc.polyMergeVertex(flattenList, d=0.001, am=0, ch=0)
         
         
-        # 处理选择集
+        # handle selection set
         if mc.objExists('saveSel'):
             mc.select('saveSel')
             mc.delete('saveSel')
         
-        # 切换到对象模式
+        # switch to object mode
         mc.selectMode(object=True)
         mc.setToolTo('selectSuperContext')
 
     def update_lang_button_text(self):
-        """更新语言切换按钮的文本"""
+        """update language switch button text"""
         self.lang_btn.setText('中' if self.current_language == 'en' else 'En')
 
     def toggle_language(self):
-        """切换显示语言"""
+        """toggle display language"""
         if self.current_language == 'en':
             self.info_label_en.hide()
             self.info_label_cn.show()
@@ -263,7 +263,7 @@ class UnBevelUI(QtWidgets.QDialog):
 
 
 #====== Core Functions ======
-# 从unBevel1.54.py复制的代码
+# copied from unBevel1.54.py
 def unBevelPress():
     global viewPortCount, lockCount, screenX, screenY
     viewPortCount = 0
@@ -764,7 +764,7 @@ def calculate_edge_distances(vertex_list):
 
 
 def show():
-    """执行UnBevel"""
+    """execute UnBevel"""
     global ppData, vLData, cLData, cumulative_fractions
     ppData = []
     vLData = []
@@ -784,7 +784,7 @@ def show():
             vLData.append(vList)
             cLData.append(cList)
             
-        # 创建拖拽上下文
+        # create drag and drop context
         if mc.draggerContext('unBevelCtx', exists=True):
             mc.deleteUI('unBevelCtx')
             
@@ -806,7 +806,7 @@ def maya_main_window():
     return wrapInstance(int(main_window_ptr), QtWidgets.QWidget)
 
 def show_ui():
-    """显示UnBevel工具UI窗口"""
+    """display UnBevel tool UI window"""
     global unbevel_window
     try:
         unbevel_window.close()

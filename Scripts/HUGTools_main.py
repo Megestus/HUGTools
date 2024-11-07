@@ -276,13 +276,10 @@ class HUGToolsWindow(QtWidgets.QDialog):
 
         # crease module
         self.editor_group = QtWidgets.QGroupBox(LANG[CURRENT_LANG]["Editor"])
-        self.open_NormalEdit_btn = RoundedButton(LANG[CURRENT_LANG]["NormalEdit"], 
-                                                icon=QtGui.QIcon(":nodeGrapherModeAllLarge.png"))
+        self.open_NormalEdit_btn = RoundedButton(LANG[CURRENT_LANG]["NormalEdit"], icon=QtGui.QIcon(":nodeGrapherModeAllLarge.png"))
         self.open_NormalEdit_btn.setToolTip("Open Normal Edit window")
-        self.open_crease_editor_btn = RoundedButton(LANG[CURRENT_LANG]["Crease Editor"], 
-                                                   icon=QtGui.QIcon(":polyCrease.png"))
-        self.open_uv_editor_btn = RoundedButton(LANG[CURRENT_LANG]["UV Editor"], 
-                                               icon=QtGui.QIcon(":textureEditor.png"))
+        self.open_crease_editor_btn = RoundedButton(LANG[CURRENT_LANG]["Crease Editor"], icon=QtGui.QIcon(":polyCrease.png"))
+        self.open_uv_editor_btn = RoundedButton(LANG[CURRENT_LANG]["UV Editor"], icon=QtGui.QIcon(":textureEditor.png"))
         self.open_uv_editor_btn.setToolTip(LANG[CURRENT_LANG]["UV Editor_tip"])
 
         # ===  this function is under development ===
@@ -313,7 +310,7 @@ class HUGToolsWindow(QtWidgets.QDialog):
         self.Toolbox_CalcDistance_btn.setMinimumSize(100, 40)
         self.Toolbox_CalcDistance_btn.setFixedHeight(40)
 
-        # 统一设置所有Toolbox按钮的大小策略和尺寸
+        # set size policy and size for all toolbox buttons
         toolbox_buttons = [
             self.Toolbox_QuickRename_btn,
             self.Toolbox_Rename_btn,
@@ -328,7 +325,7 @@ class HUGToolsWindow(QtWidgets.QDialog):
         for btn in toolbox_buttons:
             btn.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
             btn.setMinimumSize(100, 40)
-            btn.setFixedHeight(40)  # 固定高度为40
+            btn.setFixedHeight(40)  # fixed height to 40
 
 
 
@@ -596,7 +593,7 @@ class HUGToolsWindow(QtWidgets.QDialog):
         cmds.polySelectConstraint(sm=0)   # Reset selection mode, ensure all edges can be selected
         
         if sels:
-            message = '<span style="color:#FFA500;">已选中硬边</span>'
+            message = '<span style="color:#FFA500;">Hard Edges Selected</span>'
             cmds.inViewMessage(amg=message, pos='botRight', fade=True, fst=10, fad=1)
         
         cmds.select(sels)
@@ -608,7 +605,7 @@ class HUGToolsWindow(QtWidgets.QDialog):
     def convert_edge_to_curve(self):
         """Convert selected edges to NURBS curves and move pivot to center"""
         try:
-            # 检查选择
+            # check selection
             selection = cmds.ls(selection=True, flatten=True)
             edges = [edge for edge in selection if '.e[' in edge]
             
@@ -616,22 +613,22 @@ class HUGToolsWindow(QtWidgets.QDialog):
                 cmds.warning("Please select edges to convert")
                 return
                 
-            # 执行转换
+            # execute conversion
             curves = mel.eval('polyToCurve -form 2 -degree 3 -conformToSmoothMeshPreview 1')
             
             if curves:
-                # 选择新创建的曲线
+                # select new created curves
                 cmds.select(curves)
                 
-                # 将坐标轴移动到曲线的中心
+                # move pivot to center of curves
                 for curve in curves:
-                    # 获取曲线的边界框
+                    # get curve's bounding box
                     bbox = cmds.exactWorldBoundingBox(curve)
-                    # 计算中心点
+                    # calculate center point
                     center_x = (bbox[0] + bbox[3]) / 2
                     center_y = (bbox[1] + bbox[4]) / 2
                     center_z = (bbox[2] + bbox[5]) / 2
-                    # 移动坐标轴到中心点
+                    # move pivot to center point
                     cmds.xform(curve, pivots=[center_x, center_y, center_z])
                 
                 message = "Converted to curves and centered pivot"
@@ -663,25 +660,25 @@ class HUGToolsWindow(QtWidgets.QDialog):
                 continue
 
             try:
-                # 1. 应用平面投影
+                # 1. apply planar projection
                 cmds.select(f"{obj}.f[*]", r=True)
                 cmds.polyProjection(type='Planar', md='p')
 
-                # 2. 选择硬边
+                # 2. select hard edges
                 cmds.select(obj)
                 cmds.polySelectConstraint(m=3, t=0x8000, sm=1)
                 hard_edges = cmds.ls(selection=True, flatten=True)
-                cmds.polySelectConstraint(sm=0)  # 重置选择约束
+                cmds.polySelectConstraint(sm=0)  # reset selection constraint
 
                 if not hard_edges:
                     cmds.warning(f"{obj} has no hard edges. Skipping UV cut and unfold steps.")
                     continue
 
-                # 3. 沿硬边切UV
+                # 3. cut uv along hard edges
                 cmds.select(hard_edges)
                 cmds.polyMapCut(ch=1)
 
-                # 4. 展和布局UV
+                # 4. unfold and layout uv
                 cmds.select(obj)
                 cmds.u3dUnfold(ite=1, p=0, bi=1, tf=1, ms=1024, rs=0)
                 cmds.u3dLayout(res=256, scl=1, spc=0.03125, mar=0.03125, box=(0, 1, 0, 1))
@@ -692,12 +689,12 @@ class HUGToolsWindow(QtWidgets.QDialog):
             finally:
                 cmds.select(obj)
 
-        # 最后的清理工作
-        cmds.polySelectConstraint(sm=0)  # 重置选择约束
-        cmds.selectMode(object=True)  # 确保结束在物体模式
+        # final cleanup
+        cmds.polySelectConstraint(sm=0)  # reset selection constraint
+        cmds.selectMode(object=True)  # ensure ending in object mode
 
-        # 显示完成消息
-        message = '<span style="color:#FFA500;">UV布局完成</span>'
+        # display completion message
+        message = '<span style="color:#FFA500;">UV layout completed</span>'
         cmds.inViewMessage(amg=message, pos='botRight', fade=True, fst=10, fad=1)
 
 
@@ -1052,7 +1049,7 @@ class HUGToolsWindow(QtWidgets.QDialog):
         self.open_crease_editor_btn.setText(LANG[CURRENT_LANG]["Crease Editor"])
         self.open_uv_editor_btn.setText(LANG[CURRENT_LANG]["UV Editor"])
         
-        # 移除被注释掉的按钮的翻译
+        # more controls 
         # self.create_fixed_crease_set_btn.setText(LANG[CURRENT_LANG]["Create Crease Set by Name"])
         # self.crease_1_btn.setText(LANG[CURRENT_LANG]["Crease V2"])
         # self.crease_3_btn.setText(LANG[CURRENT_LANG]["Crease V5"])
@@ -1074,7 +1071,7 @@ class HUGToolsWindow(QtWidgets.QDialog):
         self.planar_projection_btn.setText(LANG[CURRENT_LANG]["Planar Projection"])
         self.uvlayout_hardedges_btn.setText(LANG[CURRENT_LANG]["UV Layout by Hard Edges"])
 
-        # 更新工具箱按钮的工具提示
+        # more controls tooltip
         self.Toolbox_QuickRename_btn.setToolTip(LANG[CURRENT_LANG]["QuickRename_tip"])
         self.Toolbox_Rename_btn.setToolTip(LANG[CURRENT_LANG]["Rename_tip"])
         self.Toolbox_UVset_btn.setToolTip(LANG[CURRENT_LANG]["UVSetSwap_tip"])

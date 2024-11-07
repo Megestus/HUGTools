@@ -43,15 +43,15 @@ class QuickExportFBX_UI(QtWidgets.QDialog):
         self.setWindowFlags(self.windowFlags() | QtCore.Qt.Tool)
         self.setMinimumWidth(400)
         
-        # 获取当前Maya文件路径
+        # get current maya file path
         self.default_path = self.get_maya_file_path()
         
-        # 创建主布局
+        # create main layout
         self.create_widgets()
         self.create_layouts()
         self.create_connections()
         
-        # 设置样式
+        # set style
         self.setStyleSheet("""
             QDialog {
                 background-color: #444444;
@@ -119,83 +119,83 @@ class QuickExportFBX_UI(QtWidgets.QDialog):
         """)
 
     def get_maya_file_path(self):
-        """获取当前Maya文件所在目录"""
+        """get current maya file directory"""
         current_file = cmds.file(query=True, sceneName=True)
         if current_file:
-            # 如果文件已保存，返回文件所在目录
+            # if file is saved, return file directory
             return os.path.dirname(current_file)
         else:
-            # 如果文件保存，返回用户文档目录
+            # if file is not saved, return user documents directory
             if os.name == 'nt':  # Windows
                 return os.path.expanduser("~\\Documents")
-            else:  # macOS 和 Linux
+            else:  # macOS and Linux
                 return os.path.expanduser("~/Documents")
 
     def create_widgets(self):
-        # 路径选择部分
+        # path selection part
         self.path_label = QtWidgets.QLabel("Export Path:")
         self.path_line = QtWidgets.QLineEdit()
-        # 设置默认路径
+        # set default path
         self.path_line.setText(self.default_path)
         
-        # 使用ModItButton替换原来的按钮
+        # use ModItButton to replace the original button
         self.browse_btn = ModItButton("Browse", icon=QtGui.QIcon(":fileOpen.png"))
         
-        # 添加导出格式单选框
+        # add export format radio buttons
         self.format_group = QtWidgets.QGroupBox("Export Format")
-        self.format_button_group = QtWidgets.QButtonGroup(self)  # 创建按钮组
+        self.format_button_group = QtWidgets.QButtonGroup(self)  # create button group
         self.fbx_format_rb = QtWidgets.QRadioButton("FBX")
         self.obj_format_rb = QtWidgets.QRadioButton("OBJ")
-        # 将单选框添加到按钮组
+        # add radio buttons to button group
         self.format_button_group.addButton(self.fbx_format_rb)
         self.format_button_group.addButton(self.obj_format_rb)
-        # 默认选中FBX
+        # default select FBX
         self.fbx_format_rb.setChecked(True)
         
-        # 导出按钮
+        # export button
         self.export_btn = ModItButton("Export Selected Objects", icon=QtGui.QIcon(":fileNew.png"))
         self.open_folder_btn = ModItButton("Open Folder", icon=QtGui.QIcon(":folder-open.png"))
         self.export_btn.setMinimumHeight(50)
         
-        # 状态显示
+        # status display
         self.status_text = QtWidgets.QTextEdit()
         self.status_text.setReadOnly(True)
         self.status_text.setMinimumHeight(60)
         self.status_text.setText("Ready")
 
     def create_layouts(self):
-        # 主布局
+        # main layout
         main_layout = QtWidgets.QVBoxLayout(self)
         main_layout.setContentsMargins(6, 6, 6, 6)
         main_layout.setSpacing(4)
         
-        # 路径选择布局
+        # path selection layout
         path_layout = QtWidgets.QHBoxLayout()
         path_layout.addWidget(self.path_label)
         path_layout.addWidget(self.path_line)
         path_layout.addWidget(self.browse_btn)
         
-        # 导出格式单选框布局
+        # export format radio button layout
         format_layout = QtWidgets.QHBoxLayout()
         format_layout.addWidget(self.fbx_format_rb)
         format_layout.addWidget(self.obj_format_rb)
         format_layout.addStretch()
         self.format_group.setLayout(format_layout)
         
-        # 导出按钮布局
+        # export button layout
         export_layout = QtWidgets.QHBoxLayout()
-        # 设置Export按钮占据更多空间
-        self.export_btn.setMinimumWidth(200)  # 设置最小宽度
-        export_layout.addWidget(self.export_btn, stretch=6)  # 设置stretch为7
+        # set export button to take more space
+        self.export_btn.setMinimumWidth(200)  # set minimum width
+        export_layout.addWidget(self.export_btn, stretch=6)  # set stretch to 7
         
-        # 设置Open Folder按钮更窄
-        self.open_folder_btn.setMinimumWidth(80)  # 设置最小宽度
-        self.open_folder_btn.setMaximumWidth(120)  # 设置最大宽度
-        export_layout.addWidget(self.open_folder_btn, stretch=4)  # 设置stretch为3
+        # set open folder button narrower
+        self.open_folder_btn.setMinimumWidth(80)  # set minimum width
+        self.open_folder_btn.setMaximumWidth(120)  # set maximum width
+        export_layout.addWidget(self.open_folder_btn, stretch=4)  # set stretch to 3
         
-        # 添加所有元素到主布局
+        # add all elements to main layout
         main_layout.addLayout(path_layout)
-        main_layout.addWidget(self.format_group)  # 添加格式选择组
+        main_layout.addWidget(self.format_group)  # add format selection group
         main_layout.addLayout(export_layout)
         main_layout.addWidget(self.status_text)
 
@@ -203,11 +203,11 @@ class QuickExportFBX_UI(QtWidgets.QDialog):
         self.browse_btn.clicked.connect(self.browse_path)
         self.open_folder_btn.clicked.connect(self.open_export_folder)
         self.export_btn.clicked.connect(self.export_objects)
-        # 连接单选框信号
+        # connect radio button signal
         self.format_button_group.buttonClicked.connect(self._handle_format_change)
 
     def browse_path(self):
-        """选择导出路径"""
+        """select export path"""
         directory = QtWidgets.QFileDialog.getExistingDirectory(
             self,
             "Select Export Directory",
@@ -220,7 +220,7 @@ class QuickExportFBX_UI(QtWidgets.QDialog):
             self.status_text.setStyleSheet("background-color: #555555;")
 
     def open_export_folder(self):
-        """打开导出文件夹"""
+        """open export folder"""
         path = self.path_line.text()
         if not path:
             self.status_text.setText("Error: Please select export path!")
@@ -232,7 +232,7 @@ class QuickExportFBX_UI(QtWidgets.QDialog):
             self.status_text.setStyleSheet("background-color: #663333;")
             return
             
-        # 根据操作系统打开文件夹
+        # open folder according to operating system
         if os.name == 'nt':  # Windows
             os.startfile(path)
         elif os.name == 'posix':  # macOS 和 Linux
@@ -242,7 +242,7 @@ class QuickExportFBX_UI(QtWidgets.QDialog):
                 subprocess.Popen(['xdg-open', path])
 
     def _check_nested_groups(self, obj):
-        """检查是否存在嵌套组"""
+        """check if there is a nested group"""
         if cmds.objectType(obj) == "transform":
             children = cmds.listRelatives(obj, children=True, fullPath=True) or []
             for child in children:
@@ -253,44 +253,44 @@ class QuickExportFBX_UI(QtWidgets.QDialog):
         return False
 
     def export_objects(self):
-        """导出选中的物体"""
-        # 获取导出路径
+        """export selected objects"""
+        # get export path
         export_path = self.path_line.text()
         if not export_path:
             self.status_text.setText("Error: Please select export path!")
             self.status_text.setStyleSheet("background-color: #663333;")
             return
         
-        # 获取选中的对象
+        # get selected objects
         selected_objects = cmds.ls(selection=True)
         if not selected_objects:
             self.status_text.setText("Error: Please select objects to export!")
             self.status_text.setStyleSheet("background-color: #663333;")
             return
         
-        # 检查是否有嵌套组
+        # check if there is a nested group
         for obj in selected_objects:
             if self._check_nested_groups(obj):
                 self.status_text.setText("Error: Nested groups are not supported!\nExample:\nRetopo\n  └─low\n      └─cube.fbx\n\nPlease select single-level groups only.")
                 self.status_text.setStyleSheet("background-color: #663333;")
                 return
         
-        # 初始化导出文件记录字典
+        # initialize export file record dictionary
         exported_files = {"root": []}
         
-        # 检查选择的导出格式
+        # check selected export format
         try:
             if self.fbx_format_rb.isChecked():
                 total_exported = self._export_fbx(selected_objects, export_path, exported_files)
             else:  # OBJ format
                 total_exported = self._export_obj(selected_objects, export_path, exported_files)
                 
-            # 构建完成信息
+            # build completion information
             status_message = "Export Complete:\n"
             status_message += f"Total Files Exported: {total_exported}\n"
             status_message += f"Export Path: {export_path}\n\n"
             
-            # 添加文件信息
+            # add file information
             for group_name, files in exported_files.items():
                 if files:
                     if group_name == "root":
@@ -309,13 +309,13 @@ class QuickExportFBX_UI(QtWidgets.QDialog):
             self.status_text.setStyleSheet("background-color: #663333;")
 
     def _export_obj(self, objects, export_path, exported_files):
-        """导出OBJ格式文件"""
+        """export OBJ format file"""
         total_exported = 0
         processed_groups = []
         
         for obj in objects:
             try:
-                # 检查是否是组
+                # check if it is a group
                 is_group = False
                 if cmds.objectType(obj) == "transform":
                     children = cmds.listRelatives(obj, children=True, fullPath=True) or []
@@ -324,15 +324,15 @@ class QuickExportFBX_UI(QtWidgets.QDialog):
                         is_group = not all(t == 'mesh' for t in child_types)
 
                 if is_group:
-                    # 处理组
+                    # process group
                     group_name = obj.split(":")[-1].split("|")[-1]
                     group_dir = os.path.join(export_path, group_name)
                     
-                    # 创建组文件夹
+                    # create group folder
                     if not os.path.exists(group_dir):
                         os.makedirs(group_dir)
                     
-                    # 获取组内的所有子对象
+                    # get all children of the group
                     children = [child for child in (cmds.listRelatives(obj, children=True, fullPath=True, type='transform') or [])
                               if cmds.objectType(child) == 'transform']
                     
@@ -340,20 +340,20 @@ class QuickExportFBX_UI(QtWidgets.QDialog):
                         processed_groups.append(group_name)
                         exported_files[group_name] = []
                         
-                        # 导出每个子对象
+                        # export each child object
                         for child in children:
                             try:
-                                # 选择当前子对象
+                                # select current child object
                                 cmds.select(child, replace=True)
                                 
-                                # 获取子对象名称
+                                # get child object name
                                 child_name = child.split(":")[-1].split("|")[-1]
                                 
-                                # 构建导出文件路径
+                                # build export file path
                                 file_path = os.path.normpath(os.path.join(group_dir, f"{child_name}.obj"))
                                 file_path = file_path.replace("\\", "/")
                                 
-                                # 使用默认设置导出OBJ
+                                # export OBJ with default settings
                                 cmds.file(file_path, force=True, exportSelected=True, type="OBJexport", pr=True)
                                 
                                 exported_files[group_name].append(f"{child_name}.obj")
@@ -362,15 +362,15 @@ class QuickExportFBX_UI(QtWidgets.QDialog):
                             except Exception as e:
                                 raise Exception(f"导出组 {group_name} 中的 {child_name} 时出错: {str(e)}")
                 else:
-                    # 导出单个对象
+                    # export single object
                     cmds.select(obj, replace=True)
                     obj_name = obj.split(":")[-1].split("|")[-1]
                     
-                    # 构建导出文件路径
+                    # build export file path
                     file_path = os.path.normpath(os.path.join(export_path, f"{obj_name}.obj"))
                     file_path = file_path.replace("\\", "/")
                     
-                    # 使用默认设置导出OBJ
+                    # export OBJ with default settings
                     cmds.file(file_path, force=True, exportSelected=True, type="OBJexport", pr=True)
                     
                     exported_files["root"].append(f"{obj_name}.obj")
@@ -382,13 +382,13 @@ class QuickExportFBX_UI(QtWidgets.QDialog):
         return total_exported
 
     def _export_fbx(self, objects, export_path, exported_files):
-        """导出FBX格式文件"""
+        """export FBX format file"""
         total_exported = 0
         processed_groups = []
         
         for obj in objects:
             try:
-                # 检查是否是组
+                # check if it is a group
                 is_group = False
                 if cmds.objectType(obj) == "transform":
                     children = cmds.listRelatives(obj, children=True, fullPath=True) or []
@@ -397,7 +397,7 @@ class QuickExportFBX_UI(QtWidgets.QDialog):
                         is_group = not all(t == 'mesh' for t in child_types)
 
                 if is_group:
-                    # 处理组
+                    # process group
                     group_name = obj.split(":")[-1].split("|")[-1]
                     group_dir = os.path.join(export_path, group_name)
                     
@@ -413,17 +413,17 @@ class QuickExportFBX_UI(QtWidgets.QDialog):
                         
                         for child in children:
                             try:
-                                # 选择当前子对象
+                                # select current child object
                                 cmds.select(child, replace=True)
                                 
-                                # 获取子对象名称
+                                # get child object name
                                 child_name = child.split(":")[-1].split("|")[-1]
                                 
-                                # 构建导出文件路径
+                                # build export file path
                                 file_path = os.path.normpath(os.path.join(group_dir, f"{child_name}.fbx"))
                                 file_path = file_path.replace("\\", "/")
                                 
-                                # 使用默认设置导出FBX
+                                # export FBX with default settings
                                 cmds.file(file_path, force=True, exportSelected=True, type="FBX export", pr=True)
                                 
                                 exported_files[group_name].append(f"{child_name}.fbx")
@@ -432,15 +432,15 @@ class QuickExportFBX_UI(QtWidgets.QDialog):
                             except Exception as e:
                                 raise Exception(f"导出组 {group_name} 中的 {child_name} 时出错: {str(e)}")
                 else:
-                    # 导出单个对象
+                    # export single object
                     cmds.select(obj, replace=True)
                     obj_name = obj.split(":")[-1].split("|")[-1]
                     
-                    # 构建导出文件路径
+                    # build export file path
                     file_path = os.path.normpath(os.path.join(export_path, f"{obj_name}.fbx"))
                     file_path = file_path.replace("\\", "/")
                     
-                    # 使用默认设置导出FBX
+                    # export FBX with default settings
                     cmds.file(file_path, force=True, exportSelected=True, type="FBX export", pr=True)
                     
                     exported_files["root"].append(f"{obj_name}.fbx")
@@ -452,18 +452,18 @@ class QuickExportFBX_UI(QtWidgets.QDialog):
         return total_exported
 
     def _handle_format_change(self, button):
-        """处理格式选择变化"""
-        pass  # 由于移除了选项组，这个函数现在不需要做任何事
+        """handle format selection change"""
+        pass  # since the option group is removed, this function now does nothing
 
     def export_obj(self):
-        # 首先获取选中的对象
+        # get selected objects
         selected_objects = cmds.ls(selection=True)
         
         if not selected_objects:
             cmds.warning("请先选择要导出的对象！")
             return
             
-        # 获取导出路径
+        # get export path
         file_path = cmds.fileDialog2(fileFilter="OBJ Files (*.obj)", dialogStyle=2, fileMode=0)
         
         if not file_path:
@@ -472,7 +472,7 @@ class QuickExportFBX_UI(QtWidgets.QDialog):
         file_path = file_path[0]
         
         try:
-            # 导出选中的对象为OBJ
+            # export selected objects as OBJ
             cmds.file(file_path, 
                      force=True, 
                      exportSelected=True, 
