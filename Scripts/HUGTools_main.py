@@ -12,7 +12,7 @@ import maya.OpenMayaUI as omui
 from shiboken2 import wrapInstance
 
 # Define constants
-HUGTOOL_VERSION = "1.2.1 Beta"
+HUGTOOL_VERSION = "1.2.2 Beta"
 HUGTOOL_ICON = "HUG3.png"
 HUGTOOL_TITLE = "HUGTOOL"
 HUGTOOL_HELP_URL = "https://megestus.github.io/HUGTools/"
