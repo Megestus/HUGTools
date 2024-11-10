@@ -16,6 +16,7 @@ TOOLBOX_NAME = "HUGTools"
 TOOLBOX_VERSION = "1.2.1 Beta"  # Update this to match HUGTOOL_VERSION in HUGTools_main.py
 TOOLBOX_ICON = "HUGlogo2.png"
 TOOLBOX_MAIN_MODULE = "HUGTools_main"
+TOOLBOX_HELP_URL = "https://megestus.github.io/HUGTools/"  
 
 # Define button style
 BUTTON_STYLE = """
@@ -55,7 +56,7 @@ LANG = {
         # English translations
         'install': "Install",
         'uninstall': "Uninstall",
-        'create_new_shelf': "new shelf",
+        'create_new_shelf': "Whether to Create new shelf",
         'confirm_install': "Confirm Installation",
         'confirm_install_msg': "Are you sure you want to install {}?",
         'new_shelf_msg': "(A new shelf will be created)",
@@ -70,20 +71,13 @@ LANG = {
         'confirm_reinstall': "Confirm Reinstallation",
         'confirm_reinstall_msg': "Are you sure you want to reinstall {}? This will uninstall the current version first.",
         'reinstall_success': "Reinstallation Successful",
-        'reinstall_success_msg': "{} has been successfully reinstalled!",
-        'add_to_toolbar': "left side Toolbar",
-        'add_to_toolbar_msg': "(Will be added to left side toolbar)",
-        'existing_installation': "Existing Installation",
-        'existing_installation_msg': "Detected that {0} is already installed in {1}.\nDo you want to remove the existing installation?\nChoosing \"No\" will keep the existing installation and continue installing.",
-        'side_toolbar': "side toolbar",
-        'dedicated_shelf': "dedicated shelf",
-        'shelf': "shelf"
+        'reinstall_success_msg': "{} has been successfully reinstalled!"
     },
     'zh_CN': {
         # Chinese translations
         'install': "安装",
         'uninstall': "卸载",
-        'create_new_shelf': "新工具架",
+        'create_new_shelf': "是否创建新工具架",
         'confirm_install': "确认安装",
         'confirm_install_msg': "您确定要安装 {} 吗？",
         'new_shelf_msg': "（将创建新工具架）",
@@ -98,14 +92,7 @@ LANG = {
         'confirm_reinstall': "确认重新安装",
         'confirm_reinstall_msg': "您确定要重新安装 {} 吗？这将先卸载当前版本。",
         'reinstall_success': "重新安装成功",
-        'reinstall_success_msg': "{} 已成功重新安装！",
-        'add_to_toolbar': "左侧工具架",
-        'add_to_toolbar_msg': "（将添加到左侧工具架）",
-        'existing_installation': "已存在安装",
-        'existing_installation_msg': "检测到{0}已经安装在{1}。\n是否要移除现有安装？\n选择\"否\"将保留现有安装并继续安装。",
-        'side_toolbar': "侧边栏",
-        'dedicated_shelf': "专用工具架",
-        'shelf': "工具架"
+        'reinstall_success_msg': "{} 已成功重新安装！"
     }
 }
 
@@ -160,10 +147,22 @@ class InstallDialog(QtWidgets.QDialog):
 
     # Create UI widgets
     def create_widgets(self):
+        self.help_button = QtWidgets.QPushButton("?")
+        self.help_button.setFixedSize(20, 20)
+        self.help_button.setStyleSheet("""
+            QPushButton {
+                border-radius: 10px;
+                background-color: #B0B0B0;
+                color: #303030;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #C0C0C0;
+            }
+        """)
+        
         self.new_shelf_toggle = QtWidgets.QCheckBox(LANG[CURRENT_LANG]['create_new_shelf'])
         self.new_shelf_toggle.setChecked(False)
-        self.toolbar_toggle = QtWidgets.QCheckBox(LANG[CURRENT_LANG].get('add_to_toolbar', '添加到侧边栏'))
-        self.toolbar_toggle.setChecked(True)
         self.install_button = RoundedButton(LANG[CURRENT_LANG]['install'] + " " + TOOLBOX_NAME)
         self.uninstall_button = RoundedButton(LANG[CURRENT_LANG]['uninstall'] + " " + TOOLBOX_NAME)
         self.reinstall_button = RoundedButton(LANG[CURRENT_LANG]['reinstall'] + " " + TOOLBOX_NAME)
@@ -174,20 +173,15 @@ class InstallDialog(QtWidgets.QDialog):
         main_layout.setContentsMargins(10, 2, 10, 1)
         main_layout.setSpacing(8)
         
-        # 创建一个水平布局来容纳两个切换按钮
-        toggles_layout = QtWidgets.QHBoxLayout()
-        toggles_layout.setContentsMargins(2, 4, 10, 1)
-        toggles_layout.setSpacing(15)  # 增加间距
-        
-        # 左侧：新工具架切换
-        shelf_toggle_layout = QtWidgets.QHBoxLayout()
-        shelf_toggle_layout.setSpacing(5)
-        
-        self.shelf_toggle_button = QtWidgets.QPushButton()
-        self.shelf_toggle_button.setCheckable(True)
-        self.shelf_toggle_button.setChecked(False)
-        self.shelf_toggle_button.setFixedSize(20, 20)
-        self.shelf_toggle_button.setStyleSheet(
+        toggle_layout = QtWidgets.QHBoxLayout()
+        toggle_layout.setContentsMargins(2, 4, 10, 1)
+        toggle_layout.setSpacing(5)
+
+        self.toggle_button = QtWidgets.QPushButton()
+        self.toggle_button.setCheckable(True)
+        self.toggle_button.setChecked(False)
+        self.toggle_button.setFixedSize(20, 20)
+        self.toggle_button.setStyleSheet(
             """
             QPushButton {
                 border: none;
@@ -202,49 +196,15 @@ class InstallDialog(QtWidgets.QDialog):
             """
         )
         
-        shelf_label = QtWidgets.QLabel(LANG[CURRENT_LANG]['create_new_shelf'])
-        shelf_label.setStyleSheet("font-size: 11px; padding: 0px; margin: 0px;")
+        label = QtWidgets.QLabel(LANG[CURRENT_LANG]['create_new_shelf'])
+        label.setStyleSheet("font-size: 11px; padding: 0px; margin: 0px;")
         
-        shelf_toggle_layout.addWidget(self.shelf_toggle_button)
-        shelf_toggle_layout.addWidget(shelf_label)
+        toggle_layout.addWidget(self.toggle_button)
+        toggle_layout.addWidget(label)
+        toggle_layout.addStretch()
+        toggle_layout.addWidget(self.help_button)
         
-        # 右侧：侧边栏切换
-        toolbar_toggle_layout = QtWidgets.QHBoxLayout()
-        toolbar_toggle_layout.setSpacing(5)
-        
-        self.toolbar_toggle_button = QtWidgets.QPushButton()
-        self.toolbar_toggle_button.setCheckable(True)
-        self.toolbar_toggle_button.setChecked(True)
-        self.toolbar_toggle_button.setFixedSize(20, 20)
-        self.toolbar_toggle_button.setStyleSheet(
-            """
-            QPushButton {
-                border: none;
-                background-image: url(:/UVTkVerticalToggleOn.png);
-                background-repeat: no-repeat;
-                background-position: center;
-                background-size: contain;
-            }
-            QPushButton:checked {
-                background-image: url(:/UVTkVerticalToggleOff.png);
-            }
-            """
-        )
-        
-        toolbar_label = QtWidgets.QLabel(LANG[CURRENT_LANG].get('add_to_toolbar', '添加到侧边栏'))
-        toolbar_label.setStyleSheet("font-size: 11px; padding: 0px; margin: 0px;")
-        
-        toolbar_toggle_layout.addWidget(self.toolbar_toggle_button)
-        toolbar_toggle_layout.addWidget(toolbar_label)
-        
-        # 将两个切换布局添加到水平布局中
-        toggles_layout.addLayout(shelf_toggle_layout)
-        toggles_layout.addLayout(toolbar_toggle_layout)
-        
-        # 将水平布局添加到主布局
-        main_layout.addLayout(toggles_layout)
-        
-        # 添加其他按钮
+        main_layout.addLayout(toggle_layout)
         main_layout.addWidget(self.install_button)
         main_layout.addWidget(self.reinstall_button)  
         main_layout.addWidget(self.uninstall_button)
@@ -253,29 +213,32 @@ class InstallDialog(QtWidgets.QDialog):
         self.reinstall_button.setFixedHeight(30)
         self.uninstall_button.setFixedHeight(30)
 
+        # Add some elastic space
         main_layout.addStretch(1)
 
     # Connect UI elements to their respective functions
     def create_connections(self):
+        self.help_button.clicked.connect(self.open_help_url)
         self.install_button.clicked.connect(self.install)
         self.uninstall_button.clicked.connect(self.uninstall)
         self.reinstall_button.clicked.connect(self.reinstall)
-        
-        # 添加切换按钮的互斥逻辑
-        self.shelf_toggle_button.clicked.connect(self.handle_shelf_toggle)
-        self.toolbar_toggle_button.clicked.connect(self.handle_toolbar_toggle)
-    
-    def handle_shelf_toggle(self, checked):
-        """处理新工具架切换按钮的点击"""
-        if checked:
-            # 如果选中新工具架，取消侧边栏的选中
-            self.toolbar_toggle_button.setChecked(False)
-    
-    def handle_toolbar_toggle(self, checked):
-        """处理侧边栏切换按钮的点击"""
-        if checked:
-            # 如果选中侧边栏，取消新工具架的选中
-            self.shelf_toggle_button.setChecked(False)
+
+    # Handle WhatsThis events
+    def event(self, event):
+        if event.type() == QtCore.QEvent.EnterWhatsThisMode:
+            QtWidgets.QWhatsThis.leaveWhatsThisMode()
+            self.open_help_url()
+            return True
+        return QtWidgets.QDialog.event(self, event)
+
+    # Open help URL in web browser
+    def open_help_url(self):
+        webbrowser.open(TOOLBOX_HELP_URL)
+        QtWidgets.QApplication.restoreOverrideCursor()
+
+    # Handle close event
+    def closeEvent(self, event):
+        QtWidgets.QDialog.closeEvent(self, event)
 
     # Create a styled message box
     def create_styled_message_box(self, title, text):
@@ -308,80 +271,17 @@ class InstallDialog(QtWidgets.QDialog):
 
     # Handle install button click
     def install(self):
-        new_shelf = self.shelf_toggle_button.isChecked()
-        add_to_toolbar = self.toolbar_toggle_button.isChecked()
-        
-        # 如果两个选项都未选中，默认在当前工具架安装
-        if not new_shelf and not add_to_toolbar:
-            new_shelf = False  # 确保是False，表示在当前工具架安装
-            add_to_toolbar = False
-        
-        # 检查是否已经安装
-        existing_installation = self.check_existing_installation()
-        if existing_installation:
-            msg_box = self.create_styled_message_box(
-                LANG[CURRENT_LANG]['existing_installation'],
-                LANG[CURRENT_LANG]['existing_installation_msg'].format(
-                    TOOLBOX_NAME, 
-                    existing_installation
-                )
-            )
-            result = msg_box.exec_()
-            if result == QtWidgets.QMessageBox.Yes:
-                # 用户选择是，先卸载现有安装
-                uninstall_toolbox(show_message=False)
-            # 如果用户选择否，直接继续安装流程，不做任何卸载
-            
+        new_shelf = self.toggle_button.isChecked()
         msg_box = self.create_styled_message_box(
             LANG[CURRENT_LANG]['confirm_install'],
             LANG[CURRENT_LANG]['confirm_install_msg'].format(TOOLBOX_NAME) + 
-            (LANG[CURRENT_LANG]['new_shelf_msg'] if new_shelf else 
-             LANG[CURRENT_LANG]['current_shelf_msg'] if not add_to_toolbar else
-             LANG[CURRENT_LANG]['add_to_toolbar_msg'])
+            (LANG[CURRENT_LANG]['new_shelf_msg'] if new_shelf else LANG[CURRENT_LANG]['current_shelf_msg'])
         )
         result = msg_box.exec_()
         
         if result == QtWidgets.QMessageBox.Yes:
             self.close()
-            install_toolbox(new_shelf=new_shelf, add_to_toolbar=add_to_toolbar)
-
-    def check_existing_installation(self):
-        """检查是否已经安装了工具"""
-        # 检查侧边栏
-        toolbar_paths = [
-            'ToolBox|MainToolboxLayout|frameLayout5|flowLayout2',
-            mel.eval('$tmp=$gToolBox')
-        ]
-        
-        for toolbar in toolbar_paths:
-            if toolbar and cmds.layout(toolbar, exists=True):
-                try:
-                    children = cmds.layout(toolbar, query=True, childArray=True) or []
-                    for child in children:
-                        if child == f"{TOOLBOX_NAME}_toolbar_button":
-                            return LANG[CURRENT_LANG]['side_toolbar']
-                except:
-                    pass
-        
-        # 检查工具架
-        shelf_layout = mel.eval('$tmpVar=$gShelfTopLevel')
-        
-        # 检查专用工具架
-        if cmds.shelfLayout(TOOLBOX_NAME, exists=True):
-            return LANG[CURRENT_LANG]['dedicated_shelf']
-        
-        # 检查其他工具架
-        shelves = cmds.shelfTabLayout(shelf_layout, query=True, childArray=True)
-        for shelf in shelves:
-            buttons = cmds.shelfLayout(shelf, query=True, childArray=True) or []
-            for btn in buttons:
-                if cmds.shelfButton(btn, query=True, exists=True):
-                    label = cmds.shelfButton(btn, query=True, label=True)
-                    if label == TOOLBOX_NAME:
-                        current_shelf = cmds.shelfLayout(shelf, query=True, annotation=True)
-                        return f"{LANG[CURRENT_LANG]['shelf']} {current_shelf}"
-        
-        return None
+            install_toolbox(new_shelf)
 
     # Handle uninstall button click
     def uninstall(self):
@@ -397,31 +297,18 @@ class InstallDialog(QtWidgets.QDialog):
 
     # Handle reinstall button click
     def reinstall(self):
-        new_shelf = self.shelf_toggle_button.isChecked()
-        add_to_toolbar = self.toolbar_toggle_button.isChecked()
-        
-        # 如果两个选项都未选中，默认在当前工具架安装
-        if not new_shelf and not add_to_toolbar:
-            new_shelf = False  # 确保是False，表示在当前工具架安装
-            add_to_toolbar = False
-            
         msg_box = self.create_styled_message_box(
             LANG[CURRENT_LANG]['confirm_reinstall'],
-            LANG[CURRENT_LANG]['confirm_reinstall_msg'].format(TOOLBOX_NAME) + 
-            (LANG[CURRENT_LANG]['new_shelf_msg'] if new_shelf else 
-             LANG[CURRENT_LANG]['current_shelf_msg'] if not add_to_toolbar else
-             LANG[CURRENT_LANG]['add_to_toolbar_msg'])
+            LANG[CURRENT_LANG]['confirm_reinstall_msg'].format(TOOLBOX_NAME)
         )
         result = msg_box.exec_()
         
         if result == QtWidgets.QMessageBox.Yes:
             self.close()
-            # 先完全卸载
             uninstall_toolbox(show_message=False)
-            # 根据选择重新安装
-            install_toolbox(new_shelf=new_shelf, add_to_toolbar=add_to_toolbar)
+            install_toolbox(self.new_shelf_toggle.isChecked(), show_message=False)
             
-            # 显示重新安装成功消息
+            # Show only one reinstallation success message
             success_msg_box = QtWidgets.QMessageBox()
             success_msg_box.setWindowTitle(LANG[CURRENT_LANG]['reinstall_success'])
             success_msg_box.setText(LANG[CURRENT_LANG]['reinstall_success_msg'].format(TOOLBOX_NAME))
@@ -484,7 +371,7 @@ def clean_existing_buttons():
                     print(f"Deleted existing {TOOLBOX_NAME} button: {btn}")
 
 # Install the toolbox
-def install_toolbox(new_shelf=False, add_to_toolbar=True, show_message=True):
+def install_toolbox(new_shelf=True, show_message=True):
     current_path = get_script_path()
     scripts_path = os.path.join(current_path, "Scripts")
     
@@ -501,13 +388,26 @@ def install_toolbox(new_shelf=False, add_to_toolbar=True, show_message=True):
     if scripts_path not in sys.path:
         sys.path.insert(0, scripts_path)
     
-    # 准备图标和命令
+    shelf_layout = mel.eval('$tmpVar=$gShelfTopLevel')
+    
+    if new_shelf:
+        if not cmds.shelfLayout(TOOLBOX_NAME, exists=True):
+            cmds.shelfLayout(TOOLBOX_NAME, parent=shelf_layout)
+        parent = TOOLBOX_NAME
+    else:
+        current_shelf = cmds.tabLayout(shelf_layout, query=True, selectTab=True)
+        parent = current_shelf
+    
+    clean_existing_buttons()
+    
     icon_path = os.path.join(current_path, "Icons", TOOLBOX_ICON)
     if not os.path.exists(icon_path):
         print(f"Warning: Custom icon file '{icon_path}' does not exist, using default icon.")
         icon_path = "commandButton.png"
+    else:
+        print(f"Using custom icon: {icon_path}")
     
-    # 准备命令
+    # Command to be executed when the shelf button is clicked
     command = f"""
 import sys
 import os
@@ -528,60 +428,23 @@ except ImportError as e:
     print("Current path:", current_path)
     print("Scripts path:", scripts_path)
     print("sys.path:", sys.path)
+    print("Contents of Scripts folder:", os.listdir(scripts_path))
 """
     
-    # 如果选择了添加到侧边栏，只在侧边栏创建按钮
-    if add_to_toolbar:
-        try:
-            main_toolbar = 'ToolBox|MainToolboxLayout|frameLayout5|flowLayout2'
-            if not cmds.layout(main_toolbar, exists=True):
-                main_toolbar = mel.eval('$tmp=$gToolBox')
-                if not main_toolbar:
-                    raise RuntimeError("无法获取工具栏")
-            
-            # 创建侧边栏按钮
-            cmds.iconTextButton(
-                f"{TOOLBOX_NAME}_toolbar_button",
-                parent=main_toolbar,
-                style='iconOnly',
-                image1=icon_path,
-                label=TOOLBOX_NAME,
-                command=command,
-                annotation=f"{TOOLBOX_NAME} v{TOOLBOX_VERSION}",
-                height=32,
-                width=32,
-                align='left'
-            )
-        except Exception as e:
-            print(f"创建侧边栏按钮失败: {str(e)}")
-    
-    # 如果没有选择添加到侧边栏，则在工具架上创建按钮
-    else:
-        shelf_layout = mel.eval('$tmpVar=$gShelfTopLevel')
-        
-        if new_shelf:
-            # 创建新工具架
-            if not cmds.shelfLayout(TOOLBOX_NAME, exists=True):
-                cmds.shelfLayout(TOOLBOX_NAME, parent=shelf_layout)
-            parent = TOOLBOX_NAME
-        else:
-            # 在当前工具架添加
-            current_shelf = cmds.tabLayout(shelf_layout, query=True, selectTab=True)
-            parent = current_shelf
-        
-        # 创建工具架按钮
-        cmds.shelfButton(
-            parent=parent,
-            image1=icon_path,
-            label=TOOLBOX_NAME,
-            command=command,
-            sourceType="python",
-            annotation=f"{TOOLBOX_NAME} v{TOOLBOX_VERSION}",
-            noDefaultPopup=True,
-            style="iconOnly"
-        )
+    # Create the shelf button
+    cmds.shelfButton(
+        parent=parent,
+        image1=icon_path,
+        label=TOOLBOX_NAME,
+        command=command,
+        sourceType="python",
+        annotation=f"{TOOLBOX_NAME} v{TOOLBOX_VERSION}",
+        noDefaultPopup=True,
+        style="iconOnly"
+    )
     
     if show_message:
+        # Show installation success message
         msg_box = QtWidgets.QMessageBox()
         msg_box.setWindowTitle(LANG[CURRENT_LANG]['install_success'])
         msg_box.setText(LANG[CURRENT_LANG]['install_success_msg'].format(TOOLBOX_NAME))
@@ -629,22 +492,6 @@ def uninstall_toolbox(show_message=True):
     if scripts_path in sys.path:
         sys.path.remove(scripts_path)
         print(f"{scripts_path} removed from sys.path")
-    
-    # 清理侧边栏按钮
-    toolbar_paths = [
-        'ToolBox|MainToolboxLayout|frameLayout5|flowLayout2',
-        mel.eval('$tmp=$gToolBox')
-    ]
-    
-    for toolbar in toolbar_paths:
-        if toolbar and cmds.layout(toolbar, exists=True):
-            try:
-                children = cmds.layout(toolbar, query=True, childArray=True) or []
-                for child in children:
-                    if child == f"{TOOLBOX_NAME}_toolbar_button":
-                        cmds.deleteUI(child)
-            except:
-                pass
     
     if show_message:
         # Show uninstallation success message

@@ -127,6 +127,9 @@ LANG = {
         "EdgeToCurve_tip": "Convert edges to NURBS curves",
         "UV Editor": "UV Editor",
         "UV Editor_tip": "Open UV Editor window",
+        "Please select edges": "Please select edges",
+        "Please select edges to measure": "Please select edges to measure",
+        "Length": "Length",
     },
     'zh_CN': {
         "Display Control": "显示控制",
@@ -173,6 +176,9 @@ LANG = {
         "EdgeToCurve_tip": "将边转换为NURBS曲线",
         "UV Editor": "UV编辑器",
         "UV Editor_tip": "打开UV编辑器窗口",
+        "Please select edges": "请选择边",
+        "Please select edges to measure": "请选择要测量的边",
+        "Length": "长度",
     }
 }
 
@@ -650,7 +656,13 @@ class HUGToolsWindow(QtWidgets.QDialog):
 
         selection = cmds.ls(selection=True, objectsOnly=True)
         if not selection:
-            cmds.warning("No polygon object selected. Please select one or more polygon meshes.")
+            cmds.inViewMessage(
+                amg='<span style="color:#FFA500;">请选择一条或多条边</span>', 
+                pos='botRight',
+                fade=True,
+                fst=10, 
+                fad=1
+            )
             return
 
         for obj in selection:
@@ -963,13 +975,19 @@ class HUGToolsWindow(QtWidgets.QDialog):
         # Get selected edges
         selection = cmds.ls(selection=True, flatten=True)
         if not selection:
-            cmds.warning("Please select one or more edges")
+            cmds.inViewMessage(
+                amg=f'<span style="color:#FFA500;">{LANG[CURRENT_LANG]["Please select edges"]}</span>', 
+                pos='botRight',
+                fade=True,
+                fst=10, 
+                fad=1
+            )
             return
             
         # Filter for edges only
         edges = [edge for edge in selection if '.e[' in edge]
         if not edges:
-            cmds.warning("Please select edges to measure")
+            cmds.warning(LANG[CURRENT_LANG]["Please select edges to measure"])
             return
             
         # Calculate total length
@@ -999,7 +1017,7 @@ class HUGToolsWindow(QtWidgets.QDialog):
                 cmds.delete(temp_curve, curve_info)
                 
             # Display result
-            message = f'Length: <hl>{total_length:.3f}</hl> {unit}'
+            message = f'{LANG[CURRENT_LANG]["Length"]}: <hl>{total_length:.3f}</hl> {unit}'
             cmds.inViewMessage(amg=f'<span style="color:#48AAB5">{message}</span>', pos='topCenter', fade=True, fst=3)
             
         except Exception as e:
