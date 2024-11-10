@@ -3,3 +3,12 @@ __pycache__/
 
 # 忽略所有 .pyc 文件
 *.pyc
+
+# 忽略所有 DevScripts 文件夹
+DevScripts/
+
+# 忽略 installDev.py 文件
+installDev.py   
+
+# 忽略 installDev.mel 文件
+installDev.mel
