@@ -1,0 +1,1042 @@
+//--------------------------------------------------------------------------
+//
+// ScriptName : AriSymmetryChecker
+// Contents   : オブジェクトがシンメトリーかどうかチェック、非対称頂点を対象座標に移動します。
+// Author     : Ari
+// URL        : http://cgjishu.net/
+// Update     : 2019/06/09 最接近の値を取得できる機能追加。
+//              2016/12/04 中心軸のみ移動させる機能追加。
+//                         設定した値をウィンドウを閉じても保持。
+//                         UIを少し変更。
+//              2015/09/06 UVに対応。
+//              2015/05/26 同じ名前のオブジェクトが存在するときに動作しないことがあるバグ修正。
+//                         探索許容値に0.01超えの数値を入れられるように修正。
+//              2015/05/24 左右同じ構造モデルに対してのトポロジー情報による対称化機能を追加。
+//              2015/03/01 レイアウト改良。
+//                         ピボット座標を中心軸に設定。
+//                         x以外の軸にも対応。
+//              2014/09/23 大きな値を入れてもX軸に飛ばないようにX値を別々に設定できるように改良
+//              2014/06    公開
+//               
+//--------------------------------------------------------------------------
+
+
+proc float DstancePos(vector $pos0,vector $pos1)
+{
+	float $dis;
+	
+	$dis = 	 (($pos1.x)-($pos0.x))*(($pos1.x)-($pos0.x))
+			+(($pos1.y)-($pos0.y))*(($pos1.y)-($pos0.y))
+			+(($pos1.z)-($pos0.z))*(($pos1.z)-($pos0.z));
+	$dis=sqrt ($dis);
+	return $dis;
+}
+
+proc AriSymmetryChecker_Load(){
+	global string $AriSymCheckerSlider[8];
+	global string $AriSymCheckerRadio[5];
+	global string $AriSymCheckerCheckBox;
+	global string $AriSymCheckerGroups[5];
+	global string $AriSymCheckerFloat[4];
+	int   $compo     = 1;
+	int   $verAxis   = 1;
+	int   $uvAxis    = 1;
+	float $center    = 0.5;
+	float $verRange1 = 0.001;
+	float $uvRange1  = 0.00001;
+	int   $verTopology = 1;
+	int   $uvTopology  = 1;
+	int   $loop      = 50;
+	float $verCenterRange =0.01;
+	float $uvCenterRange  =0.001;
+	float $verRange2      =0.01;
+	float $uvRange2       =0.001;
+	int   $revers  = 1;
+	int   $nearPer = 10;
+	if(`optionVar -exists "AriSymmetryChecker_compo"`)		$compo     = `optionVar -q "AriSymmetryChecker_compo"    `;
+	if(`optionVar -exists "AriSymmetryChecker_verAxis"`)	$verAxis   = `optionVar -q "AriSymmetryChecker_verAxis"  `;
+	if(`optionVar -exists "AriSymmetryChecker_uvAxis"`)		$uvAxis    = `optionVar -q "AriSymmetryChecker_uvAxis"   `;
+	if(`optionVar -exists "AriSymmetryChecker_center"`)		$center    = `optionVar -q "AriSymmetryChecker_center"   `;
+	if(`optionVar -exists "AriSymmetryChecker_verRange1"`)	$verRange1 = `optionVar -q "AriSymmetryChecker_verRange1"`;
+	if(`optionVar -exists "AriSymmetryChecker_uvRange1"`)	$uvRange1  = `optionVar -q "AriSymmetryChecker_uvRange1" `;
+	if(`optionVar -exists "AriSymmetryChecker_verTopology"`)$verTopology = `optionVar -q "AriSymmetryChecker_verTopology" `;
+	if(`optionVar -exists "AriSymmetryChecker_uvTopology"`)	$uvTopology  = `optionVar -q "AriSymmetryChecker_uvTopology" `;
+	if(`optionVar -exists "AriSymmetryChecker_loop"`)		$loop      = `optionVar -q "AriSymmetryChecker_loop"     `;
+	if(`optionVar -exists "AriSymmetryChecker_verCenterRange"`)	$verCenterRange = `optionVar -q "AriSymmetryChecker_verCenterRange" `;
+	if(`optionVar -exists "AriSymmetryChecker_uvCenterRange"`)	$uvCenterRange  = `optionVar -q "AriSymmetryChecker_uvCenterRange"  `;
+	if(`optionVar -exists "AriSymmetryChecker_verRange2"`)	$verRange2 = `optionVar -q "AriSymmetryChecker_verRange2"`;
+	if(`optionVar -exists "AriSymmetryChecker_uvRange2"`)	$uvRange2  = `optionVar -q "AriSymmetryChecker_uvRange2" `; 
+	if(`optionVar -exists "AriSymmetryChecker_revers"`)		$revers  = `optionVar -q "AriSymmetryChecker_revers" `; 
+	if(`optionVar -exists "AriSymmetryChecker_nearPer"`)		$nearPer  = `optionVar -q "AriSymmetryChecker_nearPer" `; 
+	radioButtonGrp -e -select $compo   $AriSymCheckerRadio[2];
+	radioButtonGrp -e -select $verAxis $AriSymCheckerRadio[0];
+	radioButtonGrp -e -select $uvAxis  $AriSymCheckerRadio[3];
+	floatField     -e -value  $center  $AriSymCheckerFloat[0];  
+	floatSliderGrp -e -value  $verRange1 $AriSymCheckerSlider[0];
+	floatSliderGrp -e -value  $uvRange1  $AriSymCheckerSlider[6];
+	radioButtonGrp -e -select $verTopology $AriSymCheckerRadio[1];
+	radioButtonGrp -e -select $uvTopology  $AriSymCheckerRadio[5];
+	intField       -e -value  $loop     $AriSymCheckerSlider[3];
+	floatSliderGrp -e -value  $verCenterRange $AriSymCheckerSlider[2];
+	floatSliderGrp -e -value  $uvCenterRange  $AriSymCheckerSlider[4];
+	floatSliderGrp -e -value  $verRange2      $AriSymCheckerSlider[1];
+	floatSliderGrp -e -value  $uvRange2       $AriSymCheckerSlider[5];
+	checkBox       -e -value  $revers         $AriSymCheckerCheckBox;
+	floatField     -e -value  $nearPer        $AriSymCheckerFloat[2];
+}
+proc AriSymmetryChecker_Save(){
+	global string $AriSymCheckerSlider[8];
+	global string $AriSymCheckerRadio[5];
+	global string $AriSymCheckerCheckBox;
+	global string $AriSymCheckerGroups[5];
+	global string $AriSymCheckerFloat[4];
+	int   $compo   = `radioButtonGrp -q -select $AriSymCheckerRadio[2]`;
+	int   $verAxis = `radioButtonGrp -q -select $AriSymCheckerRadio[0]`;
+	int   $uvAxis  = `radioButtonGrp -q -select $AriSymCheckerRadio[3]`;
+	float $center  = `floatField     -q -value $AriSymCheckerFloat[0]`;  
+	float $verRange1 = `floatSliderGrp -q -value  $AriSymCheckerSlider[0]`;
+	float $uvRange1  = `floatSliderGrp -q -value  $AriSymCheckerSlider[6]`;
+	int   $verTopology = `radioButtonGrp -q -select $AriSymCheckerRadio[1]`;
+	int   $uvTopology  = `radioButtonGrp -q -select $AriSymCheckerRadio[5]`;
+	int   $loop      = `intField       -q -v $AriSymCheckerSlider[3]`;
+	float $verCenterRange = `floatSliderGrp -q -value $AriSymCheckerSlider[2]`;
+	float $uvCenterRange  = `floatSliderGrp -q -value $AriSymCheckerSlider[4]`;
+	float $verRange2 = `floatSliderGrp -q -value  $AriSymCheckerSlider[1]`;
+	float $uvRange2  = `floatSliderGrp -q -value  $AriSymCheckerSlider[5]`;
+	int   $revers    =`checkBox -q -v $AriSymCheckerCheckBox`;
+	float $nearPer = `floatField -q -v $AriSymCheckerFloat[2]`;
+	optionVar -iv "AriSymmetryChecker_compo"     $compo;
+	optionVar -iv "AriSymmetryChecker_verAxis"   $verAxis;
+	optionVar -iv "AriSymmetryChecker_uvAxis"    $uvAxis;
+	optionVar -fv "AriSymmetryChecker_center"    $center;
+	optionVar -fv "AriSymmetryChecker_verRange1" $verRange1;
+	optionVar -fv "AriSymmetryChecker_uvRange1"  $uvRange1;
+	optionVar -iv "AriSymmetryChecker_verTopology" $verTopology;
+	optionVar -iv "AriSymmetryChecker_uvTopology"  $uvTopology;
+	optionVar -iv "AriSymmetryChecker_loop"      $loop;
+	optionVar -fv "AriSymmetryChecker_verCenterRange" $verCenterRange;
+	optionVar -fv "AriSymmetryChecker_uvCenterRange"  $uvCenterRange;
+	optionVar -fv "AriSymmetryChecker_verRange2" $verRange2;
+	optionVar -fv "AriSymmetryChecker_uvRange2"  $uvRange2;
+	optionVar -iv "AriSymmetryChecker_revers"  $revers;
+	optionVar -fv "AriSymmetryChecker_nearPer"  $nearPer;
+}
+global proc AriSymmetryChecker_Reset(){
+	global string $AriSymCheckerSlider[8];
+	global string $AriSymCheckerRadio[5];
+	global string $AriSymCheckerCheckBox;
+	global string $AriSymCheckerFloat[4];
+	global string $AriSymCheckerCheckBox;
+	radioButtonGrp -e -select 1 $AriSymCheckerRadio[2];
+	radioButtonGrp -e -select 1 $AriSymCheckerRadio[0];
+	radioButtonGrp -e -select 1 $AriSymCheckerRadio[3];
+	floatField     -e -v 0.5 $AriSymCheckerFloat[0];  
+	floatSliderGrp -e -value 0.001   $AriSymCheckerSlider[0];
+	floatSliderGrp -e -value 0.00001 $AriSymCheckerSlider[6];
+	radioButtonGrp -e -select 1 $AriSymCheckerRadio[1];
+	radioButtonGrp -e -select 1 $AriSymCheckerRadio[5];
+	intField       -e -v 50 $AriSymCheckerSlider[3];
+	floatSliderGrp -e -value 0.01  $AriSymCheckerSlider[2];
+	floatSliderGrp -e -value 0.001 $AriSymCheckerSlider[4];
+	floatSliderGrp -e -value 0.01  $AriSymCheckerSlider[1];
+	floatSliderGrp -e -value 0.001 $AriSymCheckerSlider[5];
+	checkBox       -e -value 1     $AriSymCheckerCheckBox ;
+	floatField     -e -value 10    $AriSymCheckerFloat[2];
+	AriSymmetryChecker_UIChange();
+}
+proc int AriSymmetryChecker_valMuch(float $valA[], float $valB[],float $gosa){
+	int $muchTrue=0;
+	if(    $valA[0] <= $valB[0]+$gosa && $valA[0] >= $valB[0]-$gosa
+		&& $valA[1] <= $valB[1]+$gosa && $valA[1] >= $valB[1]-$gosa
+		&& $valA[2] <= $valB[2]+$gosa && $valA[2] >= $valB[2]-$gosa){
+		$muchTrue=1;
+	}
+	return $muchTrue;
+}
+proc AriPolygonCounterIsCancelled(int $mode){
+	global string $AriPCounter_progressBar;
+	global string $gMainProgressBar;
+	global string $AriPCounterCountStartBtn;
+	global string $AriPCounterInfo;
+	progressBar -edit -endProgress $gMainProgressBar;
+	textField -e -text "中断" -bgc 1 0 0 $AriPCounterInfo;
+	confirmDialog -title "Confirm" -message "中断しました"
+		 -button "Yes" -defaultButton "Yes"
+		 -cancelButton "No" -dismissString "No";
+	waitCursor -state off;
+	progressBar -edit -endProgress $gMainProgressBar;
+	progressBar -e -pr 0 $gMainProgressBar;
+	progressBar -e -pr 0 $AriPCounter_progressBar;	
+	button  -en true -e  $AriPCounterCountStartBtn;
+}
+proc string[] AriSymmetryChecker_CircumferenceVer(string $verList[],int $mode){
+	string $circumferenceList[];
+	clear $circumferenceList;
+	string $extendEdges[];
+	if($mode==0)$extendEdges = `polyListComponentConversion -te $verList`;
+	if($mode==1)$extendEdges = `polyListComponentConversion -tf $verList`;	
+	string $extendVers[] = `polyListComponentConversion -tv $extendEdges`;
+	$extendVers = `filterExpand -selectionMask 31 $extendVers`;
+	$circumferenceList=stringArrayRemoveExact($verList, $extendVers);
+	return $circumferenceList;
+}
+proc string[] AriSymmetryChecker_CircumferenceUV(string $verList[],int $mode){
+	string $circumferenceList[];
+	clear $circumferenceList;
+	string $extendEdges[];
+	if($mode==0){
+		$extendEdges = `polyListComponentConversion -te $verList`;
+	}
+	if($mode==1)$extendEdges = `polyListComponentConversion -tf $verList`;	
+	string $extendVers[] = `polyListComponentConversion -tuv $extendEdges`;
+	$extendVers = `filterExpand -selectionMask 35 $extendVers`;
+	$circumferenceList=stringArrayRemoveExact($verList, $extendVers);
+	return $circumferenceList;
+}
+proc string[] AriSymmetryChecker_ArrayContainsArray(string $verListA[],string $verListB[]){
+	string $ContainsList[];
+	int $i=0;
+	for($ver in $verListA){
+		if(stringArrayContains($ver,$verListB)){
+			$ContainsList[$i]=$ver;
+			$i++;
+		}
+	}
+	return $ContainsList;
+}
+proc AriDebugPrint_float (string $text,float $val){
+	print ($text+" "+$val+"\n");
+}
+global proc AriSymmetryChecker_getPiv(){
+	global string $AriSymCheckerRadio[5];
+	global string $AriSymCheckerFloat[4];
+	string $selectObj[]=`ls -sl`;
+	string $uvs[] = `polyListComponentConversion -tuv $selectObj`;
+	$uvs = `filterExpand -selectionMask 35 $uvs`;
+	if(size($uvs)==0)return;
+	float $valMax;
+	float $valMin;
+	int $radSel=`radioButtonGrp -q -select $AriSymCheckerRadio[3]`;
+	$radSel--;
+	int $i=0;
+	for($uv in $uvs){
+		float $uvPos[2];
+		$uvPos = `polyEditUV -q $uv`;	
+		if($i==0){
+			$valMax=$uvPos[$radSel];
+			$valMin=$uvPos[$radSel];
+		}
+		if($valMax<$uvPos[$radSel])$valMax=$uvPos[$radSel];
+		if($valMin>$uvPos[$radSel])$valMin=$uvPos[$radSel];
+		$i++;
+	}
+	float $ave = ($valMax+$valMin)/2;
+	floatField -e -v $ave $AriSymCheckerFloat[0];
+}
+proc AriSymmetryChecker_GoSymmetryUVfromVer(string $UnSymmetry_plus[],string $UnSymmetry_minus[],float $uvCenter,float $objCenter){
+	float $startTime=`timerX`;
+	global string $AriSymmetryCheckerPC;
+	global string $AriSymCheckerSlider[8];
+	global string $AriSymCheckerRadio[5];
+	global string $AriSymCheckerCheckBox;
+	global string $AriSymCheckerGroups[4];
+	global string $AriSymCheckerTextField[2];
+	global string $gMainProgressBar;
+	float $gosa=0.001;
+	string $moveUVList[];
+	int $jikuXYZ=`radioButtonGrp -q -select $AriSymCheckerRadio[0]`;
+	int $jikuUV =`radioButtonGrp -q -select $AriSymCheckerRadio[3]`;
+	int $mirrorCheck =`checkBox -q -v $AriSymCheckerCheckBox`;	
+	string $work_symmetry_plus[]  = $UnSymmetry_plus;
+	string $work_symmetry_minus[] = $UnSymmetry_minus;
+	if(!$mirrorCheck){
+		$work_symmetry_plus  = $UnSymmetry_minus;
+		$work_symmetry_minus = $UnSymmetry_plus;
+	}
+	string $ver_minus[];
+	$ver_minus = `polyListComponentConversion -tv $work_symmetry_minus`;
+	$ver_minus = `filterExpand -selectionMask 31 $ver_minus`;
+	string $work_symmetry_plus_to_Vertex[];
+	for($plusCounter=0; $plusCounter<size($work_symmetry_plus); $plusCounter++){
+		string $ver_plus[] = `polyListComponentConversion -tv $work_symmetry_plus[$plusCounter]`;
+		$work_symmetry_plus_to_Vertex[$plusCounter] = $ver_plus[0];
+	}
+	vector $ver_minus_pos_AllList[];
+	for( $verCounter=0; $verCounter < size($ver_minus) ; $verCounter++){
+		float $ver_minus_pos[]=`pointPosition -l $ver_minus[$verCounter]`;
+		$ver_minus_pos[$jikuXYZ-1] = ($ver_minus_pos[$jikuXYZ-1] - $objCenter)*-1;
+		$ver_minus_pos_AllList[$verCounter] = <<($ver_minus_pos[0]),($ver_minus_pos[1]),($ver_minus_pos[2])>>;
+	}
+	$plusCounter=0;
+	int $minusCounter=0;
+	int $moveCounter=0;
+	int $pr=0;
+	textField -e -text ("頂点座標と比較中") -bgc 0.3 0.3 0.3 $AriSymCheckerTextField[0];
+	if(size($work_symmetry_plus)==0)return;
+	progressBar -edit -beginProgress -isInterruptable true -status "..." $gMainProgressBar;
+	int $maxValute = size($work_symmetry_plus);
+	progressBar -e -pr $pr -maxValue ($maxValute) $AriSymmetryCheckerPC ;
+	progressBar -e -pr $pr -maxValue ($maxValute) $gMainProgressBar ;
+	int $breakTrue=false;
+	for($plusCounter=0; $plusCounter<size($work_symmetry_plus); $plusCounter++){
+		if($breakTrue)break;
+		string $ver_plus[] = `polyListComponentConversion -tv $work_symmetry_plus[$plusCounter]`;
+		float $ver_plus_pos[]=`pointPosition -l $ver_plus[0]`;
+		$ver_plus_pos[$jikuXYZ-1] = $ver_plus_pos[$jikuXYZ-1]- $objCenter;
+		for($verCounter=0; $verCounter < size($ver_minus) ; $verCounter++){
+			if($breakTrue)break;
+			float $ver_minus_pos[];
+			vector $workVec = $ver_minus_pos_AllList[$verCounter];
+			$ver_minus_pos = {($workVec.x),($workVec.y),($workVec.z)};
+			if(AriSymmetryChecker_valMuch($ver_minus_pos,$ver_plus_pos,$gosa)){
+				string $uvs[];
+				clear $uvs;
+				$uvs = `polyListComponentConversion -tuv $ver_minus[$verCounter]`;
+				$uvs = `filterExpand -selectionMask 35 $uvs`;
+				if(size($uvs)==1){
+					vector $uvPos;
+					vector $uvMirrorPos;
+					$uvPos=`polyEditUV -q $work_symmetry_plus[$plusCounter]`;
+					if($jikuUV==1)$uvMirrorPos = <<(($uvPos.x-$uvCenter)*-1)+$uvCenter,$uvPos.y,$uvPos.z>>;
+					if($jikuUV==2)$uvMirrorPos = <<$uvPos.x,(($uvPos.y-$uvCenter)*-1)+$uvCenter,$uvPos.z>>;
+					polyEditUV -r false -u ($uvMirrorPos.x) -v ($uvMirrorPos.y) $uvs[0];
+					$moveUVList[$moveCounter]=$uvs[0];
+					$moveCounter++;
+					$moveUVList[$moveCounter]=$work_symmetry_plus[$plusCounter];
+					$moveCounter++;
+					select -d $uvs[0] $work_symmetry_plus[$plusCounter];
+					progressBar -e -pr $pr $AriSymmetryCheckerPC ;
+					progressBar -e -pr $pr $gMainProgressBar;
+					textField -e -text ("頂点座標と比較中 " + $pr+"/"+$maxValute) $AriSymCheckerTextField[0];
+					if(`progressBar -q -ic $gMainProgressBar`){
+						textField -e -text ("頂点座標と比較 中断 " + $pr+"/"+$maxValute) -bgc 1 0.5 0.5 $AriSymCheckerTextField[0];
+						$breakTrue = true;
+					}
+					refresh;
+					$pr++;
+				}
+				break;
+			}
+		}
+	}
+	select -d $moveUVList;
+	if($breakTrue == false){
+		AriSymmetryChecker_Go(1,1,1,0);
+		textField -e -text (" ") $AriSymCheckerTextField[0];
+	}
+	progressBar -e -endProgress $AriSymmetryCheckerPC;
+	progressBar -e -endProgress $gMainProgressBar;
+}
+proc AriSymmetryChecker_GoSymmetryTP(string $UnSymmetry_plus[],string $UnSymmetry_minus[],float $pivPos,int $UVMode,int $plusFix,int $jikuXYZ,float $gosa){
+	global string $AriSymCheckerSlider[8];
+	global string $AriSymCheckerTextField[2];
+	global string $AriSymmetryCheckerPC; 
+	global string $gMainProgressBar;     
+	int $UnSymmeBeforeTotal = size($UnSymmetry_plus);
+	int $loop=`intField -q -v $AriSymCheckerSlider[3]`;
+	$loop = $loop*2;
+	textField -e -text ("トポロジ確認中") -bgc 0.3 0.3 0.3 $AriSymCheckerTextField[0];
+	progressBar -edit -beginProgress -isInterruptable true -status "..." -maxValue 100 $gMainProgressBar;
+	progressBar -e -maxValue ($UnSymmeBeforeTotal) -pr 0 $AriSymmetryCheckerPC ;
+	progressBar -e -maxValue ($UnSymmeBeforeTotal) -pr 0 $gMainProgressBar;
+	int $moveCounter=0;
+	int $breakTrue = false; 
+	int $loopVerTotal[2];
+	int $ii;
+	for($ii=0; $ii < $loop; $ii++){
+		if($breakTrue == true)break;
+		int $circumMode=($ii)%2;
+		if(size($UnSymmetry_plus)==0)break;
+		if($loopVerTotal[0]==$loopVerTotal[1] && $loopVerTotal[0]==size($UnSymmetry_plus))break;
+		$loopVerTotal[$circumMode] = size($UnSymmetry_plus);
+		string $extendVers_plus_num[]; 
+		string $extendVers_minus_num[];
+		if($UVMode==0){
+			$extendVers_plus_num  = AriSymmetryChecker_CircumferenceVer($UnSymmetry_plus, $circumMode);
+			$extendVers_minus_num = AriSymmetryChecker_CircumferenceVer($UnSymmetry_minus,$circumMode);
+		}
+		if($UVMode==1){
+			$extendVers_plus_num  = AriSymmetryChecker_CircumferenceUV($UnSymmetry_plus, $circumMode);
+			$extendVers_minus_num = AriSymmetryChecker_CircumferenceUV($UnSymmetry_minus,$circumMode);
+		}
+		vector $extendVers_plus_pos[];
+		vector $extendVers_minus_pos[];
+		clear $extendVers_plus_pos;
+		clear $extendVers_minus_pos;
+		for($i=0; $i<size($extendVers_plus_num); $i++){
+			if($UVMode==0)$extendVers_plus_pos[$i] = `pointPosition -l $extendVers_plus_num[$i]`;
+			if($UVMode==1){
+				float $uvPosWork[2]=`polyEditUV    -q $extendVers_plus_num[$i]`;
+				$extendVers_plus_pos[$i]=<<$uvPosWork[0],$uvPosWork[1],$pivPos>>;
+			}
+		}
+		for($i=0; $i<size($extendVers_minus_num); $i++){
+			if($UVMode==0)$extendVers_minus_pos[$i]=`pointPosition -l $extendVers_minus_num[$i]`;
+			if($UVMode==1){
+				float $uvPosWork[2]=`polyEditUV    -q $extendVers_minus_num[$i]`;
+				$extendVers_minus_pos[$i]=<<$uvPosWork[0],$uvPosWork[1],$pivPos>>;
+			}
+		}
+		string $extendVers_plus_sym[];
+		string $extendVers_minus_sym[];
+		clear $extendVers_plus_sym;
+		clear $extendVers_minus_sym;
+		int $symCount=0;
+		for($i=0; $i<size($extendVers_plus_num); $i++){
+			float $plus_pos[] = $extendVers_plus_pos[$i];
+			$plus_pos[$jikuXYZ] = -1*($plus_pos[$jikuXYZ]-$pivPos)+$pivPos;
+			for($j=0; $j<size($extendVers_minus_num); $j++){
+				float $minus_pos[] = $extendVers_minus_pos[$j];
+				if(AriSymmetryChecker_valMuch($plus_pos,$minus_pos,$gosa)){
+					$extendVers_plus_sym[$symCount]=$extendVers_plus_num[$i];
+					$extendVers_minus_sym[$symCount]=$extendVers_minus_num[$j];
+					$symCount++;
+					break;
+				}
+			}
+		}
+		string $extendVers_main_sym[];
+		string $extendVers_sub_sym[];
+		if($plusFix){
+			$extendVers_main_sym = $extendVers_plus_sym;
+			$extendVers_sub_sym  = $extendVers_minus_sym;
+		}
+		else{
+			$extendVers_main_sym = $extendVers_minus_sym;
+			$extendVers_sub_sym  = $extendVers_plus_sym;
+		}
+		string $UnSymmetry_main[];
+		string $UnSymmetry_sub[];
+		if($plusFix){
+			$UnSymmetry_main = $UnSymmetry_plus;
+			$UnSymmetry_sub  = $UnSymmetry_minus;
+		}
+		else{
+			$UnSymmetry_main = $UnSymmetry_minus;
+			$UnSymmetry_sub  = $UnSymmetry_plus;
+		}
+		string $newSym_main[];
+		string $newSym_sub[];
+		clear $newSym_main;
+		clear $newSym_sub;
+		int $k=0;
+		for($i=0; $i<size($extendVers_sub_sym);$i++){
+			if(`progressBar -q -ic $gMainProgressBar`){
+				textField -e -text ("トポロジ確認 中断 " + $moveCounter + "/" + ($UnSymmeBeforeTotal) ) -bgc 1 0.5 0.5 $AriSymCheckerTextField[0];
+				$breakTrue = true;
+				break;
+			}
+			string $extendVers_sub_sym_Array[1]={$extendVers_sub_sym[$i]};
+			if($UVMode==0)$subOne_extendVers = AriSymmetryChecker_CircumferenceVer($extendVers_sub_sym_Array,$circumMode);
+			if($UVMode==1)$subOne_extendVers = AriSymmetryChecker_CircumferenceUV ($extendVers_sub_sym_Array,$circumMode);
+			string $exUnSymList[];
+			$exUnSymList=AriSymmetryChecker_ArrayContainsArray($subOne_extendVers,$UnSymmetry_sub);
+			if(size($exUnSymList)==1){
+				progressBar -e -pr $moveCounter $AriSymmetryCheckerPC ;
+				progressBar -e -pr $moveCounter $gMainProgressBar;
+				textField -e -text ("トポロジ確認中 " + $moveCounter + "/" + ($UnSymmeBeforeTotal)) -bgc 0.3 0.3 0.3 $AriSymCheckerTextField[0];
+				$moveCounter++;
+				string $subVer=$exUnSymList[0];
+				string $extendVers_main_sym_Array[1];
+				$extendVers_main_sym_Array[0]=$extendVers_main_sym[$i];
+				string $mainOne_ExtendVers[];
+				if($UVMode==0)$mainOne_ExtendVers = AriSymmetryChecker_CircumferenceVer($extendVers_main_sym_Array,$circumMode);
+				if($UVMode==1)$mainOne_ExtendVers = AriSymmetryChecker_CircumferenceUV ($extendVers_main_sym_Array,$circumMode);
+				string $exUnSymList[]=AriSymmetryChecker_ArrayContainsArray($mainOne_ExtendVers,$UnSymmetry_main);
+				string $mainVer=$exUnSymList[0];
+				float $pos[];
+				if($UVMode==0)$pos=`pointPosition -l $mainVer`;
+				if($UVMode==1)$pos=`polyEditUV -q $mainVer`;
+				$pos[$jikuXYZ]=(-1*($pos[$jikuXYZ]-$pivPos))+$pivPos;
+				if($UVMode==0) move -ls $pos[0] $pos[1] $pos[2] $subVer;
+				if($UVMode==1) polyEditUV -r false -u $pos[0] -v $pos[1] $subVer;
+				$newSym_main[$k]=$mainVer;
+				$newSym_sub[$k]=$subVer;
+				$k++;
+			}
+		}
+		$UnSymmetry_main=stringArrayRemoveExact($newSym_main, $UnSymmetry_main);
+		$UnSymmetry_sub=stringArrayRemoveExact($newSym_sub, $UnSymmetry_sub);
+		if($plusFix){
+			$UnSymmetry_plus  = $UnSymmetry_main;
+			$UnSymmetry_minus = $UnSymmetry_sub;
+		}
+		else{
+			$UnSymmetry_plus  = $UnSymmetry_sub;
+			$UnSymmetry_minus = $UnSymmetry_main;
+		}
+		select $UnSymmetry_plus;
+		select -add $UnSymmetry_minus;
+		progressBar -e -pr ($loop*100+($ii+1)*100) $AriSymmetryCheckerPC ;
+		progressBar -e -pr ($loop*100+($ii+1)*100) $gMainProgressBar;
+		refresh;
+	}
+	if(!$breakTrue){
+		int $UnSymmeTotal = $UnSymmeBeforeTotal-size($UnSymmetry_plus);
+		textField -e -text ($UnSymmeTotal+" 頂点を移動") $AriSymCheckerTextField[0];
+	}
+	progressBar -e -endProgress $AriSymmetryCheckerPC;
+	progressBar -e -endProgress $gMainProgressBar;
+}
+proc AriSymmetryChecker_UI_AutoRangeChange(float $distance){
+	global string $AriSymmetryChecker_UI_MoveRangeMinMax[8];
+	print $distance;
+	print "\n";
+	int $keta = trunc(log10($distance));
+	print $keta;
+	float $min = pow(10,($keta-3));
+	float $max = pow(10,($keta));
+}
+global proc AriSymmetryChecker_Go(int $mode,int $UVMode,int $moveMode,int $centerMoveMode){
+	global string $AriSymmetryChecker_JPTrue;
+	global string $AriSymCheckerTextField[2];
+	global string $AriSymCheckerSlider[8];
+	global string $ARISS_texAnsym;
+	global string $ARISS_texTotal;
+	global string $AriSymmetryCheckerPC;
+	global string $gMainProgressBar ;
+	global string $AriSymCheckerRadio[5];
+	global string $AriSymCheckerCheckBox;
+	global string $AriSymCheckerFloat[4];
+	string $label_centerMove     = " Vertex move center";
+	string $label_selectOneObj   = "Please select one object or vertex.";
+	string $label_symmetrySearch = "Symmetry search ";
+	string $label_Interruption   = "Symmetry search interruption ";
+	string $label_verAsymmetric  = " Vertex Asymmetric";
+	string $label_verMove        = " Vertex Moved";
+	string $label_multiSym       = "      Multi symmetry ";
+	if($AriSymmetryChecker_JPTrue){
+		$label_centerMove     = " 頂点を中心に移動";
+		$label_selectOneObj   = "1オブジェクトまたは頂点を選択してください";
+		$label_symmetrySearch = "対称探索中 ";
+		$label_Interruption   = "対象探索 中断 ";
+		$label_verAsymmetric  = " 頂点が非対称";
+		$label_verMove        = " 頂点 移動";
+		$label_multiSym       = "      複数合致 ";
+	}
+	int $breakTrue = false;
+	int $topologyMode=0;
+	int $jikuXYZ;
+	int $objJiku = `radioButtonGrp -q -select $AriSymCheckerRadio[0]`;
+	int $uvJiku  = `radioButtonGrp -q -select $AriSymCheckerRadio[3]`;
+	if($UVMode==0) $jikuXYZ = $objJiku;
+	if($UVMode==1) $jikuXYZ = $uvJiku;
+	int $mirrorCheck =`checkBox -q -v $AriSymCheckerCheckBox`;	
+	float $gosa;
+	float $centerGosa;
+	if($moveMode==2){
+		if($UVMode==0)	$gosa =`floatSliderGrp -q -v $AriSymCheckerSlider[1]`;
+		if($UVMode==1)	$gosa =`floatSliderGrp -q -v $AriSymCheckerSlider[5]`;
+	}
+	else{
+		if($UVMode==0)	$gosa =`floatSliderGrp -q -v $AriSymCheckerSlider[0]`;
+		if($UVMode==1)	$gosa =`floatSliderGrp -q -v $AriSymCheckerSlider[6]`;
+	}
+	if($moveMode==1 || $moveMode==2){
+		if($UVMode==0)	$centerGosa = `floatSliderGrp -q -v $AriSymCheckerSlider[2]`;
+		if($UVMode==1)	$centerGosa = `floatSliderGrp -q -v $AriSymCheckerSlider[4]`;
+	}
+	else{
+		if($UVMode==0)	$centerGosa = `floatSliderGrp -q -v  $AriSymCheckerSlider[0]`;
+		if($UVMode==1)	$centerGosa = `floatSliderGrp -q -v  $AriSymCheckerSlider[6]`;
+	}
+	string $poly[] = `ls -sl`;
+	string $pointList[];
+	if($UVMode==0){
+		$pointList = `polyListComponentConversion -tv $poly`;		
+		$pointList = `filterExpand -selectionMask 31 $pointList`;
+	}
+	if($UVMode==1){
+		$pointList = `polyListComponentConversion -tuv $poly`;		
+		$pointList = `filterExpand -selectionMask 35 $pointList`;
+	}
+	if(size($pointList)<=0){
+		textField -e -text ($label_selectOneObj) $AriSymCheckerTextField[0];
+		return;
+	}
+	string $object[]=$poly;
+	if(objectType($poly[0])!="transform"){
+		$object = `polyListComponentConversion $poly`;		
+		$object = `listRelatives -p -pa -type "transform" $object[0]`;
+	}	
+	float $pivPos;
+	float $objectCenter;
+	float $uvCenter;
+	float $scalePiv[]=`getAttr ($object[0]+".scalePivot")`;
+	if($objJiku==1) $objectCenter=$scalePiv[0];
+	if($objJiku==2) $objectCenter=$scalePiv[1];
+	if($objJiku==3) $objectCenter=$scalePiv[2];
+	$uvCenter = `floatField -q -v $AriSymCheckerFloat[0]`;
+	if($UVMode==0)$pivPos = $objectCenter;
+	if($UVMode==1)$pivPos = $uvCenter;
+	string $zeroNum[];
+	vector $verPlus_Pos[];
+	string $verPlus_Num[];
+	vector $verMinus_Pos[];
+	string $verMinus_Num[];
+	int $coPlus=0;
+	int $coMinus=0;
+	int $coZero=0;
+	float $value_min = 0;
+	float $value_max = 0;
+	for($ver in $pointList){
+		vector $posXYZ;
+		if($UVMode==0)	$posXYZ = `pointPosition -l $ver`;	
+		if($UVMode==1){
+			$posXYZ = `polyEditUV -q $ver`;	
+			$posXYZ = <<$posXYZ.x,$posXYZ.y,$pivPos>>;
+		}
+		float $pos;
+		if($jikuXYZ==1) $pos=$posXYZ.x;
+		if($jikuXYZ==2) $pos=$posXYZ.y;
+		if($jikuXYZ==3) $pos=$posXYZ.z;
+		$pos -= $pivPos;
+		if($pos<=$centerGosa && $pos>=-1*$centerGosa){
+			if($moveMode==1 || $moveMode==2){
+				if($UVMode==0){
+					if($jikuXYZ==1)	move -ls $pivPos ($posXYZ.y) ($posXYZ.z) $ver;
+					if($jikuXYZ==2)	move -ls ($posXYZ.x) $pivPos ($posXYZ.z) $ver;
+					if($jikuXYZ==3)	move -ls ($posXYZ.x) ($posXYZ.y) $pivPos $ver;
+				}
+				if($UVMode==1){
+					if($jikuXYZ==1)	polyEditUV -r false -u $pivPos     -v ($posXYZ.y) $ver;
+					if($jikuXYZ==2)	polyEditUV -r false -u ($posXYZ.x) -v $pivPos     $ver;
+				}
+			}
+			$zeroNum[$coZero]= $ver;
+			$coZero++;
+		}
+		if($centerMoveMode==true)continue;
+		if($pos > $centerGosa){
+			$verPlus_Pos[$coPlus]=$posXYZ;
+			$verPlus_Num[$coPlus]=$ver;
+			$coPlus++;
+			if($value_max<$pos)$value_max=$pos;
+		}
+		if($pos < -1*$centerGosa){
+			$verMinus_Pos[$coMinus]=$posXYZ;
+			$verMinus_Num[$coMinus]=$ver;
+			$coMinus++;
+			if($value_min>$pos)$value_min=$pos;
+		}
+	}
+	int $totalVer=`size $verPlus_Pos`+ `size $verMinus_Pos`;
+	if($centerMoveMode==true){
+		textField -e -text (size($zeroNum)+ $label_centerMove) $AriSymCheckerTextField[0];
+		select -d $zeroNum;
+		return;
+	}
+	textField -e -text ( $coPlus+"/"+(size($verPlus_Pos)) ) -bgc 0.3 0.3 0.3 $AriSymCheckerTextField[0];
+	int $progressMaxVal=(size($verPlus_Pos));
+	if($topologyMode)$progressMaxVal=$progressMaxVal*2;
+	if(size($verPlus_Pos)>0)progressBar -e -maxValue $progressMaxVal $AriSymmetryCheckerPC;
+	progressBar -e
+		-beginProgress
+		-isInterruptable true
+		$gMainProgressBar ;
+	int $esc=1;
+	int $verPlus_symmeFlag[];
+	int $verMinus_symmeFlag[];
+	vector $movePosList[];
+	float $minDistance = 0;
+	for($coPlus=0; $coPlus<size($verPlus_Pos); $coPlus++){
+		textField -e -text ($label_symmetrySearch + $coPlus+"/"+(size($verPlus_Pos)) ) $AriSymCheckerTextField[0];
+		progressBar -e -step 1 $AriSymmetryCheckerPC ;
+		if(`progressBar -query -isCancelled $gMainProgressBar`){
+			$breakTrue = true;
+			textField -e -text ($label_Interruption + $coPlus+"/"+(size($verPlus_Pos))) -bgc 1 0.5 0.5 $AriSymCheckerTextField[0];
+			break;
+		}
+		vector $plus=$verPlus_Pos[$coPlus];
+		for($coMinus=0; $coMinus<size($verMinus_Pos); $coMinus++){
+			vector $minus = $verMinus_Pos[$coMinus];
+			if($jikuXYZ==1)$minus = <<(-1*($minus.x-$pivPos))+$pivPos, $minus.y, $minus.z>>;
+			if($jikuXYZ==2)$minus = <<$minus.x, (-1*($minus.y-$pivPos))+$pivPos, $minus.z>>;
+			if($jikuXYZ==3)$minus = <<$minus.x, $minus.y, (-1*($minus.z-$pivPos))+$pivPos>>;
+			float $distance = DstancePos($minus,$plus);
+			if($coPlus==0 && $coMinus==0) $minDistance = $distance;
+			if($minDistance > $distance)  $minDistance = $distance;
+			if($distance <= $gosa){ 
+				$verPlus_symmeFlag[$coPlus]   += 1;
+				$verMinus_symmeFlag[$coMinus] += 1;
+				if(!$mirrorCheck){
+					$movePosList[$coPlus] = <<($minus.x),($minus.y),($minus.z)>>;
+				}
+				else{
+					if($jikuXYZ==1) $movePosList[$coMinus] = <<(-1*($plus.x-$pivPos))+$pivPos, $plus.y, $plus.z>>;
+					if($jikuXYZ==2) $movePosList[$coMinus] = <<$plus.x, (-1*($plus.y-$pivPos))+$pivPos, $plus.z>>;
+					if($jikuXYZ==3) $movePosList[$coMinus] = <<$plus.x, $plus.y, (-1*($plus.z-$pivPos))+$pivPos>>;
+				}
+			}
+			/*
+			if( $plus.x <= $minus.x+$gosa && $plus.x >= $minus.x-$gosa){
+			if( $plus.y <= $minus.y+$gosa && $plus.y >= $minus.y-$gosa){
+			if( $plus.z <= $minus.z+$gosa && $plus.z >= $minus.z-$gosa){
+				$verPlus_symmeFlag[$coPlus]   += 1;
+				$verMinus_symmeFlag[$coMinus] += 1;
+				if(!$mirrorCheck){
+					$movePosList[$coPlus] = <<($minus.x),($minus.y),($minus.z)>>;
+				}
+				else{
+					if($jikuXYZ==1) $movePosList[$coMinus] = <<(-1*($plus.x-$pivPos))+$pivPos, $plus.y, $plus.z>>;
+					if($jikuXYZ==2) $movePosList[$coMinus] = <<$plus.x, (-1*($plus.y-$pivPos))+$pivPos, $plus.z>>;
+					if($jikuXYZ==3) $movePosList[$coMinus] = <<$plus.x, $plus.y, (-1*($plus.z-$pivPos))+$pivPos>>;
+				}
+			}}}
+			*/
+		}
+		if($coPlus==(size($verPlus_Pos)-1))$esc=0;
+	}
+	if($moveMode==2){	
+		if(!$mirrorCheck){
+			for($coPlus=0; $coPlus<size($verPlus_Num); $coPlus++){
+				vector $movePos = $movePosList[$coPlus];
+				if($verPlus_symmeFlag[$coPlus]==1){
+					if($UVMode==0) move -ls ($movePos.x) ($movePos.y) ($movePos.z) $verPlus_Num[$coPlus];
+					if($UVMode==1) polyEditUV -r false -u ($movePos.x) -v ($movePos.y)  $verPlus_Num[$coPlus];
+				}
+			}
+		}
+		else{
+			for($coMinus=0; $coMinus<size($verMinus_Num); $coMinus++){
+				vector $movePos = $movePosList[$coMinus];
+				if($verMinus_symmeFlag[$coMinus]==1){
+					if($UVMode==0) move -ls ($movePos.x) ($movePos.y) ($movePos.z)  $verMinus_Num[$coMinus];
+					if($UVMode==1) polyEditUV -r false -u ($movePos.x) -v ($movePos.y)  $verMinus_Num[$coMinus];
+				}
+			}
+		}
+	}
+	if($moveMode==5){
+		float $per = `floatField -q -v $AriSymCheckerFloat[2]`;
+		float $setDistanceVal = $minDistance + $minDistance * ($per/100.0);
+		if($UVMode==0) floatSliderGrp -e -v ($setDistanceVal) $AriSymCheckerSlider[1] ;
+		if($UVMode==1) floatSliderGrp -e -v ($setDistanceVal) $AriSymCheckerSlider[5] ;
+		textField -e -text ($minDistance) $AriSymCheckerTextField[0];
+	}
+	int $multiMatchPlus=0;
+	int $multiMatchMinus=0;
+	for($coPlus=0; $coPlus<size($verPlus_symmeFlag); $coPlus++){
+		if($verPlus_symmeFlag[$coPlus]>=2){
+			$multiMatchPlus++;
+		}
+	}
+	for($coMinus=0; $coMinus<size($verMinus_symmeFlag); $coMinus++){
+		if($verMinus_symmeFlag[$coMinus]>=2){
+			$multiMatchMinus++;
+		}
+	}
+	if($mode==3){
+		for($zeroVer in $zeroNum){
+			float $nor[]=`polyNormalPerVertex -q -xyz $zeroVer`;
+			polyNormalPerVertex -e -x 0 -y $nor[1] -z $nor[2] $zeroVer;
+		}
+	}
+	string $Symmetry_plus[];	
+	string $Symmetry_minus[];	
+	string $UnSymmetry_plus[];	
+	string $UnSymmetry_minus[];	
+	int $count_sm=0;
+	int $count_ansm=0;
+	for( $coPlus=0; $coPlus<size($verPlus_Pos); $coPlus++ ){
+		if($verPlus_symmeFlag[$coPlus] == 1){
+			$Symmetry_plus[$count_sm] = $verPlus_Num[$coPlus];	
+			$count_sm++;
+		}
+		else{
+			$UnSymmetry_plus[$count_ansm] =  $verPlus_Num[$coPlus]; 
+			$count_ansm++;
+		}
+	}
+	$count_sm=0;
+	$count_ansm = 0;
+	for($coMinus=0;$coMinus<size($verMinus_Pos);$coMinus++){
+		if($verMinus_symmeFlag[$coMinus]==1){
+			$Symmetry_minus[$count_sm]=$verMinus_Num[$coMinus];	
+			$count_sm++;
+		}
+		else{
+			$UnSymmetry_minus[$count_ansm] =  $verMinus_Num[$coMinus];
+			$count_ansm++;
+		}
+	}
+	int $ansymTotal_plus  = `size($UnSymmetry_plus)`;
+	int $ansymTotal_minus = `size($UnSymmetry_minus)`;
+	int $symTotal   = `size($Symmetry_plus)`  +`size($Symmetry_minus)`;
+	int $ansymTotal = $ansymTotal_plus + $ansymTotal_minus;
+	progressBar -e -endProgress $AriSymmetryCheckerPC;
+	progressBar -e -endProgress $gMainProgressBar;
+	if($moveMode==0 || $moveMode==2){
+		if($mode==0){
+			textField -e -text ($ansymTotal + $label_verAsymmetric  + " (+ "+$ansymTotal_plus+" - "+$ansymTotal_minus+")") $AriSymCheckerTextField[0];
+			float $distance = $value_max - $value_min;
+			AriSymmetryChecker_UI_AutoRangeChange($distance);
+		}
+		if($mode==1){
+			string $infoText;
+			$infoText = (size($Symmetry_minus) + $label_verMove) ;
+			if($multiMatchPlus != 0 || $multiMatchMinus != 0){
+				$infoText = ($infoText + $label_multiSym + " + " + $multiMatchPlus + " - " + $multiMatchMinus);
+			}
+			textField -e -text $infoText $AriSymCheckerTextField[0];
+		}
+	}
+	if($breakTrue)return;
+	select $UnSymmetry_plus;		
+	select -add $UnSymmetry_minus;	
+	if($moveMode==1){
+		refresh;
+		if(size($UnSymmetry_plus)!=0 && size($UnSymmetry_minus)!=0){
+			AriSymmetryChecker_GoSymmetryTP($UnSymmetry_plus, $UnSymmetry_minus, $pivPos, $UVMode, $mirrorCheck, ($jikuXYZ-1), $gosa);
+		}
+		else{
+			textField -e -text ("非対称頂点なし") $AriSymCheckerTextField[0];
+		}
+	}
+	if($moveMode==3){
+		refresh;
+		AriSymmetryChecker_GoSymmetryUVfromVer($UnSymmetry_plus,$UnSymmetry_minus,$uvCenter,$objectCenter);
+	}
+	return;
+}
+global proc AriSymmetryChecker_ModeGet(int $mode){
+	global string $AriSymCheckerTextField[2];
+	global string $AriSymCheckerSlider[8];
+	global string $ARISS_texAnsym;
+	global string $ARISS_texTotal;
+	global string $AriSymmetryCheckerPC;
+	global string $gMainProgressBar ;
+	global string $AriSymCheckerRadio[5];
+	global string $AriSymCheckerCheckBox;
+	global string $AriSymCheckerFloat[4];
+	AriSymmetryChecker_Save();
+	int $breakTrue = false;
+	int $centerMoveMode = false;
+	if($mode==2){
+		$centerMoveMode = true;
+		$mode=1;
+	}
+	int $selRadio=`radioButtonGrp -q -select $AriSymCheckerRadio[2]`;
+	int $UVMode=0;
+	$UVMode=$selRadio-1;
+	int $moveMode= 1;
+	if($UVMode==0)$moveMode = `radioButtonGrp -q -select $AriSymCheckerRadio[1]`;
+	if($UVMode==1)$moveMode = `radioButtonGrp -q -select $AriSymCheckerRadio[5]`;
+	if($mode==0) $moveMode  = 0;
+	if($mode==5) $moveMode  = 5;
+	AriSymmetryChecker_Go($mode,$UVMode,$moveMode,$centerMoveMode);
+}
+global proc AriSymmetryChecker_UIChange(){
+	global string $AriSymCheckerRadio[5];
+	global string $AriSymCheckerGroups[10];
+	global string $AriSymCheckerSlider[8];
+	global string  $AriSymCheckerTextField[5];
+	global string $AriSymmetryChecker_JPTrue;
+	string $label_ver = "Veretx";
+	if($AriSymmetryChecker_JPTrue){
+		$label_ver = "頂点";
+	}
+	int $UV_Ver   = `radioButtonGrp -q -select $AriSymCheckerRadio[2]`;
+	int $verTopo  = `radioButtonGrp -q -select $AriSymCheckerRadio[1]`;
+	int $uvTopo   = `radioButtonGrp -q -select $AriSymCheckerRadio[5]`;
+	int $xyz      = `radioButtonGrp -q -select $AriSymCheckerRadio[0]`;
+	int $uv       = `radioButtonGrp -q -select $AriSymCheckerRadio[3]`;
+	if($xyz==1)textField -e -text " X " -bgc 1 0.3 0.3 $AriSymCheckerTextField[3];
+	if($xyz==2)textField -e -text " Y " -bgc 0.3 1 0.3 $AriSymCheckerTextField[3];
+	if($xyz==3)textField -e -text " Z " -bgc 0.3 0.3 1 $AriSymCheckerTextField[3];
+	if($uv==1)textField -e -text " U " -bgc 1 0.6 0.6 $AriSymCheckerTextField[4];
+	if($uv==2)textField -e -text " V " -bgc 0.6 1 0.6 $AriSymCheckerTextField[4];
+	radioButtonGrp -e -vis 0 $AriSymCheckerRadio[0];
+	radioButtonGrp -e -vis 0 $AriSymCheckerRadio[3];
+	floatSliderGrp -e -vis 0 $AriSymCheckerSlider[0];
+	floatSliderGrp -e -vis 0 $AriSymCheckerSlider[6];
+	floatSliderGrp -e -vis 0 $AriSymCheckerSlider[2];
+	floatSliderGrp -e -vis 0 $AriSymCheckerSlider[4];
+	floatSliderGrp -e -vis 0 $AriSymCheckerSlider[1];
+	floatSliderGrp -e -vis 0 $AriSymCheckerSlider[5];
+	rowLayout -e -vis 0 $AriSymCheckerGroups[5];
+	rowLayout -e -vis 0 $AriSymCheckerGroups[3];
+	rowLayout -e -vis 0 $AriSymCheckerGroups[6];
+	rowLayout -e -vis 0 $AriSymCheckerGroups[7];
+	if($UV_Ver == 1){
+		textField -e -bgc 1 1 0 -text $label_ver $AriSymCheckerTextField[1];
+		radioButtonGrp -e -vis 1 $AriSymCheckerRadio[0];
+		rowLayout      -e -vis 1 $AriSymCheckerGroups[6];
+		rowLayout      -e -vis 1 $AriSymCheckerGroups[5];
+		floatSliderGrp -e -vis 1 $AriSymCheckerSlider[0];
+		floatSliderGrp -e -vis 1 $AriSymCheckerSlider[2];
+		floatSliderGrp -e -vis 1 $AriSymCheckerSlider[1];
+	}
+	if($UV_Ver == 2){
+		textField -e -bgc 0 1 0 -text "UV" $AriSymCheckerTextField[1];
+		radioButtonGrp -e -vis 1 $AriSymCheckerRadio[3];
+		rowLayout      -e -vis 1 $AriSymCheckerGroups[7];
+		rowLayout      -e -vis 1 $AriSymCheckerGroups[3];
+		floatSliderGrp -e -vis 1 $AriSymCheckerSlider[6];
+		floatSliderGrp -e -vis 1 $AriSymCheckerSlider[4];
+		floatSliderGrp -e -vis 1 $AriSymCheckerSlider[5];
+	}	
+	if($UV_Ver == 1){
+		if($verTopo==1){
+			rowLayout -e -en 1 $AriSymCheckerGroups[8];
+			rowLayout -e -en 0 $AriSymCheckerGroups[9];
+			floatSliderGrp -e -en 0 $AriSymCheckerSlider[1];
+		}
+		if($verTopo==2){
+			rowLayout -e -en 0 $AriSymCheckerGroups[8];
+			rowLayout -e -en 1 $AriSymCheckerGroups[9];
+			floatSliderGrp -e -en 1 $AriSymCheckerSlider[1];
+		}
+	}
+	if($UV_Ver == 2){
+		if($uvTopo==1){
+			rowLayout -e -en 1 $AriSymCheckerGroups[8];
+			rowLayout -e -en 0 $AriSymCheckerGroups[9];
+			floatSliderGrp -e -en 0 $AriSymCheckerSlider[5];
+			textField -e -text "   " -bgc 0.2 0.2 0.2 $AriSymCheckerTextField[2];
+		}
+		if($uvTopo==2){
+			rowLayout -e -en 0 $AriSymCheckerGroups[8];
+			rowLayout -e -en 1 $AriSymCheckerGroups[9];
+			floatSliderGrp -e -en 1 $AriSymCheckerSlider[5];
+			textField -e -text "   " -bgc 0.2 0.2 0.2 $AriSymCheckerTextField[2];
+		}
+		if($uvTopo==3){
+			floatSliderGrp -e -en 0 $AriSymCheckerSlider[5];
+			if($xyz==1)textField -e -text " X " -bgc 1 0.3 0.3 $AriSymCheckerTextField[2];
+			if($xyz==2)textField -e -text " Y " -bgc 0.3 1 0.3 $AriSymCheckerTextField[2];
+			if($xyz==3)textField -e -text " Z " -bgc 0.3 0.3 1 $AriSymCheckerTextField[2];
+		}	
+	}
+}
+/*
+global proc AriSymmetryChecker_UI_RangeValueChange(){
+	global string $AriSymCheckerSlider[8];
+	global string $AriSymmetryChecker_UI_MoveRangeMinMax[8];
+	float $moveMin = `floatField -q -v $AriSymmetryChecker_UI_MoveRangeMinMax[0]`;
+	float $moveMax = `floatField -q -v $AriSymmetryChecker_UI_MoveRangeMinMax[1]`;
+	floatSliderGrp -e  -min $moveMin -max $moveMax -value 0.01  -step 0.001 -fmx 10000 $AriSymCheckerSlider[1];
+}
+*/
+global proc AriSymmetryChecker(){
+	global string $AriSymmetryChecker_JPTrue;
+	global string $AriSymmetryCheckerPC;
+	global string $AriSymCheckerSlider[8];
+	global string $AriSymCheckerRadio[6];
+	global string $AriSymCheckerCheckBox;
+	global string $AriSymCheckerGroups[10];
+	global string $AriSymCheckerFloat[4];
+	global string $AriSymCheckerTextField[5];
+	global string $AriSymmetryChecker_UI_MoveRangeMinMax[8];
+	if(`about -uil`=="ja_JP")$AriSymmetryChecker_JPTrue = true;
+	else $AriSymmetryChecker_JPTrue = false;
+	string $label_ver = "Veretx";
+	string $label_center  = "Center";
+	string $label_axis        = "Axis:";
+	string $label_searchTole  = "Search Tolerance:";
+	string $label_search      = "Search"; 
+	string $label_centerAdso  = "Center Adsorption";
+	string $lable_symmeMethod = "Method:";
+	string $lable_topology    = "Topology";
+	string $lable_distance    = "Distance";
+	string $lable_verInfo     = "VerInfo";
+	string $lable_loop        = "Loop:";
+	string $lable_moveRange   = "Range:";
+	string $lable_getNear     = "GetNear:";
+	string $label_PosiToNega  = "Positive to Negative(+Z to -Z)";
+	string $label_move        = "Move";
+	if($AriSymmetryChecker_JPTrue){
+		$label_ver     = "頂点";
+		$label_center  = "中心";
+		$label_axis        = "対称軸:";
+		$label_searchTole  = "探索許容値:";
+		$label_search      = "探索"; 
+		$label_centerAdso  = "中心吸着";
+		$lable_symmeMethod = "対称方法:";
+		$lable_topology    = "トポロジ";
+		$lable_distance    = "距離";
+		$lable_verInfo     = "頂点情報";
+		$lable_loop        = "反復数:";
+		$lable_moveRange   = "移動範囲:";
+		$lable_getNear     = "最接近値取得";
+		$label_PosiToNega  = "正負反転(+固定 -移動)";
+		$label_move        = "移動";
+	}
+	string $mage;
+	if((`window -ex AriSymmetryChecker`)==true)deleteUI AriSymmetryChecker;
+	window -title "AriSymmetryChecker"  -w 300 -h 300 -mxb 0  AriSymmetryChecker;
+	string $tabChild1=`columnLayout -adj 1`;
+	string $form3Item[3];
+	string $form3= `formLayout`;
+		$form3Item[0]=`rowLayout -h 30 -nc 2 -cw2 72 130  `;
+			$AriSymCheckerTextField[1] = `textField -w 70 -text $label_ver -ed 0 -bgc 1 1 0`;
+			$AriSymCheckerRadio[2]     = `radioButtonGrp -l "  " -nrb 2  -labelArray2 $label_ver "UV" -select 1 -cw3 2 60 60 -cc "AriSymmetryChecker_UIChange()" `;
+		setParent..;
+		$form3Item[1]=`button -w 60 -h 25 -l "Reset" -c "AriSymmetryChecker_Reset()"`;
+	setParent..;
+	formLayout -e
+		-af $form3Item[0]	"left"  0
+		-af $form3Item[1]	"right" 0 -af $form3Item[1]	"top" 3 -af $form3Item[1] "bottom" 3
+	$form3;
+	separator -h 5 -w 240 -style "in";
+	$AriSymCheckerGroups[5]=`rowLayout -nc 3 -cw3 42 20 130 -h 25`;
+		text -label $label_axis;
+		$AriSymCheckerTextField[3] = `textField -w 24 -text "X" -ed 0 `;
+		$AriSymCheckerRadio[0] = `radioButtonGrp -l "  "  -nrb 3  -labelArray3 "X" "Y" "Z" -select 1 -cw4 5 40 40 40 -cc "AriSymmetryChecker_UIChange()"`;
+	setParent..;
+	$AriSymCheckerGroups[3]=`rowLayout -nc 6 -cw 1 42  -cw 2 20 -cw 3 84  -h 25`;
+		text -label $label_axis;
+		$AriSymCheckerTextField[4] = `textField -w 24 -text "U" -ed 0 `;
+		$AriSymCheckerRadio[3] = `radioButtonGrp -l "  "  -nrb 2  -labelArray2 "U" "V"     -select 1 -cw3 5 40 40   -cc "AriSymmetryChecker_UIChange()"`;
+		text -l $label_center;
+		$AriSymCheckerFloat[0]=`floatField -w 42 -v 0.5 -pre 3`;
+		button -l "Get" -c "AriSymmetryChecker_getPiv()";
+	setParent..;
+	separator -h 5 -w 240 -style "in";
+	text -al "left" -label $label_searchTole;
+	$AriSymCheckerSlider[0] = `floatSliderGrp -l ""  -field true -cw 1 30 -min 0.0000 -max 0.01 -fmx 10 -value 0.001   -step 0.00001 -cat 1 "left" 0  -cw 1 0  -cw 2 60`;
+	$AriSymCheckerSlider[6] = `floatSliderGrp -l ""  -field true -cw 1 30 -min 0.0000 -max 0.01 -fmx 10 -value 0.00001 -step 0.00001 -cat 1 "left" 0  -cw 1 0  -cw 2 60`;
+	button -bgc 0 0.8 1 -label $label_search  -h 30 -ann "選択から非対称頂点を探索"     -command ("AriSymmetryChecker_ModeGet(0)");
+	separator -h 5 -w 240 -style "in";
+	$AriSymCheckerGroups[1] = `columnLayout -adj 1`;
+	$AriSymCheckerSlider[2] = `floatSliderGrp -field true -l "中心範囲:" -cw 1 30 -min 0.001  -max 10 -value 0.01  -step 0.001 -fmn 0.001 -fmx 10000 -ann "軸からこれ以内であれば軸に吸着" -cat 1 "left" 0  -cw 1 0 -cw 2 60 `;
+	$AriSymCheckerSlider[4] = `floatSliderGrp -field true -l "中心範囲:" -cw 1 30 -min 0.0001 -max 10 -value 0.001 -step 0.001 -fmn 0.001 -fmx 10000 -ann "軸からこれ以内であれば軸に吸着" -cat 1 "left" 0  -cw 1 0 -cw 2 60 `;
+	button  -label $label_centerAdso -w 100 -h 28 -ann "" -command ("AriSymmetryChecker_ModeGet(2)");
+	separator -h 5 -w 240 -style "in";
+	setParent..;
+	$AriSymCheckerGroups[6] = `rowLayout -nc 2 -cw2 52 130`;
+		text -label $lable_symmeMethod;
+		$AriSymCheckerRadio[1] = `radioButtonGrp -nrb 2  -labelArray2 $lable_topology $lable_distance -select 1 -cw2 68 60     -cc "AriSymmetryChecker_UIChange()"`;
+	setParent..;
+	$AriSymCheckerGroups[7] = `rowLayout -nc 3 -cw3 52 196 30`;
+		text -label $lable_symmeMethod;
+		$AriSymCheckerRadio[5] = `radioButtonGrp -nrb 3  -labelArray3 $lable_topology $lable_distance $lable_verInfo  -select 1 -cw3 68 50 60  -cc "AriSymmetryChecker_UIChange()"`;
+		$AriSymCheckerTextField[2] = `textField -w 24 -ed 0 -text "   " -bgc 0.2 0.2 0.2`;
+	setParent..;
+	$AriSymCheckerGroups[0] = `columnLayout`;
+		$AriSymCheckerGroups[8] = `rowLayout -nc 2 -cw2 50 130`;
+		text -l $lable_loop ;
+		$AriSymCheckerSlider[3] = `intField -w 30 -v 50 -min 1 -max 1000`;
+		setParent..;
+	setParent..;
+	$AriSymCheckerGroups[2] = `columnLayout -adj 1 `;
+		rowLayout -nc 6;
+		setParent..;
+		$AriSymCheckerSlider[1] = `floatSliderGrp -field true -l $lable_moveRange -pre 5 -cw 1 30 -min 0.001  -max 10 -value 0.01  -step 0.001 -fmx 10000 -cat 1 "left" 0  -cw 1 52 -cw 2 60 `;
+		$AriSymCheckerSlider[5] = `floatSliderGrp -field true -l $lable_moveRange -pre 5 -cw 1 30 -min 0.0001 -max 10 -value 0.001 -step 0.001 -fmx 10000 -cat 1 "left" 0  -cw 1 52 -cw 2 60 `;
+	setParent..;
+	$AriSymCheckerGroups[9] = `rowLayout -nc 8 `;
+	button -w 100 -l $lable_getNear -command ("AriSymmetryChecker_ModeGet(5)");
+	text -l "+";
+	$AriSymCheckerFloat[2] = `floatField -v 10 -w 50 -pre 1`; 
+	text -l "%";
+	setParent..;
+	$AriSymCheckerCheckBox =`checkBox -al "left" -label $label_PosiToNega  -v 1`;
+	button -bgc 0 1 0.5 -label $label_move -h 30 -ann "移動近似値内にある頂点に移動" -command ("AriSymmetryChecker_ModeGet(1)");
+	$AriSymCheckerTextField[0] = `textField -ed 0 -text ""`;
+	$AriSymmetryCheckerPC= `progressBar -width 240`;
+	setParent..;
+	AriSymmetryChecker_Load();
+	AriSymmetryChecker_UIChange();
+	showWindow;
+}

@@ -1,0 +1,108 @@
+{
+    "说明": "这是AriScripts工具集的配置文件，用于定义每个工具的描述信息。添加新工具时，请按照示例格式添加相应的配置。",
+    
+    "示例": {
+        "工具名称": {
+            "提示名称": "鼠标悬停时显示的中文名称",
+            "中文描述": "在这里填写工具的中文说明",
+            "英文描述": "Write tool description in English here",
+            "URL": "在这里填写工具的帮助文档链接"
+        }
+    },
+
+    "工具配置": {
+        "AriEdgeSmooth": {
+            "提示名称": "边缘平滑工具",
+            "中文描述": "边平滑-选择要在循环形状中平滑的边缘，然后执行 AriEdgeSmooth 来平滑它。",
+            "英文描述": "Edge Smooth - Select the edges to smooth in the loop shape, then execute AriEdgeSmooth to smooth it.",
+            "URL": "http://cgjishu.net/blog-entry-400.html"
+        },
+        "AriMirror": {
+            "提示名称": "模型镜像工具",
+            "中文描述": "模型镜像工具，支持顶点、UV、权重数据的镜像",
+            "英文描述": "Model Mirror Tool (Support vertex, UV, and weight data mirroring)",
+            "URL": "http://cgjishu.net/blog-entry-3.html"
+        },
+        "AriPolygonCounter": {
+            "提示名称": "多边形计数工具",
+            "中文描述": "多边计数器",
+            "英文描述": "Polygon Counter",
+            "URL": "http://cgjishu.net/blog-entry-13.html"
+        },
+        "AriRenamer": {
+            "中文描述": "重命名工具",
+            "英文描述": "Rename Tool",
+            "URL": "http://cgjishu.net/blog-entry-42.html"
+        },
+        "AriSceneOpener": {
+            "中文描述": "场景打开工具",
+            "英文描述": "Scene Open Tool",
+            "URL": "http://cgjishu.net/blog-entry-16.html"
+        },
+        "AriSelectEdgeRing": {
+            "中文描述": "边环选择工具",
+            "英文描述": "Edge Ring Selection Tool",
+            "URL": "http://cgjishu.net/blog-entry-172.html"
+        },
+        "AriSelectMaterialAndObject": {
+            "中文描述": "材质和物体选择工具",
+            "英文描述": "Material and Object Selection Tool",
+            "URL": "http://cgjishu.net/blog-entry-117.html"
+        },
+        "AriSymmetryChecker": {
+            "中文描述": "对称性检查工具",
+            "英文描述": "Symmetry Check Tool",
+            "URL": "http://cgjishu.net/blog-entry-6.html"
+        },
+        "AriUVAdsorption": {
+            "中文描述": "UV吸附工具",
+            "英文描述": "UV Adsorption Tool",
+            "URL": "http://cgjishu.net/blog-entry-140.html"
+        },
+        "AriUVAdsorptionMove": {
+            "中文描述": "UV吸附移动工具",
+            "英文描述": "UV Adsorption Move Tool",
+            "URL": "http://cgjishu.net/blog-entry-152.html"
+        },
+        "AriUVExtract": {
+            "中文描述": "UV提取工具",
+            "英文描述": "UV Extract Tool",
+            "URL": "http://cgjishu.net/blog-entry-204.html"
+        },
+        "AriUVGridding": {
+            "中文描述": "UV网格化工具",
+            "英文描述": "UV Gridding Tool",
+            "URL": "http://cgjishu.net/blog-entry-58.html"
+        },
+        "AriUVPixelScale": {
+            "中文描述": "UV像素缩放工具",
+            "英文描述": "UV Pixel Scale Tool",
+            "URL": "http://cgjishu.net/blog-entry-244.html"
+        },
+        "AriUVRatio": {
+            "中文描述": "UV比例工具",
+            "英文描述": "UV Ratio Tool",
+            "URL": "http://cgjishu.net/blog-entry-51.html"
+        },
+        "AriUVReversSelector": {
+            "中文描述": "UV反向选择工具",
+            "英文描述": "UV Reverse Selection Tool",
+            "URL": "http://cgjishu.net/blog-entry-206.html"
+        },
+        "AriUVScaleChecker": {
+            "中文描述": "UV缩放检查器",
+            "英文描述": "UV Scale Checker",
+            "URL": "http://cgjishu.net/blog-entry-69.html"
+        },
+        "AriWindowAllClose": {
+            "中文描述": "关闭所有窗口",
+            "英文描述": "Close All Windows",
+            "URL": "http://cgjishu.net/blog-entry-10.html"
+        },
+        "AriWindowPositionReset": {
+            "中文描述": "重置窗口位置",
+            "英文描述": "Reset Window Position",
+            "URL": "http://cgjishu.net/blog-entry-134.html"
+        }
+    }
+} 

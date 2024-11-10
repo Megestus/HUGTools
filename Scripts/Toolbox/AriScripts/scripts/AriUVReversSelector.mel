@@ -1,0 +1,252 @@
+//--------------------------------------------------------------------------
+//
+// ScriptName : AriUVReversSelector
+// Contents   : — •Ô‚µ‚ÌUV‚ð‘I‘ð‚µ‚Ü‚·B
+// Author     : Ari
+// URL        : http://cgjishu.net/
+// Since      : 2017/06
+// Update     :
+//
+//--------------------------------------------------------------------------
+
+
+
+
+
+proc float[] AriUVEditor_MinMax (string $uvList[]){
+	float $min[2];
+	float $max[2];
+	float $minmax[4];
+	$min = `polyEditUV -q $uvList[0]`;
+	$max = $min;
+	for($uv in $uvList){
+		float $pos[] =`polyEditUV -q $uv`;
+		if($min[0]>$pos[0])$min[0]=$pos[0];
+		if($min[1]>$pos[1])$min[1]=$pos[1];
+		if($max[0]<$pos[0])$max[0]=$pos[0];
+		if($max[1]<$pos[1])$max[1]=$pos[1];
+	}
+	$minmax[0]=$min[0];
+	$minmax[1]=$min[1];
+	$minmax[2]=$max[0];
+	$minmax[3]=$max[1];
+	return $minmax;
+}
+
+
+global proc AriUVReversSelector_Flip(int $mode){
+	string $selects[]=`ls -sl`;
+	string $uvList[]=`polyListComponentConversion -tuv $selects`;
+	$uvList = `filterExpand -selectionMask 35 $uvList`;
+	float $minmax[] = AriUVEditor_MinMax($uvList);
+	float $disU = $minmax[2]-$minmax[0];
+	float $disV = $minmax[3]-$minmax[1];
+	float $centerU = $minmax[0]+($disU / 2);
+	float $centerV = $minmax[1]+($disV / 2);
+	if($mode==0) polyEditUV -pu $centerU -pv $centerV -su -1 -sv  1 ;
+	if($mode==1) polyEditUV -pu $centerU -pv $centerV -su  1 -sv -1 ;
+}
+
+
+global proc AriUVReversSelector_GO()
+{
+	global string $AriUVReversSelectorUI_textF;
+	global string $AriUVReversSelectorUI_check[3];
+	global string $gMainProgressBar; 
+	global string $AriUVReversSelectorProgressBar; 
+	int $nejireTrue = `checkBox -q -v $AriUVReversSelectorUI_check[0]`;
+	int $depressionTrue = `checkBox -q -v $AriUVReversSelectorUI_check[1]`;
+	textField -e -tx ("") $AriUVReversSelectorUI_textF;
+	string $selects[]=`ls -sl`;
+	string $selectUVList[]   = `filterExpand -selectionMask 35 $selects`;
+	string $selectFaceList[] = `filterExpand -selectionMask 34 $selects`;
+	int $selectMode = 0;
+	if(size($selectUVList)>0){
+		$selectMode = 0;
+	}
+	if(size($selectFaceList)>0){
+		$selectMode = 1;
+	}	
+	string $faceList[]=`polyListComponentConversion -tf $selects`;
+	$faceList = `filterExpand -selectionMask 34 $faceList`;
+	int $total = size($faceList);
+	if($total==0)return;
+	progressBar -edit -beginProgress -isInterruptable true -max ($total) $AriUVReversSelectorProgressBar;
+	progressBar -edit -beginProgress -isInterruptable true -status ("0 / "+$total) -max ($total) $gMainProgressBar;
+	int $i=0;
+	int $j=0;
+	int $breakTrue = false;
+	string $reFaceList[];
+	string $reUVList[];
+	int $reUVCounter=0;
+	for($faceOne in $faceList){
+		progressBar    -edit -progress $i $AriUVReversSelectorProgressBar;
+		progressBar    -edit -progress $i -status (($i+1)+" / "+$total) $gMainProgressBar;
+		textField -e -tx (($i+1)+" / "+$total) $AriUVReversSelectorUI_textF;
+		string $obj[];
+		tokenize $faceOne "." $obj;
+		string $verList[]=`polyInfo -faceToVertex $faceOne`;
+		string $vers[];
+		tokenizeList $verList[0] $vers;
+		string $uvs[]=`polyListComponentConversion -toUV $faceOne`;
+    	string $uvList[]=`filterExpand -selectionMask 35 $uvs`;
+		string $verToUv[];
+    	clear $verToUv;
+		for($x=0;$x<size($uvList);$x++){
+			string $uvToVer[]=`polyListComponentConversion -toUV ($obj[0]+".vtx["+$vers[$x+2]+"]")`;
+			$uvToVer=`filterExpand -selectionMask 35 $uvToVer`;
+			for($Loop in $uvToVer){
+				for($uvLoop in $uvList){
+					if($Loop==$uvLoop){
+						$verToUv[$x]=$Loop;
+						break;
+					}
+				}
+			}
+		}
+		vector $uvPos[];
+		clear $uvPos;
+		for($k=0; $k<size($verToUv); $k++){
+			float  $uvP[] = `polyEditUV -q  $verToUv[$k]`;
+			$uvPos[$k] =<<$uvP[0],$uvP[1],0>>;
+		}
+		int $leftRotTrue=0;
+		string $work_LeftUVList[];
+		string $work_RightUVList[];
+		int $workLeftCount = 0;
+		int $workRightCount= 0;
+		clear $work_LeftUVList;
+		clear $work_RightUVList;
+		for($k=0; $k<size($uvPos); $k++){
+			int $befoNum = $k-1;
+			int $nowNum  = $k;
+			int $afterNum = $k+1;
+			if($befoNum < 0) $befoNum = size($uvPos)-1;
+			if($afterNum >= size($uvPos)) $afterNum = 0;
+			vector $cross = cross($uvPos[$befoNum]-$uvPos[$nowNum], $uvPos[$afterNum]-$uvPos[$nowNum]);
+			if($cross.z >= 0){
+				$leftRotTrue++;
+				$work_LeftUVList[$workLeftCount] = $verToUv[$nowNum];
+				$workLeftCount++;
+			}
+			else{
+				$work_RightUVList[$workRightCount] = $verToUv[$nowNum];
+				$workRightCount++;
+			}
+		}
+		int $leftTotal=2;
+		if($depressionTrue){
+			$leftTotal=1;
+		}
+		if($leftRotTrue >= $leftTotal){
+			for($workUV in $work_LeftUVList){
+				if(stringArrayContains($workUV,$selectUVList)){
+					$reUVList[$reUVCounter] = $workUV;
+					$reUVCounter++;
+				}
+			}
+		}
+		if($leftRotTrue==3){
+			for($workUV in $work_RightUVList){
+				if(stringArrayContains($workUV,$selectUVList)){
+					$reUVList[$reUVCounter] = $workUV;
+					$reUVCounter++;
+				}
+			}
+		}
+		if($nejireTrue){
+			if($leftRotTrue >= $leftTotal){
+				$reFaceList[$j]= $faceOne;
+				$j++;
+			}
+		}
+		else{	
+			if($leftRotTrue >= size($uvPos)-1){
+				$reFaceList[$j]= $faceOne;
+				$j++;
+			}
+		}
+		$i++;
+		if(`progressBar -q -isCancelled $gMainProgressBar`){
+			$breakTrue = true;
+			break;
+		}
+	}
+	progressBar -edit -endProgress $AriUVReversSelectorProgressBar;
+	progressBar -edit -endProgress $gMainProgressBar;
+	select -cl  ;
+	int $faceTotal = size($reFaceList);
+	if($selectMode==0){
+		if($nejireTrue){
+			select $reUVList;
+		}
+		else{
+			$reFaceList = `polyListComponentConversion -toUV $reFaceList`;
+			select $reFaceList;
+		}
+	}
+	else{
+		select $reFaceList;
+	}
+	if($breakTrue){
+		textField -e -tx ($faceTotal+" Face (’†’f)") $AriUVReversSelectorUI_textF;
+	}
+	else{
+		textField -e -tx ($faceTotal+" Face") $AriUVReversSelectorUI_textF;
+	}
+}
+
+
+global proc AriUVReversSelector_ChangeUI(){
+	global string $AriUVReversSelectorUI_check[3];
+	int $checkTrue1 = `checkBox -q -v $AriUVReversSelectorUI_check[0]`;
+	int $checkTrue2 = `checkBox -q -v $AriUVReversSelectorUI_check[1]`;
+	if($checkTrue1)	checkBox -e -en true  $AriUVReversSelectorUI_check[1];
+	else			checkBox -e -en false $AriUVReversSelectorUI_check[1];
+	optionVar -intValue  "AriUVReversSel_distortion" $checkTrue1;
+	optionVar -intValue  "AriUVReversSel_depression" $checkTrue2;
+}
+
+
+global proc AriUVReversSelector(){
+	global string $gMainProgressBar; 
+	global string $AriUVReversSelectorProgressBar; 
+	global string $AriUVReversSelectorUI_check[3];
+	global string $AriUVReversSelectorUI_textF;
+	int $iconSize = 32;
+	int $distortionTrue = false;
+	int $depression     = false;
+	if(`optionVar -exists "AriUVReversSel_distortion"`)	$distortionTrue = `optionVar -q "AriUVReversSel_distortion"`;
+	if(`optionVar -exists "AriUVReversSel_depression"`)	$depression     = `optionVar -q "AriUVReversSel_depression"`;
+	if((`window -ex AriUVReversSelector`)==true)deleteUI AriUVReversSelector;
+	window -tlb 0 -title "AriUVReversSelector"  -w 200 -h 60  AriUVReversSelector;
+	string $form = `formLayout`;
+		$AriUVReversSelectorUI_check[0] = `checkBox -l "Reverse UV" -v $distortionTrue -cc "AriUVReversSelector_ChangeUI()"`;
+		$AriUVReversSelectorUI_check[1] = `checkBox -l "Face"            -v $depression     -cc "AriUVReversSelector_ChangeUI()"`;
+		string $iconButton1 = `iconTextButton -w $iconSize -h $iconSize  -i "flipU.png" -c "AriUVReversSelector_Flip(0)"`;
+		string $iconButton2 = `iconTextButton -w $iconSize -h $iconSize  -i "flipV.png" -c "AriUVReversSelector_Flip(1)"`;
+		string $buttonGO = `button -h 26  -l "Check" -c "AriUVReversSelector_GO()"`;
+		$AriUVReversSelectorUI_textF    = `textField -tx "" -ed false`;
+		$AriUVReversSelectorProgressBar = `progressBar -w 120`;
+	setParent..;
+	formLayout -e
+	-af $AriUVReversSelectorUI_check[0] "left" 0
+	-af $AriUVReversSelectorUI_check[0] "top" 10 
+	-ac $AriUVReversSelectorUI_check[1] "left" 4 $AriUVReversSelectorUI_check[0]
+	-af $AriUVReversSelectorUI_check[1] "top" 10 
+	-af $iconButton2 "right" 0
+	-ac $iconButton1 "right" 0 $iconButton2
+	-af $AriUVReversSelectorProgressBar "right" 0
+	-af $AriUVReversSelectorProgressBar "bottom" 0
+	-ac $AriUVReversSelectorUI_textF "right" 0 $AriUVReversSelectorProgressBar
+	-af $AriUVReversSelectorUI_textF "left" 0
+	-af $AriUVReversSelectorUI_textF "bottom" 0
+	-ac $buttonGO "top"  0 $iconButton2
+	-af $buttonGO "left" 0
+	-af $buttonGO "right" 0
+	-ac $buttonGO "bottom"  0 $AriUVReversSelectorUI_textF
+	$form;
+	showWindow;
+	AriUVReversSelector_ChangeUI();
+}
+

@@ -1,0 +1,105 @@
+//
+// ScriptName : AriUVAdsorption
+// Contents   : 選択したUVに対のUVを移動させ縫合します。
+// Author     : Ari
+// Since      : 2016/03/21
+// LastUpdate : 2018/10/28 選択無実行でオプション起動機能追加
+//            : 2016/06/19 オプション作成
+//--------------------------------------------------------------------------
+
+global proc AriUVAdsorption(){
+	
+	
+	int $margeTrue = true;
+	int $selectFixTrue = true;
+	float $offset[2] = {0,0};
+	
+	
+	if(`optionVar -exists "AriUVAdsorption_marge"`)		$margeTrue     = `optionVar -q "AriUVAdsorption_marge"`;
+	if(`optionVar -exists "AriUVAdsorption_selectFix"`) $selectFixTrue = `optionVar -q "AriUVAdsorption_selectFix"`;
+	if(`optionVar -exists "AriUVAdsorption_offsetU"`)	$offset[0] = `optionVar -q "AriUVAdsorption_offsetU"`;
+	if(`optionVar -exists "AriUVAdsorption_offsetV"`)	$offset[1] = `optionVar -q "AriUVAdsorption_offsetV"`;
+	print $margeTrue;
+	print $selectFixTrue;
+	print $offset[0];
+	print $offset[1];
+	string $selectsUV[] = `ls -sl`;
+	string $uvList[] = `filterExpand -selectionMask 35 $selectsUV`;
+	if(size($uvList)<=0){
+		AriUVAdsorptionOptions;
+		return;
+	}
+	string $verList[]  = `polyListComponentConversion -tv  $uvList`;
+	string $edgeList[] = `polyListComponentConversion -te -in  $verList`;
+	$edgeList = `filterExpand -selectionMask 32 $edgeList`;
+	string $processedUV[];
+	string $processedEdgeList[];
+	int $moveTrue=false;
+	for($uv in $uvList){
+		string $verList[]=`polyListComponentConversion -tv $uv`;
+		string $verToUvList[]=`polyListComponentConversion -tuv $verList`;
+		$verToUvList=`filterExpand -selectionMask 35 $verToUvList`;
+		if(size($verToUvList)==2){
+			for($verToUv in $verToUvList){
+				if($verToUv != $uv){
+						string $fixUV  = $uv;
+						string $moveUV = $verToUv;
+						if(!$selectFixTrue){
+							$fixUV  = $verToUv;
+							$moveUV = $uv;
+						}
+						float $basePos[]=`polyEditUV -q $fixUV`;
+						float $movePosU = $basePos[0]+$offset[0];
+						float $movePosV = $basePos[1]+$offset[1];
+					print "\n";
+						print $movePosU;
+					print "\n";
+						print $movePosV;
+					print "\n";
+					print $moveUV;
+						polyEditUV -u $movePosU -v $movePosV -r false $moveUV;
+						$moveTrue=true;
+				}
+			}
+		}
+		if(size($verToUvList)>=3){
+			string $uvToEdgeList[]=`polyListComponentConversion -te   $uv`;
+			$uvToEdgeList=`filterExpand -selectionMask 32 $uvToEdgeList`;
+			string $trueEdgeList[];
+			clear $trueEdgeList;
+			int $i=0;
+			for($edge in $uvToEdgeList){
+				if(stringArrayContains ($edge,$edgeList)){
+					$trueEdgeList[$i]=$edge;
+					$i++;
+				}
+			}
+			string $edgeToUvList[]=`polyListComponentConversion -tuv $trueEdgeList`;
+			$edgeToUvList=`filterExpand -selectionMask 35 $edgeToUvList`;
+			for($verToUv in $verToUvList){
+				if(stringArrayContains ($verToUv,$edgeToUvList)){
+					if($verToUv != $uv){
+						string $fixUV  = $uv;
+						string $moveUV = $verToUv;
+						if(!$selectFixTrue){
+							$fixUV  = $verToUv;
+							$moveUV = $uv;
+						}
+						float $basePos[]=`polyEditUV -q $fixUV`;
+						float $movePosU = $basePos[0]+$offset[0];
+						float $movePosV = $basePos[1]+$offset[1];
+						polyEditUV -u $movePosU -v $movePosV -r false $moveUV;
+						$moveTrue=true;
+					}
+				}
+			}
+		}
+	}
+	if($margeTrue){
+		if($moveTrue){
+			string $verList[]=`polyListComponentConversion -tv $uvList`;
+			string $verToUvList[]=`polyListComponentConversion -tuv $verList`;
+			polyMergeUV -d 0.001 -ch 1 $verToUvList;
+		}
+	}
+}

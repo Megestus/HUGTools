@@ -1,0 +1,580 @@
+//--------------------------------------------------------------------------
+//
+// ScriptName : AriUVRatio
+// Contents   : UV距離の比率を頂点距離の比率に合わせます。
+// Author     : Ari
+// Since      : 2015/01
+// LastUpdate : 2018/10/28 選択無実行でオプション起動機能追加
+//            : 2016/08/07 MEL名変更。(旧AriUVFromVertexRatio)
+//                         オプション追加
+//            : 2015/12/27 1UV又は2UV選択でループ選択後実行機能追加。
+//                         処理の最適化。
+//            : 2015/05/31 UVを強制的に直線化、U軸V軸にフィット化。
+//
+//--------------------------------------------------------------------------
+
+
+
+proc int AriUVRatioClassic(){
+	
+	int $mode=1;
+	return $mode;
+}
+proc vector AriUVVecChokkaku(vector $vec){
+	if(abs($vec.x) < abs($vec.y)){
+		if($vec.y>0) $vec=<<0,1,0>>;
+		else $vec=<<0,-1,0>>;
+	}
+	else{
+		if($vec.x>0) $vec=<<1,0,0>>;
+		else $vec=<<-1,0,0>>;
+	}
+	return $vec;
+}
+proc int Ari_checkSideUv(string $uv0,string $uv1)
+{
+	string $uvToEdge[]=`polyListComponentConversion -te $uv0`;
+	string $edgeToUv[]=`polyListComponentConversion -tuv $uvToEdge`;
+	$edgeToUv=`filterExpand -selectionMask 35 $edgeToUv`;
+	string $uvToFace[]=`polyListComponentConversion -tf $uv0`;
+	string $faceToUv[]=`polyListComponentConversion -tuv $uvToFace`;
+	$faceToUv=`filterExpand -selectionMask 35 $faceToUv`;
+	if(stringArrayContains($uv1,$edgeToUv) && stringArrayContains($uv1,$faceToUv)){
+		return 1;
+	}
+	else	return 0;
+}
+proc string[] Ari_getSideUv (string $uv0){
+	string $sideUV[];
+	string $uvToEdge[]=`polyListComponentConversion -te $uv0`;
+	string $edgeToUv[]=`polyListComponentConversion -tuv $uvToEdge`;
+	$edgeToUv=`filterExpand -selectionMask 35 $edgeToUv`;
+	string $uvToFace[]=`polyListComponentConversion -tf $uv0`;
+	string $faceToUv[]=`polyListComponentConversion -tuv $uvToFace`;
+	$faceToUv=`filterExpand -selectionMask 35 $faceToUv`;
+	int $i=0;
+	for($uv1 in $edgeToUv){
+		if(stringArrayContains($uv1,$faceToUv)){
+			$sideUV[$i]=$uv1;
+			$i++;
+		}
+	}
+	return $sideUV;
+}
+proc float Ari_distanceUV(string $uv0,string $uv1)
+{
+		float $dis;
+		float $uvPos0[]=`polyEditUV -q $uv0`;
+		float $uvPos1[]=`polyEditUV -q $uv1`;
+		$dis=	 ($uvPos1[0]-$uvPos0[0])*($uvPos1[0]-$uvPos0[0])
+					+($uvPos1[1]-$uvPos0[1])*($uvPos1[1]-$uvPos0[1]);
+		$dis=sqrt ($dis);
+		return $dis;
+}
+proc float Ari_distanceVer(string $ver1,string $ver2)
+{
+		float $dis;
+		float $verPos0[]=`pointPosition $ver1`;
+		float $verPos1[]=`pointPosition $ver2`;
+		$dis=	 ($verPos1[0]-$verPos0[0])*($verPos1[0]-$verPos0[0])
+						+($verPos1[1]-$verPos0[1])*($verPos1[1]-$verPos0[1])
+						+($verPos1[2]-$verPos0[2])*($verPos1[2]-$verPos0[2]);
+		$dis=sqrt ($dis);
+		return $dis;
+}
+proc float [] Ari_VectorMove(float $basePos[], float $dis,vector $vect)
+{
+	float $vec[]={$vect.x,$vect.y,$vect.z};
+	float $newPos[3];
+	int $x=0;
+	int $y=1;
+	int $z=2;
+	if($vec[$x]==0){
+		$x=1;
+		$y=2;
+		$z=0;
+		if($vec[$x]==0){
+			$x=2;
+			$y=0;
+			$z=1;
+			if($vec[$x]==0)	return $basePos;
+		}
+	}
+	$newPos[$x]= sqrt(($dis*$dis) / ( 1 + ($vec[$y]/$vec[$x])*($vec[$y]/$vec[$x]) + ($vec[$z]/$vec[$x])*($vec[$z]/$vec[$x])));
+	$newPos[$x]=($vec[$x]<0) ? $newPos[$x]*-1 : $newPos[$x];
+	$newPos[$y]= $newPos[$x] * $vec[$y]/$vec[$x];
+	$newPos[$z]= $newPos[$x] * $vec[$z]/$vec[$x];
+	$newPos[$x] =($basePos[$x] + $newPos[$x]);
+	$newPos[$y] =($basePos[$y] + $newPos[$y]);
+	$newPos[$z] =($basePos[$z] + $newPos[$z]);
+	return $newPos;
+}
+proc float[] AriUVRatioMove (string $groupUV1[], string $groupUV2[],string $onlyUV[],int $mode){
+	float $uvDis_verDis[2];
+	vector $onlyUV_pos[];
+	vector $onlyUV_vec[];
+	for($i=0;$i<size($onlyUV);$i++){
+		float $pos[] =`polyEditUV -q $onlyUV[$i]`;
+		$onlyUV_pos[$i]=<<$pos[0],$pos[1],$pos[2]>>;
+	}
+	if($mode != 0){
+		$j=0;
+		for($i=0;$i<(size($onlyUV));$i=$i+2){
+			vector $vec = $onlyUV_pos[$i+1]-$onlyUV_pos[$i];
+			$vec = AriUVVecChokkaku($vec);
+			if($mode == 2) $vec = <<1,0,0>>;
+			if($mode == 3) $vec = <<0,1,0>>;
+			if($mode == 4) $vec = <<-1,0,0>>;
+			if($mode == 5) $vec = <<0,-1,0>>;
+			$onlyUV_vec[$j]=$vec;
+			$j++;
+		}
+	}
+	float $uvDis[];		
+	float $verDis[];	
+	vector $uvBasePos1[];	
+	vector $uvBasePos2[];	
+	vector $uvVector[];	
+	$j=0;
+	for($i=0;$i<size($groupUV1);$i++){
+		$uvDis[$i]=Ari_distanceUV($groupUV1[$i],$groupUV2[$i]);
+		string $vers[];
+		$vers =`polyListComponentConversion -tv $groupUV1[$i]`;
+		$vers =`filterExpand -selectionMask 31 $vers`;
+		string $ver1=$vers[0];
+		$vers =`polyListComponentConversion -tv $groupUV2[$i]`;
+		$vers =`filterExpand -selectionMask 31 $vers`;
+		string $ver2=$vers[0];
+		$verDis[$i]=Ari_distanceVer($ver1,$ver2);
+		if($mode==0){
+			float $pos[];
+			$pos =`polyEditUV -q $groupUV1[$i]`;
+			$uvBasePos1[$i]=<< $pos[0],$pos[1],$pos[2] >>;
+			$pos =`polyEditUV -q $groupUV2[$i]`;
+			$uvBasePos2[$i]=<< $pos[0],$pos[1],$pos[2] >>;
+			$uvVector[$i]=$uvBasePos2[$i]-$uvBasePos1[$i];
+		}
+		else{
+			$uvVector[$i]=$onlyUV_vec[$j/2];
+			if($onlyUV[$j+1]==$groupUV2[$i]){
+				$j=$j+2;
+			}
+		}
+	}
+	float $verDisTotal;
+	float $uvDisTotal;
+	for($i=0;$i<size($groupUV1);$i++){
+		$verDisTotal=$verDisTotal+$verDis[$i];
+		$uvDisTotal=$uvDisTotal+$uvDis[$i];
+	}
+	for($i=0;$i<size($groupUV1);$i++){
+		vector $posVec=$uvBasePos1[$i];
+		vector $vecVec=$uvVector[$i];
+		float $moveDis=$uvDisTotal*$verDis[$i]/$verDisTotal;
+		float $pos[] =`polyEditUV -q $groupUV1[$i]`;
+		float $movePos[]= Ari_VectorMove($pos, $moveDis, $uvVector[$i]);
+		polyEditUV -u $movePos[0] -v $movePos[1] -r false $groupUV2[$i];
+	}
+	$uvDis_verDis[0]=$uvDisTotal;
+	$uvDis_verDis[1]=$verDisTotal;
+	return $uvDis_verDis;
+}
+proc AriUVRatio_somethingSelects(int $straightTrue){
+	string $groupUV1[];	
+	string $groupUV2[];	
+	string $selectCom[]=`ls -sl`;
+	string $uvs[]=`filterExpand -selectionMask 35 $selectCom`;
+	float $timer=`timerX`;
+	int $i,$j,$k;
+	int $counter=0;
+	for($i=0;$i<size($uvs);$i++){
+		string $sideList[]=Ari_getSideUv($uvs[$i]);
+		for($j=0;$j<size($uvs);$j++){
+			if(stringArrayContains($uvs[$j],$sideList)){	
+				if($i != $j){
+					int $kaburi=0;
+					for($k=0;$k<size($groupUV1);$k++){
+						if($groupUV1[$k]==$uvs[$j]){	
+							if($groupUV2[$k]==$uvs[$i]){
+								$kaburi=1;
+								break;
+							}
+						}
+					}
+					if($kaburi==0){
+						$groupUV1[$counter]=$uvs[$i];
+						$groupUV2[$counter]=$uvs[$j];
+						$counter++;
+					}
+				}
+			}
+		}
+	}
+	string $edges[]=`filterExpand -selectionMask 32 $selectCom`;
+	string $groupUVFromeEdge1[];
+	string $groupUVFromeEdge2[];
+	$j=0;
+	for($i=0;$i<size($edges);$i++){
+		string $edgeToUv[]=`polyListComponentConversion -tuv $edges[$i]`;
+		$edgeToUv=`filterExpand -selectionMask 35 $edgeToUv`;
+		if(size($edgeToUv)==2){
+			$groupUVFromeEdge1[$j]=$edgeToUv[0];
+			$groupUVFromeEdge2[$j]=$edgeToUv[1];
+			$j++;
+		}
+		if(size($edgeToUv)==3){	
+			for($k=0;$k<3;$k++){
+				int $l=1;
+				int $m=2;
+				if($k==1)$l=0;
+				if($k==2)$m=0;
+				if(		Ari_checkSideUv($edgeToUv[$k],$edgeToUv[$l])
+					&&	Ari_checkSideUv($edgeToUv[$k],$edgeToUv[$m])	){
+					$groupUVFromeEdge1[$j]=$edgeToUv[$k];
+					$groupUVFromeEdge2[$j]=$edgeToUv[$l];
+					$j++;
+					$groupUVFromeEdge1[$j]=$edgeToUv[$k];
+					$groupUVFromeEdge2[$j]=$edgeToUv[$m];
+				}
+			}
+		}		
+		if(size($edgeToUv)==4){	
+			for($k=1;$k<4;$k++){
+				if(Ari_checkSideUv($edgeToUv[0],$edgeToUv[$k])){
+					$groupUVFromeEdge1[$j]=$edgeToUv[0];
+					$groupUVFromeEdge2[$j]=$edgeToUv[$k];
+					$j++;
+					int $l=2;
+					int $m=3;
+					if($k==2)$l=1;
+					if($k==3)$m=1;
+					$groupUVFromeEdge1[$j]=$edgeToUv[$l];
+					$groupUVFromeEdge2[$j]=$edgeToUv[$m];
+					$j++;
+					break;
+				}
+			}
+		}
+	}
+	appendStringArray($groupUV1, $groupUVFromeEdge1, size($groupUVFromeEdge1));
+	appendStringArray($groupUV2, $groupUVFromeEdge2, size($groupUVFromeEdge2));	
+	string $margeUV[];
+	string $onlyUV[];
+	$j=0;
+	$margeUV=$groupUV1;
+	appendStringArray($margeUV,$groupUV2,size($groupUV1));
+	for($i=0;$i<size($margeUV);$i++){
+		int $count = stringArrayCount($margeUV[$i], $margeUV);
+		if($count==1){
+			$onlyUV[$j]=$margeUV[$i];
+			$j++;
+		}
+	}
+	string $sortGroupUV1[];	
+	string $sortGroupUV2[];	
+	int $checkUVnum[];
+	$i=0;
+	$k=0;
+	$l=0;
+	int $m=0;
+	for($l=0;$l<size($onlyUV);$l++){
+		$checkUV=$onlyUV[$l];
+		for($i=0;$i<size($groupUV1);$i++){
+			for($j=0;$j<size($groupUV1);$j++){
+				if($checkUVnum[$j]!=1){
+					if($groupUV1[$j]==$checkUV){	
+						$sortGroupUV1[$k]=$groupUV1[$j];
+						$sortGroupUV2[$k]=$groupUV2[$j];
+						$checkUVnum[$j]=1;			
+						$checkUV=$sortGroupUV2[$k];
+						$k++;
+						break;
+					}
+					if($groupUV2[$j]==$checkUV){	
+						$sortGroupUV1[$k]=$groupUV2[$j];
+						$sortGroupUV2[$k]=$groupUV1[$j];
+						$checkUVnum[$j]=1;
+						$checkUV=$sortGroupUV2[$k];
+						$k++;
+						break;
+					}
+				}
+			}
+		}
+	}
+	/*	
+	for($i=0;$i<size($groupUV1);$i++){
+		print ($sortGroupUV1[$i]+" "+$sortGroupUV2[$i]+"\n");
+	}
+	*/	
+	$groupUV1=$sortGroupUV1;
+	$groupUV2=$sortGroupUV2;
+	string $sortOnlyUV[];
+	$k=0;
+	for($i=0;$i<size($groupUV1);$i++){
+		for($j=0;$j<size($onlyUV);$j++){
+			if($groupUV1[$i]==$onlyUV[$j]){
+				$sortOnlyUV[$k]=$groupUV1[$i];
+				$k++;
+				$k++;
+				break;
+			}
+		}
+	}
+	$k=1;
+	for($i=0;$i<size($groupUV2);$i++){
+		for($j=0;$j<size($onlyUV);$j++){
+			if($groupUV2[$i]==$onlyUV[$j]){
+				$sortOnlyUV[$k]=$groupUV2[$i];
+				$k++;
+				$k++;
+				break;
+			}
+		}
+	}
+	$onlyUV=$sortOnlyUV;
+	AriUVRatioMove($groupUV1, $groupUV2, $onlyUV, $straightTrue);
+}
+proc string[] surroundingsUV(string $inputUV){
+	string $uvToEdge[] = `polyListComponentConversion -te $inputUV`;
+	$uvToEdge = `filterExpand -selectionMask 32 $uvToEdge`;
+	string $edgeToUV[] = `polyListComponentConversion -tuv  $uvToEdge`;
+	$edgeToUV = `filterExpand -selectionMask 35 $edgeToUV`;
+	string $uvToFace[] = `polyListComponentConversion -tf $inputUV`;
+	$uvToFace = `filterExpand -selectionMask 34 $uvToFace`;
+	string $faceToUV[] = `polyListComponentConversion -tuv  $uvToFace`;
+	$faceToUV = `filterExpand -selectionMask 35 $faceToUV`;
+	string $surroundingsUvList[];
+	int $i=0;
+	for($uv in $edgeToUV){
+		if($uv != $inputUV){
+			if(stringArrayContains($uv, $faceToUV)){
+				$surroundingsUvList[$i] = $uv;
+				$i++;
+			}
+		}
+	}
+	return $surroundingsUvList;
+}
+proc string nextUV(string $uv_base,string $uv_before){
+	string $uv_after;
+	string $surroundingsUvList[]=(surroundingsUV($uv_base));
+	if(!stringArrayContains($uv_before,$surroundingsUvList))return "";
+	if(size($surroundingsUvList)!=3 && size($surroundingsUvList)!=4)return "";
+	string $uvToFase[] = `polyListComponentConversion -tf $uv_base`;
+	$uvToFase = `filterExpand -selectionMask 34 $uvToFase`;
+	if(size($surroundingsUvList)==4 && size($uvToFase)!=4)return "";
+	string $removeUVList[]=$surroundingsUvList;
+	for($face in $uvToFase){
+		string $faceToUV[] = `polyListComponentConversion -tuv  $face`;
+		$faceToUV = `filterExpand -selectionMask 35 $faceToUV`;
+		if(stringArrayContains($uv_before,$faceToUV)){					
+			$removeUVList=stringArrayRemove($faceToUV, $removeUVList);	
+		}
+	}
+	$uv_after=$removeUVList[0];
+	return $uv_after;
+}
+proc string[] AriGetLoopUV(string $uv1,string $uv2){
+	string $loopUVList[];
+	int $i=0;
+	string $baseUV   = $uv1;
+	string $beforeUV = $uv2;
+	string $afterUV;
+	string $loopUVList1[];
+	$i=0;
+	while($i<100){
+		$afterUV = nextUV($baseUV,$beforeUV);
+		if($afterUV=="")break;
+		$loopUVList1[$i]=$afterUV;
+		$i++;
+		$beforeUV = $baseUV;
+		$baseUV   = $afterUV;
+	}
+	$baseUV   = $uv2;
+	$beforeUV = $uv1;
+	$afterUV  = "";
+	string $loopUVList2[];
+	$i=0;
+	while($i<50){
+			$afterUV = nextUV($baseUV,$beforeUV);
+			if($afterUV=="")break;
+			$loopUVList2[$i]=$afterUV;
+			$i++;
+			$beforeUV = $baseUV;
+			$baseUV   = $afterUV;	
+	}
+	for($i=0;$i<size($loopUVList2);$i++){
+		$loopUVList[$i]=$loopUVList2[size($loopUVList2)-1-$i];
+	}
+	$loopUVList[size($loopUVList2)]=$uv2;
+	$loopUVList[size($loopUVList2)+1]=$uv1;
+	for($i=0;$i<size($loopUVList1);$i++){
+		$loopUVList[size($loopUVList2)+2+$i]=$loopUVList1[$i];
+	}
+	return $loopUVList;
+}
+proc string[] AriGetLoopUV_Single(string $inputUV){
+	string $loopUVList[];
+	int $i=0;
+	string $surroundingsUvList[]=(surroundingsUV($inputUV));
+	for($surroundingsUv in $surroundingsUvList){
+		if(!stringArrayContains($surroundingsUv,$loopUVList)){
+			string $workloopUVList[] = AriGetLoopUV($inputUV,$surroundingsUv);
+			$loopUVList=stringArrayCatenate($loopUVList, $workloopUVList );
+		}
+	}
+	return $loopUVList;
+}
+proc string[]  AriUVRatio_AriSelectUVLoop(string $selectUVList[]){
+	string $loopUVList[];
+	if(size($selectUVList)==1){
+		$loopUVList = AriGetLoopUV_Single($selectUVList[0]);
+	}
+	if(size($selectUVList)==2){
+		string $surroundingsUvList[]=(surroundingsUV($selectUVList[0]));
+		if(stringArrayContains($selectUVList[1],$surroundingsUvList)){		
+			$loopUVList = AriGetLoopUV($selectUVList[0],$selectUVList[1]);
+		}
+		else{																
+			for($surroundingsUv in $surroundingsUvList){					
+				string $workloopUVList[] = AriGetLoopUV($selectUVList[0],$surroundingsUv);
+				if(stringArrayContains($selectUVList[1],$workloopUVList)){
+					int $i=0;
+					int $startTrue=false;
+					int $endTrue=false;
+					string $workloopUVList2[];
+					clear $workloopUVList2;
+					for($loopUV in $workloopUVList){	
+						if($loopUV==$selectUVList[0] || $loopUV==$selectUVList[1]){
+							if($startTrue){
+								$workloopUVList2[$i] = $loopUV;
+								$startTrue=false;
+							}
+							else{
+								$startTrue=true;
+							}
+						}
+						if($startTrue){
+							$workloopUVList2[$i] = $loopUV;
+							$i++;
+						}
+					}
+					if(size($loopUVList)==0 || size($loopUVList)>size($workloopUVList2)){
+						$loopUVList=$workloopUVList2;
+					}
+				}
+			}
+		}
+	}
+	return $loopUVList;
+}
+proc string[] AriUVRatio_twoSelects(string $uvs[],int $straightTrue){
+	string $groupUV1[];	
+	string $groupUV2[];	
+	string $onlyUV[];
+	float $beforePos[]=`polyEditUV -q $uvs[0]`;
+	string $loopList[]=(AriUVRatio_AriSelectUVLoop($uvs));
+	for($i=0; $i<(size($loopList)-1); $i++){
+		$groupUV1[$i] = $loopList[$i];
+		$groupUV2[$i] = $loopList[$i+1];
+	}
+	$onlyUV[0]=$loopList[0];
+	$onlyUV[1]=$loopList[size($loopList)-1];
+	float $distanceSet[2] = AriUVRatioMove($groupUV1, $groupUV2, $onlyUV, $straightTrue);
+	string $uvDis_verDis[]=$loopList;
+	$uvDis_verDis[size($uvDis_verDis)] = $distanceSet[0];
+	$uvDis_verDis[size($uvDis_verDis)] = $distanceSet[1];
+	float $afterPos[]=`polyEditUV -q $uvs[0]`;
+	polyEditUV -u ($beforePos[0]-$afterPos[0]) -v ($beforePos[1]-$afterPos[1]) -r true $loopList;
+	return $uvDis_verDis;
+}
+proc AriUVRatio_oneSelects(string $uvs[]){
+	string $baseUV=$uvs[0];
+	string $nextUV[];
+	float $basePos[]=`polyEditUV -q $baseUV`;
+	string $uvToFace[] = `polyListComponentConversion -tf $baseUV`;
+	$uvToFace=`filterExpand -selectionMask 34 $uvToFace`;
+	string $faceToUv[]=`polyListComponentConversion -tuv $uvToFace[0]`;
+	$faceToUv=`filterExpand -selectionMask 35 $faceToUv`;
+	string $uvToEdge[]=`polyListComponentConversion -te $baseUV`;
+	string $edgeToUv[]=`polyListComponentConversion -tuv $uvToEdge`;
+	$edgeToUv=`filterExpand -selectionMask 35 $edgeToUv`;
+	int $i=0;
+	for($uv in $faceToUv){
+		if(stringArrayContains($uv, $edgeToUv)){
+			if($uv != $baseUV){
+				$nextUV[$i]=$uv;
+				$i++;
+			}
+		}
+	}
+	string $uvList[];
+	$uvList[0]=$baseUV;
+	$uvList[1]=$nextUV[0];
+	vector $pos0;
+	vector $pos1;
+	$pos0 =`polyEditUV -q $uvList[0]`;
+	$pos1 =`polyEditUV -q $uvList[1]`;
+	vector $vec=$pos0-$pos1;
+	$vec = AriUVVecChokkaku($vec);
+	int $mode1=0;
+	if($vec==<< 1,0,0>>)$mode1=2;
+	if($vec==<< 0,1,0>>)$mode1=3;
+	if($vec==<<-1,0,0>>)$mode1=4;
+	if($vec==<<0,-1,0>>)$mode1=5;
+	string $uvDis_verDis1[] = AriUVRatio_twoSelects($uvList,$mode1);
+	$uvList[1]=$nextUV[1];
+	$pos1 =`polyEditUV -q $uvList[1]`;
+	$vec = $pos0-$pos1;
+	$vec = AriUVVecChokkaku($vec);
+	int $mode2=0;
+	if($vec==<< 1,0,0>>)$mode2=2;
+	if($vec==<< 0,1,0>>)$mode2=3;
+	if($vec==<<-1,0,0>>)$mode2=4;
+	if($vec==<<0,-1,0>>)$mode2=5;
+	if($mode1==$mode2 || $mode1==$mode2+2 || $mode1==$mode2-2){
+		$mode2++;
+		if($mode2==6)$mode2=2;
+	}
+	string $uvDis_verDis2[] = AriUVRatio_twoSelects($uvList,$mode2);
+	string $uvList1[];
+	string $uvList2[];
+	for($i=0; $i<size($uvDis_verDis1)-2; $i++){
+		$uvList1[$i]=$uvDis_verDis1[$i];
+	}
+	for($i=0; $i<size($uvDis_verDis2)-2; $i++){
+		$uvList2[$i]=$uvDis_verDis2[$i];
+	}
+	string $loopUVList[]=stringArrayCatenate($uvList1,$uvList2);
+	float $ver1_dis = float($uvDis_verDis1[size($uvDis_verDis1)-2]);
+	float $uv1_dis  = float($uvDis_verDis1[size($uvDis_verDis1)-1]);
+	float $ver2_dis = float($uvDis_verDis2[size($uvDis_verDis2)-2]);
+	float $uv2_dis  = float($uvDis_verDis2[size($uvDis_verDis2)-1]);
+	float $scale1 = ($uv1_dis + $uv2_dis) * ($ver1_dis / ($ver1_dis+$ver2_dis)) / $uv1_dis;
+	float $scale2 = ($uv1_dis + $uv2_dis) * ($ver2_dis / ($ver1_dis+$ver2_dis)) / $uv2_dis;
+	if($mode2==2 || $mode2==4)	polyEditUV -pu $basePos[0] -pv $basePos[1] -su $scale1 -sv $scale2 $loopUVList;
+	else						polyEditUV -pu $basePos[0] -pv $basePos[1] -su $scale2 -sv $scale1 $loopUVList;
+	select $loopUVList;
+}
+global proc AriUVRatio(){
+	int $straightTrue = 1;
+	if(`optionVar -exists "AriUVRatio_straight"`)	$straightTrue = `optionVar -q "AriUVRatio_straight"`;
+	string $selectCom[]=`ls -sl`;
+	string $uvs[]=`filterExpand -selectionMask 35 $selectCom`;	
+	if(size($uvs)<=0){
+		AriUVRatioOptions();
+		return;
+	}
+	if(size($uvs)>2)	AriUVRatio_somethingSelects($straightTrue);
+	if(size($uvs)==2){
+		string $uvList[]=AriUVRatio_twoSelects($uvs,$straightTrue);
+		string $uvSelectList[];
+		for($i=0 ; $i<size($uvList)-2 ; $i++){
+			$uvSelectList[$i]=$uvList[$i];
+		}
+		select $uvSelectList;
+	}
+	if(size($uvs)==1)	AriUVRatio_oneSelects($uvs);
+	ConvertSelectionToUVs;
+}

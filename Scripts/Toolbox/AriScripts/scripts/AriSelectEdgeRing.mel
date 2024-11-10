@@ -1,0 +1,87 @@
+//--------------------------------------------------------------------------
+//
+// ScriptName : AriSelectEdgeRing
+// Contents   : エッジをリング状に拡張選択します。
+// Author     : Ari
+// URL        : http://cgjishu.net/
+// Since      : 2016/10
+// LastUpdate : 2018/10/28 選択無実行でオプション起動機能追加
+//
+//--------------------------------------------------------------------------
+
+
+
+global proc AriSelectEdgeRing(){
+	
+	int $loop = 1;
+	int $jump = 0;
+	int $reversal = false;
+	
+	if(`optionVar -exists "AriSelectEdgeRing_loop"`)	$loop = `optionVar -q "AriSelectEdgeRing_loop"`;
+	if(`optionVar -exists "AriSelectEdgeRing_jump"`)	$jump = `optionVar -q "AriSelectEdgeRing_jump"`;
+	if(`optionVar -exists "AriSelectEdgeRing_rev"`)		$reversal = `optionVar -q "AriSelectEdgeRing_rev"`;
+	if($loop < 1)$loop = 1;
+	if($jump < 0)$jump = 0;
+	string $selects[] = `ls -sl`;
+	string $edges[] = `filterExpand -selectionMask 32 $selects`;
+	if(size($edges)<=0){
+		AriSelectEdgeRingOptions();
+		return;
+	}
+	string $processedFaceList[];
+	string $ringEdgeList[];        
+	string $nestEdgeList[];        
+	string $nestEdgeList_select[]; 
+	$ringEdgeList        = $edges;
+	if(!$reversal)$nestEdgeList_select = $edges;
+	string $nowEdgeList[] = $edges;
+	int $beforeSize;
+	int $n = 0;
+	int $k = 0;
+	while($n < $loop){
+		print ($n+"----------------------------------\n");
+		if($beforeSize == size($ringEdgeList))break;
+		$beforeSize = size($ringEdgeList);
+		clear $nestEdgeList;
+		for($edge in $nowEdgeList){
+			string $sepa[];
+			tokenize $edge "." $sepa;
+			string  $thisEdgeNumString = substring ($sepa[1],3,size($sepa[1])-1);
+			int $thisEdgeNum = int($thisEdgeNumString);
+			clear $sepa;
+			tokenize $edge "." $sepa;
+			string $objName = $sepa[0];
+			string $faces[] = `polyListComponentConversion -tf $edge`;
+			$faces = `filterExpand -selectionMask 34 $faces`;
+			for($face in $faces){
+				string $verList[]=`polyInfo -faceToEdge $face`;
+				clear $sepa;
+				tokenize $verList[0] " " $sepa;
+				if(size($sepa) != 7)continue;
+				string  $nextEdge;
+				for($j=2; $j<size($sepa); $j++){
+					if($thisEdgeNum == $sepa[$j]){
+						int $num = $j-2;
+						$num = $num+2;
+						$num = $num%4;
+						$num = $num+2;
+						$nextEdge = ($objName + ".e[" + $sepa[$num] + "]");
+						if(!stringArrayContains($nextEdge, $ringEdgeList)){
+							$ringEdgeList[size($ringEdgeList)] = $nextEdge;
+							$nestEdgeList[size($nestEdgeList)] = $nextEdge;
+							if(($n+1)%($jump+1)==0){
+								if(!$reversal) $nestEdgeList_select[size($nestEdgeList_select)] = $nextEdge;
+							}
+							else{
+								if($reversal) $nestEdgeList_select[size($nestEdgeList_select)] = $nextEdge;
+							}
+						}
+					}
+				}
+			}
+		}
+		$nowEdgeList = $nestEdgeList;
+		$n++;
+	}
+	select $nestEdgeList_select;
+}

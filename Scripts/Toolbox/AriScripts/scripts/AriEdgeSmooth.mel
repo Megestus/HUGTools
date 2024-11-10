@@ -1,0 +1,539 @@
+//--------------------------------------------------------------------------
+//
+// ScriptName : AriEdgeSmooth
+// Contents   : エッジループをスムーズに整列します
+// Author     : Ari
+// URL        : http://cgjishu.net/
+// Since      : 2024/02
+// Help       : http://cgjishu.net/blog-entry-400.html
+// LastUpdate : 2024/07/21 オプション化 バグ修正
+//
+//--------------------------------------------------------------------------
+
+
+proc vector AriPointNormal_Point(vector $a, vector $nm, vector $P){
+	$d=-$a.x*$nm.x-$a.y*$nm.y-$a.z*$nm.z;
+	float $lmn = ($nm.x*$nm.x + $nm.y*$nm.y + $nm.z*$nm.z);
+	float $x1 = ( $P.x*($nm.y*$nm.y + $nm.z*$nm.z)-($P.y*$nm.y + $P.z*$nm.z+$d)*$nm.x ) / $lmn;
+	float $y1 = ( $P.y*($nm.z*$nm.z + $nm.x*$nm.x)-($P.z*$nm.z + $P.x*$nm.x+$d)*$nm.y ) / $lmn;
+	float $z1 = ( $P.z*($nm.x*$nm.x + $nm.y*$nm.y)-($P.x*$nm.x + $P.y*$nm.y+$d)*$nm.z ) / $lmn;
+	vector $Q=<<$x1,$y1,$z1>>;
+	return $Q;
+}
+proc vector AriHeimenTen(vector $a,vector $b,vector $c,vector $P)
+{
+	vector $ab=$b-$a;
+	vector $ac=$c-$a;
+	$nm=cross($ab,$ac);
+	$d=-$a.x*$nm.x-$a.y*$nm.y-$a.z*$nm.z;
+	float $lmn=($nm.x*$nm.x + $nm.y*$nm.y + $nm.z*$nm.z);
+	float $x1 = ( $P.x*($nm.y*$nm.y + $nm.z*$nm.z)-($P.y*$nm.y + $P.z*$nm.z+$d)*$nm.x ) / $lmn;
+	float $y1 = ( $P.y*($nm.z*$nm.z + $nm.x*$nm.x)-($P.z*$nm.z + $P.x*$nm.x+$d)*$nm.y ) / $lmn;
+	float $z1 = ( $P.z*($nm.x*$nm.x + $nm.y*$nm.y)-($P.x*$nm.x + $P.y*$nm.y+$d)*$nm.z ) / $lmn;
+	vector $Q=<<$x1,$y1,$z1>>;
+	return $Q;
+}
+proc vector vectorNormalize(vector $normal){
+	float $NormalArray[3] = {($normal.x), ($normal.y), ($normal.z)};
+	normalize($NormalArray);
+	vector $NormalizeNormal = <<$NormalArray[0], $NormalArray[1], $NormalArray[2]>>;
+	return $NormalizeNormal;
+}
+proc vector RotPosition(vector $pos,float $rot,int $mode){
+	vector $rotPos;
+	float $rotRad = deg_to_rad($rot);
+	if($mode==0) $rotPos = << $pos.x                                    , $pos.y*cos($rotRad) - $pos.z*sin($rotRad) , $pos.y*sin($rotRad) + $pos.z*cos($rotRad)>>;
+	if($mode==1) $rotPos = << $pos.z*sin($rotRad) + $pos.x*cos($rotRad) , $pos.y                                    , $pos.z*cos($rotRad) - $pos.x*sin($rotRad)>>;
+	if($mode==2) $rotPos = << $pos.x*cos($rotRad) - $pos.y*sin($rotRad) , $pos.x*sin($rotRad) + $pos.y*cos($rotRad) , $pos.z  >>;
+	return $rotPos;
+}
+proc float[] QuaternionMultiplication(float $Q[], float $R[]){
+	float $quater[4];
+	float  $t1 = $Q[0];
+	vector $V1 = <<$Q[1],$Q[2],$Q[3]>>;
+	float  $t2 = $R[0];
+	vector $V2 = <<$R[1],$R[2],$R[3]>>;
+	$quater[0] = $t1*$t2-dot($V1,$V2);
+	vector $vec = ($t1*$V2)+($t2*$V1)+cross($V1,$V2);
+	$quater[1] = $vec.x;
+	$quater[2] = $vec.y;
+	$quater[3] = $vec.z;
+	return $quater;
+}
+proc vector QuaternionRotate(vector $p, vector $v, float $rad){
+	vector $moveP;
+	float $P[];
+	$P[0] = 0;
+	$P[1] = ($p.x);
+	$P[2] = ($p.y);
+	$P[3] = ($p.z);
+	float $Q[];
+	$Q[0] = cos($rad/2);
+	$Q[1] = ($v.x)*sin($rad/2);
+	$Q[2] = ($v.y)*sin($rad/2);
+	$Q[3] = ($v.z)*sin($rad/2);
+	float $R[];
+	$R[0] = cos($rad/2);
+	$R[1] = -($v.x)*sin($rad/2);
+	$R[2] = -($v.y)*sin($rad/2);
+	$R[3] = -($v.z)*sin($rad/2);
+	float $PQR[]=QuaternionMultiplication($R,$P);
+	$PQR=QuaternionMultiplication($PQR,$Q);
+	$moveP=<<$PQR[1],$PQR[2],$PQR[3]>>;
+	return $moveP;
+}
+proc vector[] QuaternionRotateArray(vector $pList[], vector $v, float $rad){
+	vector $afterPos[];
+	for($i=0; $i<size($pList); $i++){
+		$afterPos[$i] = QuaternionRotate($pList[$i],$v,$rad);
+	}
+	return $afterPos;
+}
+proc vector RotPosition(vector $pos,float $rotRad,int $mode){
+	vector $rotPos;
+	if($mode==0) $rotPos = << $pos.x                                    , $pos.y*cos($rotRad) - $pos.z*sin($rotRad) , $pos.y*sin($rotRad) + $pos.z*cos($rotRad)>>;
+	if($mode==1) $rotPos = << $pos.z*sin($rotRad) + $pos.x*cos($rotRad) , $pos.y                                    , $pos.z*cos($rotRad) - $pos.x*sin($rotRad)>>;
+	if($mode==2) $rotPos = << $pos.x*cos($rotRad) - $pos.y*sin($rotRad) , $pos.x*sin($rotRad) + $pos.y*cos($rotRad) , $pos.z  >>;
+	return $rotPos;
+}
+proc float DstancePos(vector $pos0,vector $pos1)
+{
+	float $dis;
+	$dis = 	 (($pos1.x)-($pos0.x))*(($pos1.x)-($pos0.x))
+			+(($pos1.y)-($pos0.y))*(($pos1.y)-($pos0.y))
+			+(($pos1.z)-($pos0.z))*(($pos1.z)-($pos0.z));
+	$dis=sqrt ($dis);
+	return $dis;
+}
+proc float[] ManipulatorPosition(){
+	string $linear=`currentUnit -q -linear`;
+	float $multiply = 1.0;
+	if($linear=="mm")$multiply=0.1;
+	if($linear=="cm")$multiply=1;
+	if($linear=="m" )$multiply=100;
+	if($linear=="in")$multiply=2.54;
+	if($linear=="ft")$multiply=30.48;
+	if($linear=="yd")$multiply=91.44;
+	$multiply=1.0/($multiply);
+	float $maniPosition[3];
+	string $currentTool=`currentCtx`;
+	if($currentTool=="moveSuperContext"){
+		$maniPosition = `manipMoveContext -q -p Move`;
+	}
+	if($currentTool=="RotateSuperContext"){
+		$maniPosition = `manipRotateContext -q -p Rotate`;
+	}
+	if($currentTool=="scaleSuperContext"){
+		$maniPosition = `manipScaleContext -q -p Scale`;
+	}
+	$maniPosition[0] = $maniPosition[0] * $multiply;
+	$maniPosition[1] = $maniPosition[1] * $multiply;
+	$maniPosition[2] = $maniPosition[2] * $multiply;
+	return $maniPosition;
+}
+proc string[] AriGetEdgeList(string  $getList_edges[],int $verMode){
+	string $getList_vartex[];
+	for($i=0;$i<size($getList_edges);$i++){
+		string $edgeToUv[] = `polyListComponentConversion -tv $getList_edges[$i]`;
+		$edgeToUv = `filterExpand -selectionMask 31 $edgeToUv`;
+		$getList_vartex = stringArrayCatenate( $getList_vartex, $edgeToUv );
+	}
+	int $maxVal = size($getList_edges);
+	int $breakTrue = false;
+	string $sort_edgeList[];
+	string $sort_vertexList[];
+	int $count=0;
+	for($i=0;$i<size($getList_edges);$i++){
+		if(stringArrayContains($getList_edges[$i], $sort_edgeList))continue;
+		int $verNum1=$i*2;
+		string $nowEdge;
+		string $workEdgeList[];
+		string $workVertexList[];
+		clear $workEdgeList;
+		clear $workVertexList;
+		int $workEdgeListCounter=0;
+		string $leadEdge;
+		int $loopTrue = false;
+		for($k=0;$k<2;$k++){
+			$nowEdge   = $getList_edges[$i];
+			$nowVertex = $getList_vartex[$i*2+$k];
+			int $n=0;
+			if(!stringArrayContains($nowVertex,$sort_vertexList)){
+				$workVertexList[0] = $nowVertex;
+				string $beforeEdge=$nowVertex;
+				while($n<100000){
+					for($j=0;$j<size($getList_edges);$j++){
+						if(                    $getList_edges[$j] == $nowEdge  )continue;
+						if(stringArrayContains($getList_edges[$j],   $workEdgeList))continue;
+						if(stringArrayContains($getList_edges[$j],   $sort_edgeList))continue;
+						int $verNum2=$j*2;
+						if($nowVertex == $getList_vartex[$verNum2]){
+							$nowEdge   = $getList_edges[$j];
+							$nowVertex = $getList_vartex[$verNum2+1];
+							if(!stringArrayContains($nowVertex,$workVertexList)){
+								$workEdgeList[$workEdgeListCounter]     = $nowEdge;
+								$workVertexList[$workEdgeListCounter+1] = $nowVertex;
+								$workEdgeListCounter++;
+							}
+							else{
+								$loopTrue = true;
+							}
+							break;
+						}
+						if($nowVertex == $getList_vartex[$verNum2+1]){
+							$nowEdge   = $getList_edges[$j];
+							$nowVertex = $getList_vartex[$verNum2];
+							if(!stringArrayContains($nowVertex,$workVertexList)){
+								$workEdgeList[$workEdgeListCounter]     = $nowEdge;
+								$workVertexList[$workEdgeListCounter+1] = $nowVertex;
+								$workEdgeListCounter++;
+							}
+							else{
+								$loopTrue = true;
+							}
+							break;
+						}
+					}
+					if($beforeEdge == $nowVertex)break;
+					$beforeEdge=$nowVertex;
+					$n++;
+				}
+			}
+			string $plusEdge_Work[]   = $workEdgeList;
+			string $plusVertex_Work[] = $workVertexList;
+			if($k==0){
+				for($j=0;$j<size($workEdgeList);$j++){
+					$plusEdge_Work[(size($workEdgeList))-$j-1] = $workEdgeList[$j];
+				}
+				for($j=0;$j<size($workVertexList);$j++){
+					$plusVertex_Work[(size($workVertexList))-$j-1] = $workVertexList[$j];
+				}
+			}
+			$sort_edgeList   = stringArrayCatenate( $sort_edgeList,   $plusEdge_Work );
+			$sort_vertexList = stringArrayCatenate( $sort_vertexList, $plusVertex_Work );
+			if($k==0){
+				if($plusEdge_Work[0] != $getList_edges[$i]){
+					$sort_edgeList[size($sort_edgeList)]=$getList_edges[$i];
+				}
+				else{
+					$loopTrue = true;
+				}
+			}
+			else{
+				string $sepaString="--";
+				if($loopTrue)$sepaString="--Loop";
+				$sort_edgeList[size($sort_edgeList)]     = $sepaString;
+				$sort_vertexList[size($sort_vertexList)] = $sepaString;
+			}
+			clear $workEdgeList;
+			clear $workVertexList;
+			$workEdgeListCounter=0;
+			int $sortSize = size($sort_edgeList);
+		}
+		if($breakTrue)break;
+	}
+	if($breakTrue){
+		print"中断\n";
+	}
+	if($verMode) return $sort_vertexList;
+	else         return $sort_edgeList;
+}
+proc vector VectorAve(vector $vectorList[]){
+	vector $totalVal=<<0,0,0>>;
+	for($vec in $vectorList){
+		$totalVal = $totalVal+$vec;
+	}
+	vector $aveVal = $totalVal/size($vectorList);
+	return $aveVal;
+}
+proc vector VectorMaxMinAve(vector $vectorList[]){
+	vector $totalVal = <<0,0,0>>;
+	vector $firstPos = $vectorList[0];
+	float $maxX = $firstPos.x;
+	float $maxY = $firstPos.y;
+	float $maxZ = $firstPos.z;
+	float $minX = $firstPos.x;
+	float $minY = $firstPos.y;
+	float $minZ = $firstPos.z;
+	for($vec in $vectorList){
+		if($maxX < $vec.x) $maxX = $vec.x;
+		if($maxY < $vec.y) $maxY = $vec.y;
+		if($maxZ < $vec.z) $maxZ = $vec.z;
+		if($minX > $vec.x) $minX = $vec.x;
+		if($minY > $vec.y) $minY = $vec.y;
+		if($minZ > $vec.z) $minZ = $vec.z;
+	}
+	vector $aveVal =<<(($minX+$maxX)/2.0),(($minY+$maxY)/2.0),(($minZ+$maxZ)/2.0)>>;
+	return $aveVal;
+}
+proc vector AriEqualDistance(vector $a1, vector $a2, float $par)
+{	
+	vector $pos;
+	vector $direction = $a2 - $a1;
+	$pos = $a1+($direction*($par));
+	return $pos;
+}
+proc float AriAlignmentSemicircle(string $verList_num[], float $inputAngle, int $moveTrue, int $circleTrue, int $angleTrue, int $regularTrue, int $plantTrue){
+	if(size($verList_num)<=2)return 0;
+	vector $verList_pos[];
+	for($i=0;$i<size($verList_num);$i++){
+		float $pos[] = `pointPosition $verList_num[$i]`;
+		$verList_pos[$i] = <<$pos[0],$pos[1],$pos[2]>>;
+	}
+	vector $target_first_pos = $verList_pos[0];
+	vector $target_end_pos   = $verList_pos[size($verList_pos)-1];
+	vector $target_vector    = $target_end_pos - $target_first_pos;
+	vector $centerPos = VectorMaxMinAve($verList_pos);
+	vector $vectorList[];
+	vector $triangleNormal[];
+	for($i=0;$i<size($verList_pos);$i++){
+		vector $vec1;
+		vector $vec2;
+		$vec1 = $verList_pos[$i]-$centerPos;
+		$vectorList[$i] = $vec1;
+		if($i+1<size($verList_pos))	$vec2 = $verList_pos[$i+1]-$centerPos;
+		else 						$vec2 = $verList_pos[0]-$centerPos;
+		$triangleNormal[$i] = cross($vec1,$vec2);
+		normalize($triangleNormal[$i]);
+	}
+	vector $centerNormal = VectorAve($triangleNormal);
+	if(!$angleTrue){
+		float $angleTotal_rad = 0;
+		for($i=1; $i<size($verList_pos)-1; $i++){
+			$angleTotal_rad = $angleTotal_rad + `angle ($verList_pos[$i] - $target_first_pos) ($verList_pos[$i] - $target_end_pos)`;
+		}
+		float $angleAbe_rad = $angleTotal_rad / (size($verList_pos)-2);
+		float $angleAbe_deg = rad_to_deg($angleAbe_rad);
+		$angleAbe_deg = 360 -($angleAbe_deg * 2);
+		$inputAngle = $angleAbe_deg;
+	}
+	float $distance = 1;
+	float $radAngle = deg_to_rad((360-$inputAngle)/2.0);
+	float $firstEndPosDistance = DstancePos($target_first_pos, $target_end_pos);
+	$distance = ($firstEndPosDistance/2) / sin($radAngle);
+	if(!$moveTrue) return $inputAngle;
+	float $thre = 0.1;
+	if($inputAngle > ($thre * -1) && $inputAngle < ($thre)){
+		for($ii=0; $ii<size($verList_num); $ii++){
+			float $per = (float($ii) / (size($verList_num)-1));
+			vector $movePos = AriEqualDistance($target_first_pos, $target_end_pos, $per );
+			move ($movePos.x) ($movePos.y) ($movePos.z) $verList_num[$ii];
+		}
+		return $distance;
+	}
+	vector $basePosList[];
+	vector $baseNormal;
+	vector $movePosList[];
+	int $verTotal = size($verList_num);
+	float $rot = 0;
+	$rot = $inputAngle / ($verTotal-1);
+	if($regularTrue){
+		for($i=0; $i<$verTotal; $i++){	
+			float $rad = deg_to_rad($rot*$i + 180-($inputAngle/2.0));
+			float $x = $distance * sin($rad);
+			float $y = $distance * cos($rad);
+			$basePosList[$i] = <<$x,$y,0>>;
+		}
+		$baseNormal = <<0, 0 ,-1>>;
+		$base_vector = <<-1, 0 ,0>>;
+		$movePosList = $basePosList;
+		vector $vector_cross = cross($base_vector,$target_vector);
+		float  $vector_angle = `angle $base_vector $target_vector`;
+		$vector_cross = vectorNormalize($vector_cross);
+		if($vector_cross.x==0 && $vector_cross.y==0 && $vector_cross.z==0){
+			$vector_cross = <<0,0,1 >>;
+		}
+		vector $rotTargetVec = QuaternionRotate($centerNormal, $vector_cross, $vector_angle);
+		vector $rotTargetFrontVec = <<0, ($rotTargetVec.y) ,($rotTargetVec.z)>>;
+		vector $first_cross =  cross($baseNormal,$rotTargetFrontVec);
+		float  $first_angle = `angle $baseNormal $rotTargetFrontVec`;
+		if($first_cross.x<0)$first_angle = $first_angle * -1;
+		for($i=0; $i<size($movePosList); $i++){
+			$movePosList[$i] = RotPosition($movePosList[$i], $first_angle, 0);
+		}
+		$movePosList = QuaternionRotateArray($movePosList, $vector_cross, -$vector_angle);
+		vector $translateVal = $target_first_pos - $movePosList[0];
+		for($i=0; $i<size($verList_num); $i++){
+			$movePosList[$i] = $movePosList[$i] + $translateVal;
+		}
+	}
+	if(!$regularTrue){
+		string $currentTool=`currentCtx`;
+		int $currentToolTrue = false;
+		if($currentTool=="moveSuperContext")	$currentToolTrue=true;
+		if($currentTool=="RotateSuperContext")	$currentToolTrue=true;
+		if($currentTool=="scaleSuperContext")	$currentToolTrue=true;
+		if($currentToolTrue){
+			$centerPos = ManipulatorPosition();
+		}
+		for($i=0; $i<size($verList_num); $i++){
+			float $pos[] = `pointPosition $verList_num[$i]`;
+			vector $vecPos = <<$pos[0],$pos[1],$pos[2]>>;
+			$movePosList[$i] = $vecPos;
+			vector $crossNormal    = cross($target_vector, $centerNormal);
+			vector $verticalNormal = cross($target_vector, $crossNormal);
+			if($verticalNormal==<<0,0,0>>)continue;
+			if($plantTrue){
+				vector $planePos = AriPointNormal_Point($target_first_pos, $verticalNormal, $movePosList[$i]);
+				$movePosList[$i] = $planePos;
+			}
+			if($circleTrue){
+				vector $translateVal = $target_first_pos - $movePosList[$i];
+				vector $circleCenter;
+				vector $target_first_end_center = ($target_first_pos + $target_end_pos)/2;
+				vector $crossNormalNormalize = vectorNormalize($crossNormal);
+				$circleCenter = (($distance)*cos(deg_to_rad($inputAngle/2))) * -$crossNormalNormalize + $target_first_end_center;
+				vector $planePosNormalize = vectorNormalize($movePosList[$i]-$circleCenter);
+				$movePosList[$i] = $distance * $planePosNormalize + $circleCenter;
+			}
+		}
+	}
+	for($i=0; $i<size($verList_num); $i++){
+		vector $movePos = $movePosList[$i];	
+		move ($movePos.x) ($movePos.y) ($movePos.z) $verList_num[$i];
+	}
+	return $distance;
+}
+global proc AriEdgeSmooth_windowSize(){
+	window -e -h 60  AriEdgeSmooth;
+}
+proc string[] getArrayPiece(string $verList[], int $start, int $piece, int $leftTrue){
+	string $pieceList[];
+	for($ii=0; $ii<$piece ;$ii++){
+		int $num;
+		if($leftTrue)$num = $start + $ii;
+		else $num = $start - $ii;
+		$pieceList[size($pieceList)] = $verList[$num];
+	}
+	return $pieceList;
+}
+proc AriEdgeSmooth_LoadGet(){
+	global int $AriEdgeSmooth_val_edge;
+	global int $AriEdgeSmooth_val_loop;
+	global int $AriEdgeSmooth_val_unif;
+	int $edge = 4;
+	int $loop = 1;
+	int $unif = true;
+	if(`optionVar -exists "AriEdgeSmooth_edge"`)	$edge = `optionVar -q "AriEdgeSmooth_edge"`;
+	if(`optionVar -exists "AriEdgeSmooth_loop"`)	$loop = `optionVar -q "AriEdgeSmooth_loop"`;
+	if(`optionVar -exists "AriEdgeSmooth_unif"`)	$unif = `optionVar -q "AriEdgeSmooth_unif"`;
+	$AriEdgeSmooth_val_edge = $edge;
+	$AriEdgeSmooth_val_loop = $loop;
+	$AriEdgeSmooth_val_unif = $unif;
+}
+proc AriEdgeSmooth_gloupGo(string $verList[]){
+	global string $AriEdgeSmooth_UI_EqualCB;
+	global int $AriEdgeSmooth_val_edge;
+	global int $AriEdgeSmooth_val_unif;
+	float $angle = 0;
+	int $moveTrue     = true;
+	int $circleTrue   = true;
+	int $distanceTrue = false;
+	int $angleTrue    = false;
+	int $plantTrue    = true;
+	int $pieces      = $AriEdgeSmooth_val_edge;
+	int $regularTrue = $AriEdgeSmooth_val_unif;
+	int $verSize = size($verList);
+	int $loopSize = $verSize-$pieces;
+	if($loopSize<0){
+		$loopSize=0;
+		$pieces = $verSize;
+	}
+	string $piecesList[];
+	int $ii=0;
+	int $jj=0;
+	int $leftNum=0;
+	int $rightNum=0;
+	while($ii <= $loopSize){
+		string $pieceList[];
+		$pieceList = getArrayPiece($verList, $ii, $pieces,1);		
+		float $getAng = AriAlignmentSemicircle ($pieceList, $angle, $moveTrue, $circleTrue, $angleTrue, $regularTrue, $plantTrue);
+		$ii++;
+		if($ii > $loopSize)break;
+		$pieceList = getArrayPiece($verList, $loopSize+1-$ii, $pieces,1);
+		$getAng = AriAlignmentSemicircle ($pieceList, $angle, $moveTrue, $circleTrue, $angleTrue, $regularTrue, $plantTrue);
+		$ii++;
+	}
+}
+global proc AriEdgeSmooth_Go(){
+	global string $AriEdgeSmooth_UI_loopFF;
+	global int    $AriEdgeSmooth_val_loop;
+	global string $AriEdgeSmooth_UI_MessageF;
+	float $start = `timerX`;
+	int $windowTrue = false;
+	$windowTrue = `window -ex  AriEdgeSmoothWindow`;
+	if($windowTrue){
+		textField -e -text "" -bgc 0.2 0.2 0.2 $AriEdgeSmooth_UI_MessageF;
+		refresh;
+	}
+	AriEdgeSmooth_LoadGet();
+	int $loop = $AriEdgeSmooth_val_loop;
+	string $selectList[] = `ls -sl`;
+	if($windowTrue){
+		textField -e -text "Get edges..." $AriEdgeSmooth_UI_MessageF;
+		refresh;
+	}
+	string $edges[] = `filterExpand -selectionMask 32 $selectList` ;
+	if(size($edges)>0) $sortVerList = AriGetEdgeList($edges,1);
+	if($windowTrue){
+		textField -e -text "Smooth runnning.." $AriEdgeSmooth_UI_MessageF;
+		refresh;
+	}
+	int $loopTrue = false;
+	int $successTotal   = 0;
+	int $successCounter = 0;
+	int $loopTotal   = 0;
+	int $loopCounter = 0;
+	for($ii=0; $ii<$loop; $ii++){
+		string $verList_num[];
+		for($ver in $sortVerList){
+			if($ver == "--"){
+				AriEdgeSmooth_gloupGo($verList_num);
+				clear $verList_num;
+				$successCounter++;
+				continue;
+			}
+			if($ver == "--Loop"){
+				clear $verList_num;
+				$loopTrue = true;
+				$loopCounter++;
+				continue;
+			}
+			$verList_num[size($verList_num)] = $ver;
+		}
+		if($ii==0){
+			$loopTotal    = $loopCounter;
+			$successTotal = $successCounter;
+		}
+	}
+	float $time = `timerX -st $start`;
+	if($windowTrue){
+		textField -e -text ("Success: " + $successTotal + " groups") $AriEdgeSmooth_UI_MessageF;
+		refresh;
+	}
+	if($loopTrue){
+		int $JPTrue;
+		if(`about -uil`=="ja_JP")$JPTrue = true;
+		string $label_enclosure = ("Success: "+$successTotal+"  Has closed edges: "+$loopTotal);
+		if($JPTrue==true){
+			$label_enclosure = ("Success: "+$successTotal+"  囲われたエッジがあります: "+$loopTotal);
+		}
+		if($windowTrue){
+			textField -e -text $label_enclosure -bgc 1 1 0 $AriEdgeSmooth_UI_MessageF;
+			refresh;
+		}
+		warning $label_enclosure;
+	}
+}
+global proc AriEdgeSmooth(){
+	string $selects[] = `ls -sl`;
+	if((`window -ex  AriEdgeSmoothWindow`)==true){
+		AriEdgeSmoothWindow_Save(0);
+	}
+	if(size($selects)){
+		AriEdgeSmooth_Go();
+	}
+	else{
+		AriEdgeSmoothOptions;
+	}
+}

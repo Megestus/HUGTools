@@ -1,0 +1,69 @@
+//--------------------------------------------------------------------------
+// ScriptName : AriSelectMaterialAndObjectOptions
+// Contents   : AriAdsorptionVertex‚ÌƒIƒvƒVƒ‡ƒ“
+// Since      : 2019/11/24
+//--------------------------------------------------------------------------
+
+
+global proc AriSelectMaterialAndObjectOptions_Save(){
+	global string $AriSelectMaterialAndObjectOptions_UI_AddGraph;
+	int $addGraph = false;
+	$addGraph = `checkBox -q -v $AriSelectMaterialAndObjectOptions_UI_AddGraph`;
+	optionVar -intValue  "AriSelectMaterialAndObject_AddGraph" $addGraph;
+}
+
+
+global proc AriSelectMaterialAndObjectOptions(){
+	
+	global string $AriSelectMaterialAndObjectOptions_UI_AddGraph;
+	global string $AriSelectMaterialAndObjectOptions_UI_softCB;
+	global string $AriSelectMaterialAndObjectOptions_UI_fixTF;
+	
+	
+	
+	int $addGraph = true;
+	if(`optionVar -exists "AriSelectMaterialAndObject_AddGraph"`)	$addGraph  = `optionVar -q "AriSelectMaterialAndObject_AddGraph"`;
+	
+	
+	if((`window -ex  AriSelectMaterialAndObjectOptionsW`)==true)deleteUI AriSelectMaterialAndObjectOptionsW;
+	window -title "AriSelectMaterialAndObjectOptions"  -tlb true -w 200 -h 50 AriSelectMaterialAndObjectOptionsW;
+	
+	
+	string $form = `formLayout`;
+	string $column = `columnLayout -adj true`;
+	
+	$AriSelectMaterialAndObjectOptions_UI_AddGraph  = `checkBox -l "Add Material to Graph (Hypershade)" -v $addGraph`;
+	text -l "" -h 10;
+	separator -h 4;
+	setParent..;
+	string $buttonform = `formLayout`;
+	string $buttonSave       = `button       -l "Save"       -c "AriSelectMaterialAndObjectOptions_Save();"`;
+	string $buttonSaveClose  = `button       -l "Save Close" -c "AriSelectMaterialAndObjectOptions_Save(); deleteUI AriSelectMaterialAndObjectOptionsW;"`;
+	string $buttonApply      = `button -h 38 -l "Apply"      -c "AriSelectMaterialAndObjectOptions_Save(); AriSelectMaterialAndObject();" -bgc 0.5 0.5 1`;
+	setParent..;
+	formLayout -e 
+	-af $buttonApply "bottom" 0  
+	-ap $buttonApply "left"   0 50
+	-af $buttonApply "right"  0
+	-af $buttonApply "top"    0 
+	-af $buttonSave	"top"    0
+	-ap $buttonSave	"bottom" 0 50
+	-af $buttonSave	"left"   0 
+	-ac $buttonSave	"right"  0 $buttonApply
+	-ac $buttonSaveClose	"top"    0 $buttonSave
+	-af $buttonSaveClose	"bottom" 0
+	-af $buttonSaveClose	"left"   0
+	-ac $buttonSaveClose	"right"  0 $buttonApply
+	$buttonform;
+	setParent..;
+	formLayout -e 
+	-af $column "top"    0
+	-af $column "left"   0
+	-af $column "right"  0
+	-ac $buttonform "top"    0 $column
+	-af $buttonform "bottom" 0
+	-af $buttonform "left"   0
+	-af $buttonform "right"  0
+	$form;
+	showWindow;
+}

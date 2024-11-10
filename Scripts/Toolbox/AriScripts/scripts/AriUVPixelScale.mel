@@ -1,0 +1,274 @@
+//--------------------------------------------------------------------------
+//
+// ScriptName : AriUVPixelScal
+// Contents   : 選択したUVシェルを任意のピクセル単位で縮小拡大します。
+// Author     : Ari
+// URL        : http://cgjishu.net/
+// Since      : 2018/07
+//            : 
+// LastUpdate : 
+//
+//--------------------------------------------------------------------------
+
+
+
+proc AriUVPixelScale_loadUI(){
+	
+	global string $AriUVPixelScale_UI_intField[3];
+	global string $AriUVPixelScale_UI_shellRadio[3];
+	int $uSize = 1024;
+	int $vSize = 1024;
+	float $scalePixel = 1;
+	int $shellMode=1;
+	if(`optionVar -exists "AriUVPixelScale_texSizeX"`) $uSize = `optionVar -q "AriUVPixelScale_texSizeX"`;
+	if(`optionVar -exists "AriUVPixelScale_texSizeY"`) $vSize = `optionVar -q "AriUVPixelScale_texSizeY"`;
+	if(`optionVar -exists "AriUVPixelScale_scalePixel"`) $scalePixel = `optionVar -q "AriUVPixelScale_scalePixel"`;
+	if(`optionVar -exists "AriUVPixelScale_shellMode"`) $shellMode = `optionVar -q "AriUVPixelScale_shellMode"`;
+	intField -e -v $uSize $AriUVPixelScale_UI_intField[0];
+	intField -e -v $vSize $AriUVPixelScale_UI_intField[1];
+	floatField -e -v $scalePixel $AriUVPixelScale_UI_intField[2];
+	if($shellMode==1)radioButton -e -sl $AriUVPixelScale_UI_shellRadio[0];
+	if($shellMode==2)radioButton -e -sl $AriUVPixelScale_UI_shellRadio[1];
+}
+proc AriUVPixelScale_saveUI(){
+	global string $AriUVPixelScale_UI_intField[3];
+	global string $AriUVPixelScale_UI_shellRadio[3];
+	int $uSize = 1024;
+	int $vSize = 1024;
+	float $scalePixel = 1;
+	$uSize = `intField -q -v $AriUVPixelScale_UI_intField[0]`;
+	$vSize = `intField -q -v $AriUVPixelScale_UI_intField[1]`;
+	$scalePixel = `floatField -q -v $AriUVPixelScale_UI_intField[2]`;
+	int $shellMode=1;
+	if(`radioButton -q -sl $AriUVPixelScale_UI_shellRadio[0]`)$shellMode = 1;
+	if(`radioButton -q -sl $AriUVPixelScale_UI_shellRadio[1]`)$shellMode = 2;
+	optionVar -intValue    "AriUVPixelScale_texSizeX" $uSize;
+	optionVar -intValue    "AriUVPixelScale_texSizeY" $vSize;
+	optionVar -floatValue  "AriUVPixelScale_scalePixel" $scalePixel;
+	optionVar -stringValue "AriUVPixelScale_shellMode"  $shellMode;
+}
+proc float[] AriUVEditor_MinMax (string $uvList[]){
+	float $min[2];
+	float $max[2];
+	float $minmax[4];
+	$min=`polyEditUV -q $uvList[0]`;
+	$max=$min;
+	for($uv in $uvList){
+		float $pos[] =`polyEditUV -q $uv`;
+		if($min[0]>$pos[0])$min[0]=$pos[0];
+		if($min[1]>$pos[1])$min[1]=$pos[1];
+		if($max[0]<$pos[0])$max[0]=$pos[0];
+		if($max[1]<$pos[1])$max[1]=$pos[1];
+	}
+	$minmax[0]=$min[0];
+	$minmax[1]=$min[1];
+	$minmax[2]=$max[0];
+	$minmax[3]=$max[1];
+	return $minmax;
+}
+global proc AriUVPixelScaleGO(int $uMode, int $vMode , int $uPivPos, int $vPivPos){
+	global string $AriUVPixelScale_UI_plusminusRadio[3];
+	global string $AriUVPixelScale_UI_intField[3];
+	global string $AriUVPixelScale_UI_shellRadio[3];
+	global string $gMainProgressBar; 
+	AriUVPixelScale_saveUI();
+	int $directionPlusTrue=false;
+	if(`radioButton -q -sl $AriUVPixelScale_UI_plusminusRadio[0]`)$directionPlusTrue=true;
+	if($uMode==3){
+		if($directionPlusTrue) $uMode=1;
+		else $uMode=-1;
+	}
+	if($vMode==3){
+		if($directionPlusTrue) $vMode=1;
+		else $vMode=-1;
+	}	
+	float $scalePixel = 1;
+	$scalePixel = `floatField -q -v $AriUVPixelScale_UI_intField[2]`;
+	int $shellMode = 1;
+	if(`radioButton -q -sl $AriUVPixelScale_UI_shellRadio[0]`)$shellMode = 1;
+	if(`radioButton -q -sl $AriUVPixelScale_UI_shellRadio[1]`)$shellMode = 2;
+	int $texSizeW = 1024;
+	int $texSizeH = 1024;
+	$texSizeW = `intField -q -v $AriUVPixelScale_UI_intField[0]`;
+	$texSizeH = `intField -q -v $AriUVPixelScale_UI_intField[1]`;
+	float $pixSizeW2 = 2.0/$texSizeW;
+	float $pixSizeH2 = 2.0/$texSizeH;
+	string $select[] = `ls -sl`;
+	string $alluvList[] = `polyListComponentConversion -tuv $select`;
+	$alluvList = `filterExpand -selectionMask 35 $alluvList`;
+	vector $minUVList[];
+	vector $maxUVList[];
+	int $i=0;
+	int $total = size($alluvList);
+	progressWindow -title "処理中" -max ($total) -progress $i -status ("0 / "+$total) -isInterruptable true;
+	progressBar -edit -beginProgress -isInterruptable true -status ("0 / "+$total) -max ($total) $gMainProgressBar;
+	string $ProcessedUVList[];
+	int $shellCounter=0;
+	for($uv in $alluvList){
+		$i++;
+		if(stringArrayContains($uv, $ProcessedUVList))continue;
+		$shellCounter++;
+		progressWindow -edit -progress $i -status ($i+" / "+$total+" uv ("+ $shellCounter +" shell)");
+		progressBar    -edit -progress $i -status ($i+" / "+$total+" uv ("+ $shellCounter +" shell)") $gMainProgressBar;
+		if(`progressBar -q -isCancelled $gMainProgressBar`){
+			$cancelTrue = true;
+			break;
+		}
+		select $uv;
+		polySelectBorderShell 0;
+		string $thisShell[]= `ls -sl`;
+		string $uvShellList[] = `filterExpand -selectionMask 35 $thisShell`;
+		$ProcessedUVList=stringArrayCatenate($ProcessedUVList,$uvShellList);
+		float $minmaxUV[] = AriUVEditor_MinMax($uvShellList);
+		float $sizeU = $minmaxUV[2]-$minmaxUV[0];
+		float $sizeV = $minmaxUV[3]-$minmaxUV[1];
+		float $centerU = ($minmaxUV[2]+$minmaxUV[0])/2.0;
+		float $centerV = ($minmaxUV[3]+$minmaxUV[1])/2.0;
+		float $afterUVSizeW;
+		float $afterUVSizeH;
+		if($uPivPos == -1) $centerU = $minmaxUV[0];
+		if($uPivPos ==  1) $centerU = $minmaxUV[2];
+		if($vPivPos == -1) $centerV = $minmaxUV[1];
+		if($vPivPos ==  1) $centerV = $minmaxUV[3];
+		float $reducPixSizeU = $scalePixel;
+		float $reducPixSizeV = $scalePixel;
+		if($uPivPos == 0) $reducPixSizeU = $scalePixel*2;
+		if($vPivPos == 0) $reducPixSizeV = $scalePixel*2;
+		if($uMode == -1) $afterUVSizeW = $sizeU - ($reducPixSizeU/$texSizeW);
+		if($vMode == -1) $afterUVSizeH = $sizeV - ($reducPixSizeV/$texSizeH);
+		if($uMode == 1) $afterUVSizeW = $sizeU + ($reducPixSizeU/$texSizeW);
+		if($vMode == 1) $afterUVSizeH = $sizeV + ($reducPixSizeV/$texSizeH);
+		float $scaleU = $afterUVSizeW / $sizeU;
+		float $scaleV = $afterUVSizeH / $sizeV;
+		if($uMode == 0)$scaleU = 1;
+		if($vMode == 0)$scaleV = 1;
+		if($shellMode==2){
+			select $uv;
+			polySelectBorderShell 1;
+			string $thisSelect[]= `ls -sl`;
+			string $uvShellBorder[] = `filterExpand -selectionMask 35 $thisSelect`;
+			polyEditUV -pu $centerU -pv $centerV -su $scaleU -sv $scaleV $uvShellBorder;
+		}
+		if($shellMode==1){
+			polyEditUV -pu $centerU -pv $centerV -su $scaleU -sv $scaleV $uvShellList;
+		}
+	}
+	progressWindow -endProgress;
+	progressBar -edit -endProgress $gMainProgressBar;
+	select $select;
+}
+global proc AriUVPixelScale_setWindowSize(){
+	window -e -h 100  AriUVPixelScale;
+}
+proc string AriUVPixelScale_UI_9button(){
+	global string $AriUVPixelScale_UI_plusminusRadio[3];
+	string $frame = `frameLayout -cll true -cl true -l "Direction" -ec "AriUVPixelScale_setWindowSize()" -cc "AriUVPixelScale_setWindowSize()"`;
+	string $button[];
+	string $form = `formLayout` ;
+	radioCollection;
+	$AriUVPixelScale_UI_plusminusRadio[0] = `radioButton -label " + "`;
+	$AriUVPixelScale_UI_plusminusRadio[1] = `radioButton -label " - " -sl`;
+	$button[0] = `button -l " " -w 30 -h 30 -c "AriUVPixelScaleGO( 3, 3, -1, 1)"`;
+	$button[1] = `button -l " " -w 30 -h 30 -c "AriUVPixelScaleGO( 0, 3,  0, 1)"`;
+	$button[2] = `button -l " " -w 30 -h 30 -c "AriUVPixelScaleGO( 3, 3,  1, 1)"`;
+	$button[3] = `button -l " " -w 30 -h 30 -c "AriUVPixelScaleGO( 3, 0, -1, 0)"`;
+	$button[4] = `button -l " " -w 30 -h 30 -c "AriUVPixelScaleGO( 3, 3,  0, 0)"`;
+	$button[5] = `button -l " " -w 30 -h 30 -c "AriUVPixelScaleGO( 3, 0,  1, 0)"`;
+	$button[6] = `button -l " " -w 30 -h 30 -c "AriUVPixelScaleGO( 3, 3, -1,-1)"`;
+	$button[7] = `button -l " " -w 30 -h 30 -c "AriUVPixelScaleGO( 0, 3,  0,-1)"`;
+	$button[8] = `button -l " " -w 30 -h 30 -c "AriUVPixelScaleGO( 3, 3,  1,-1)"`;
+	string $sepa = `separator -h 6`;
+	setParent..;
+	formLayout -e
+	-af $AriUVPixelScale_UI_plusminusRadio[0] "top"  0 
+	-af $AriUVPixelScale_UI_plusminusRadio[0] "left" 0
+	-af $AriUVPixelScale_UI_plusminusRadio[1] "top"  0 
+	-ac $AriUVPixelScale_UI_plusminusRadio[1] "left" 0 $AriUVPixelScale_UI_plusminusRadio[0]
+	-ac $button[0] "top"  0 $AriUVPixelScale_UI_plusminusRadio[0]
+	-af $button[0] "left" 0
+	-ap $button[0] "right" 0 33
+	-ac $button[1] "top"  0 $AriUVPixelScale_UI_plusminusRadio[0]
+	-ac $button[1] "left" 0 $button [0]
+	-ap $button[1] "right" 0 67
+	-ac $button[2] "top"  0 $AriUVPixelScale_UI_plusminusRadio[0]
+	-ac $button[2] "left" 0 $button [1]
+	-af $button[2] "right"  0
+	-ac $button[3] "top"  0 $button [0]
+	-af $button[3] "left" 0
+	-ap $button[3] "right" 0 33
+	-ac $button[4] "top"  0 $button [0]
+	-ac $button[4] "left" 0 $button [3]
+	-ap $button[4] "right" 0 67
+	-ac $button[5] "top"  0 $button [0]
+	-ac $button[5] "left" 0 $button [4]
+	-af $button[5] "right"  0
+	-ac $button[6] "top"  0 $button [3]
+	-af $button[6] "left" 0
+	-ap $button[6] "right" 0 33
+	-ac $button[7] "top"  0 $button [3]
+	-ac $button[7] "left" 0 $button [6]
+	-ap $button[7] "right" 0 67
+	-ac $button[8] "top"  0 $button [3]
+	-ac $button[8] "left" 0 $button [7]
+	-af $button[8] "right" 0
+	-ac $sepa "top" 0 $button[6]
+	-af $sepa "left" 0
+	-af $sepa "right" 0
+	$form;
+	setParent..;
+	return $frame;
+}
+proc string AriUVPixelScale_UI_settingA(){
+	global string $AriUVPixelScale_UI_intField[3];
+	global string $AriUVPixelScale_UI_shellRadio[3];
+	string $column = `columnLayout -adj true -w 50`;
+	string $form1 = `formLayout`;
+	$AriUVPixelScale_UI_intField[0] = `intField -w 10 -v 1024`;
+	$AriUVPixelScale_UI_intField[1] = `intField -w 10 -v 1024`;
+	$AriUVPixelScale_UI_intField[2] = `floatField -pre 2 -v 1`;
+	string $text = `text -h 20 -l "Pix"`;
+	setParent..;
+	formLayout -e
+	-af $AriUVPixelScale_UI_intField[0] "top"  0
+	-af $AriUVPixelScale_UI_intField[0] "left" 0
+	-ap $AriUVPixelScale_UI_intField[0] "right" 0 50
+	-af $AriUVPixelScale_UI_intField[1] "top"  0
+	-ac $AriUVPixelScale_UI_intField[1] "left" 0 $AriUVPixelScale_UI_intField[0]
+	-af $AriUVPixelScale_UI_intField[1] "right" 0
+	-ac $AriUVPixelScale_UI_intField[2] "top"  0 $AriUVPixelScale_UI_intField[0]
+	-af $AriUVPixelScale_UI_intField[2] "left" 0 
+	-ac $AriUVPixelScale_UI_intField[2] "right" 0 $AriUVPixelScale_UI_intField[1]
+	-ac $text "top"  0 $AriUVPixelScale_UI_intField[0]
+	-ac $text "left" 0 $AriUVPixelScale_UI_intField[0]
+	$form1;
+	radioCollection;
+	$AriUVPixelScale_UI_shellRadio[0] = `radioButton -label "Shell"`;
+	$AriUVPixelScale_UI_shellRadio[1] = `radioButton -label "Border Shell"`;
+	AriUVPixelScale_UI_9button();
+	string $button[];
+	string $form2 = `formLayout`;
+	$button[0] = `button -l "-" -c "AriUVPixelScaleGO(-1,-1,0,0)"`;
+	$button[1] = `button -l "+" -c "AriUVPixelScaleGO(1,1,0,0)"`;
+	setParent..;
+	formLayout -e
+	-af $button[1] "top"  0
+	-af $button[1] "left" 0
+	-ap $button[1] "right" 0 50
+	-af $button[0] "top"  0
+	-ac $button[0] "left" 0 $button[1]
+	-af $button[0] "right" 0
+	$form2;
+	setParent..;
+	return $column;
+}
+global proc AriUVPixelScale(){
+	global string $AriUVPixelScale_UI_intField[2];
+	if((`window -ex  AriUVPixelScale`)==true)deleteUI AriUVPixelScale;
+	window -tlb 1 -title "AriUVPixelScale"  -w 140 -h 120  AriUVPixelScale;
+	columnLayout -adj true;
+	AriUVPixelScale_UI_settingA();
+	setParent..;
+	AriUVPixelScale_loadUI();
+	showWindow;
+	AriUVPixelScale_setWindowSize();
+}

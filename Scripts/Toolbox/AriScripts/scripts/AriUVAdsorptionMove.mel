@@ -1,0 +1,161 @@
+//--------------------------------------------------------------------------
+//
+// ScriptName : AriUVAdsorptionMove
+// Contents   : 選択したUVに対のUVをシェルごと移動させ縫合します。
+// Author     : Ari
+// URL        : http://cgjishu.net/
+// Since      : 2016/05/15
+// LastUpdate : 2018/10/28 選択無実行でオプション起動機能追加
+//            : 2016/07/18 マージ、選択をFix、オフセットを設定できるオプションを追加。
+//
+//--------------------------------------------------------------------------
+
+
+proc string [] AriUVAdsorptionMove_GO(string $selUV1,string $selUV2,string $processedSellUVList[],int $selectFixTrue,float $offset[]){
+	
+	
+	string $partnerShellList[];
+	clear $partnerShellList;
+	string $edgeA1List[]=`polyListComponentConversion -te $selUV1`;
+	$edgeA1List=`filterExpand -selectionMask 32 $edgeA1List`;
+	string $edgeA2List[]=`polyListComponentConversion -te $selUV2`;
+	$edgeA2List=`filterExpand -selectionMask 32 $edgeA2List`;
+	string $commonEdge="";
+	for($edgeA1 in $edgeA1List){
+		if(stringArrayContains ($edgeA1,$edgeA2List)){
+			$commonEdge = $edgeA1;
+			break;
+		}
+	}
+	if($commonEdge == "")return $partnerShellList;
+	string $commonUVList[]=`polyListComponentConversion -tuv $commonEdge`;
+	$commonUVList=`filterExpand -selectionMask 35 $commonUVList`;
+	string $toVerA1[] = `polyListComponentConversion -tv $selUV1`;
+	string $uv1List[] = `polyListComponentConversion -tuv $toVerA1`;
+	$uv1List = `filterExpand -selectionMask 35 $uv1List`;
+	string $pairUV1;
+	for($uv1 in $uv1List){
+		if(stringArrayContains ($uv1,$commonUVList)){
+			if($uv1 != $selUV1)$pairUV1=$uv1;
+		}
+	}
+	string $toVerB1[] = `polyListComponentConversion -tv $selUV2`;
+	string $uv2List[] = `polyListComponentConversion -tuv $toVerB1`;
+	$uv2List = `filterExpand -selectionMask 35 $uv2List`;
+	string $pairUV2;
+	for($uv2 in $uv2List){
+		if(stringArrayContains ($uv2,$commonUVList)){
+			if($uv2 != $selUV2)$pairUV2=$uv2;
+		}
+	}
+	if($pairUV1=="")return $partnerShellList;
+	if($pairUV2=="")return $partnerShellList;
+	string $moveUV1;
+	string $moveUV2;
+	string $fixUV1;
+	string $fixUV2;	
+	if($selectFixTrue){
+		$fixUV1  = $selUV1;
+		$fixUV2  = $selUV2;	
+		$moveUV1 = $pairUV1;
+		$moveUV2 = $pairUV2;
+	}
+	else{
+		$fixUV1  = $pairUV1;
+		$fixUV2  = $pairUV2;	
+		$moveUV1 = $selUV1;
+		$moveUV2 = $selUV2;
+	}
+	if(stringArrayContains ($moveUV1,$processedSellUVList))return $partnerShellList;
+	select $moveUV1;
+	polySelectBorderShell 0;
+	string $uvShell[]=`ls -sl`;
+	string $uvShellList[]=`filterExpand -selectionMask 35 $uvShell`;
+	if(stringArrayContains ($fixUV1,$uvShellList)){ 
+		select $fixUV1;
+		select -add $fixUV2;
+		return $partnerShellList;
+	}
+	vector $fixUV1Pos =`polyEditUV -q $fixUV1`;
+	vector $fixUV2Pos =`polyEditUV -q $fixUV2`;
+	vector $moveUV1Pos =`polyEditUV -q $moveUV1`;
+	vector $moveUV2Pos =`polyEditUV -q $moveUV2`;
+	vector $moveLocal;
+	$moveLocal = $fixUV1Pos-$moveUV1Pos;
+	polyEditUV -u (($moveLocal.x)+$offset[0]) -v (($moveLocal.y)+$offset[1]) $uvShellList;
+	vector $vector1 = $fixUV1Pos-$fixUV2Pos;
+	vector $vector2 = $moveUV1Pos-$moveUV2Pos;
+	float $rotY;
+	float $Ax = ($vector1.x);
+	float $Ay = ($vector1.y);
+	float $Bx = ($vector2.x);
+	float $By = ($vector2.y);
+	float $dotAB   = $Ax * $Bx + $Ay * $By;
+	float $crossAB = $Ax * $By - $Ay * $Bx;
+	$rotY = atan2($crossAB,$dotAB);	
+	$rotY = rad_to_deg($rotY)* -1;
+	polyEditUV -pu (($fixUV1Pos.x)+$offset[0]) -pv (($fixUV1Pos.y)+$offset[1]) -a $rotY $uvShellList;
+	float $distance1 = sqrt( ($vector1.x)*($vector1.x) + ($vector1.y)*($vector1.y) );
+	float $distance2 = sqrt( ($vector2.x)*($vector2.x) + ($vector2.y)*($vector2.y) );
+	polyEditUV -pu (($fixUV1Pos.x)+$offset[0]) -pv (($fixUV1Pos.y)+$offset[1]) -su ($distance1/$distance2) -sv ($distance1/$distance2) $uvShellList;
+	/*
+	if(!$selectFixTrue){
+		select $pairUV1;
+		polySelectBorderShell 0;
+	}
+	$partnerShellList =`ls -sl`;
+	$partnerShellList =`filterExpand -selectionMask 35 $partnerShellList`;
+	*/
+	string $pairUV1s[]={$pairUV1};
+	$uvShellList = stringArrayCatenate($uvShellList,$pairUV1s);
+	return $uvShellList;
+}
+global proc AriUVAdsorptionMove(){
+	int $mergeTrue     = true;
+	int $selectFixTrue = true;
+	float $offset[2]   = {0,0};
+	if(`optionVar -exists "AriUVAdsorptionMove_merge"`)		$mergeTrue     = `optionVar -q "AriUVAdsorptionMove_merge"`;
+	if(`optionVar -exists "AriUVAdsorptionMove_selectFix"`) $selectFixTrue = `optionVar -q "AriUVAdsorptionMove_selectFix"`;
+	if(`optionVar -exists "AriUVAdsorptionMove_offsetU"`)	$offset[0]     = `optionVar -q "AriUVAdsorptionMove_offsetU"`;
+	if(`optionVar -exists "AriUVAdsorptionMove_offsetV"`)	$offset[1]     = `optionVar -q "AriUVAdsorptionMove_offsetV"`;
+	string $selects[]=`ls -sl`;
+	string $selectsUV[]=`filterExpand -selectionMask 35 $selects`;
+	if(size($selectsUV)<=0){
+		AriUVAdsorptionMoveOptions;
+		return;
+	}
+	string $processedSelectUVList[];
+	string $processedSellUVList[];
+	int $k=0;
+	for($i=0;$i<size($selectsUV);$i++){
+		if(stringArrayContains ($selectsUV[$i],$processedSelectUVList))continue;
+		$processedSelectUVList[$k]=$selectsUV[$i];
+		$k++;
+		string $uvToEdge[]=`polyListComponentConversion -te $selectsUV[$i]`;
+		string $edgeToUv[]=`polyListComponentConversion -tuv $uvToEdge`;
+		$edgeToUv=`filterExpand -selectionMask 35 $edgeToUv`;
+		string $uvToFace[]=`polyListComponentConversion -tf $selectsUV[$i]`;
+		string $faceToUv[]=`polyListComponentConversion -tuv $uvToFace`;
+		$faceToUv=`filterExpand -selectionMask 35 $faceToUv`;
+		for($j=$i+1;$j<size($selectsUV);$j++){
+			if(stringArrayContains($selectsUV[$j],$edgeToUv) && stringArrayContains($selectsUV[$j],$faceToUv)){
+				$processedSelectUVList[$k]=$selectsUV[$j];
+				$k++;
+				string $selUV1=$selectsUV[$i];
+				string $selUV2=$selectsUV[$j];
+				string $shellList[] = AriUVAdsorptionMove_GO($selUV1,$selUV2,$processedSellUVList,$selectFixTrue,$offset);
+				$processedSellUVList = stringArrayCatenate( $processedSellUVList, $shellList );
+			}
+		}
+	}
+	if(size($selectsUV)==0)return;
+	if($mergeTrue){
+		select $selectsUV;
+		select -add $processedSellUVList;
+		polySelectBorderShell 1;
+		polyMergeUV -d 0.001;	
+	}
+	else{
+		select $selectsUV;
+	}
+}

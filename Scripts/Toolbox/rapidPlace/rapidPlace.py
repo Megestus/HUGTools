@@ -1165,7 +1165,7 @@ def checkDirX():
 
 
 def jwRefreshIcon(mode):
-    global folderCheck
+    global folderCheck 
     global UIfirstRun
     currentTabs = mc.tabLayout('rapidTab',q=1,st=1)
     refreshUI = 1
@@ -1174,7 +1174,6 @@ def jwRefreshIcon(mode):
         if UIfirstRun == 0:
             UIfirstRun = 1
             refreshUI = 1
-
         else:
             checkNew = checkDirX()
             if folderCheck != checkNew:
@@ -1205,14 +1204,22 @@ def jwRefreshIcon(mode):
             type = ['Place','Stamp']
             for t in type:
                 checkDirectory = meshDirectory + '/' + t +  '/'
-                subFolder = next(os.walk(checkDirectory))[1]
-                for s in subFolder:
-                    frameCollection.append(s)
-                    checkState = mc.frameLayout(s+'FL', q = True , ex =True)
-                    if checkState == 1:
-                        checkState = mc.frameLayout(s+'FL', q = True , cl = True)
-                        if checkState == 0:
-                            frameState.append(s)
+                # 添加目录检查和创建
+                if not os.path.exists(checkDirectory):
+                    os.makedirs(checkDirectory)
+                try:
+                    subFolder = next(os.walk(checkDirectory))[1]
+                    for s in subFolder:
+                        frameCollection.append(s)
+                        checkState = mc.frameLayout(s+'FL', q = True , ex =True)
+                        if checkState == 1:
+                            checkState = mc.frameLayout(s+'FL', q = True , cl = True)
+                            if checkState == 0:
+                                frameState.append(s)
+                except StopIteration:
+                    print(f"Warning: No subdirectories found in {checkDirectory}")
+                    continue
+
             if meshDirectory:
                 if currentTabs == 'Place':
                     currentSel = mc.ls(sl=1,fl=1)
@@ -2245,7 +2252,7 @@ def onDragPlace():
             scaleRun = currentScaleRecord + scaleCheck
             if scaleRun > 5:
                 scaleRun = 5
-            elif scaleRun < 0:
+            elif scaleRun < 0.1:
                 scaleRun = 0.1
 
             mc.floatSliderGrp( 'meshScaleSlide', e=1 ,v = scaleRun )

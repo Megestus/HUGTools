@@ -1,0 +1,1013 @@
+//--------------------------------------------------------------------------
+//
+// ScriptName : AriUVScaleChecker
+// Contents   : UVの大きさが適切な解像度になっているかエッジごとに調べます。
+// Author     : Ari
+// Since      : 2015/03
+// Update     : 2019/03/17 エッジ1000以上選択でもスケール実行ができるようにしました。他。
+//              2018/07/01 オブジェクトスケールによって目標解像度にすることをできるようにしました。他
+//              2016/12/11 目標解像度基準の長さを変更できるようにしました。
+//              2015/09/27 U方向V方向選択エッジ方向にスケールできるようにしました。
+//              2015/07/01 100%以外にもスケールできるようにしました。
+// Note       : 
+//              
+//--------------------------------------------------------------------------
+
+
+proc int AriUVScaleChecker_checkSideUv(string $uv0,string $uv1)
+{
+	string $uvToEdge[]=`polyListComponentConversion -te $uv0`;
+	$uvToEdge=`filterExpand -selectionMask 32 $uvToEdge`;
+	string $edgeToUv[]=`polyListComponentConversion -tuv $uvToEdge`;
+	$edgeToUv=`filterExpand -selectionMask 35 $edgeToUv`;
+	string $uvToFace[]=`polyListComponentConversion -tf $uv0`;
+	$uvToFace=`filterExpand -selectionMask 34 $uvToFace`;
+	string $faceToUv[]=`polyListComponentConversion -tuv $uvToFace`;
+	$faceToUv=`filterExpand -selectionMask 35 $faceToUv`;
+	if(stringArrayContains($uv1,$edgeToUv) && stringArrayContains($uv1,$faceToUv)){
+		return 1;
+	}
+	else return 0;
+}
+proc float AriUVScaleChecker_distanceUV(string $uv0,string $uv1)
+{
+		float $dis;
+		float $uvPos0[]=`polyEditUV -q $uv0`;
+		float $uvPos1[]=`polyEditUV -q $uv1`;
+		$dis=	 ($uvPos1[0]-$uvPos0[0])*($uvPos1[0]-$uvPos0[0])
+					+($uvPos1[1]-$uvPos0[1])*($uvPos1[1]-$uvPos0[1]);
+		$dis=sqrt ($dis);
+		return $dis;
+}
+proc float AriUVScaleChecker_distanceVer(string $ver1,string $ver2)
+{
+	global string $AriUVScaleCheckerCheckBox[2];
+	float $dis;
+	float $verPos0[];
+	float $verPos1[];
+	int $worldTrue = 0;
+	if(`radioButton -q -sl $AriUVScaleCheckerCheckBox[0]`)$worldTrue = 1;
+	if($worldTrue){
+		$verPos0=`pointPosition -w $ver1`;
+		$verPos1=`pointPosition -w $ver2`;
+	}
+	else{
+		$verPos0=`pointPosition -l $ver1`;
+		$verPos1=`pointPosition -l $ver2`;
+	}
+	$dis=	 ($verPos1[0]-$verPos0[0])*($verPos1[0]-$verPos0[0])
+					+($verPos1[1]-$verPos0[1])*($verPos1[1]-$verPos0[1])
+					+($verPos1[2]-$verPos0[2])*($verPos1[2]-$verPos0[2]);
+	$dis=sqrt ($dis);
+	return $dis;
+}
+proc getLiner(){
+	global string $AriUVScaleCheckerGetText[14];
+	global float $AriUVScaleCheckerMagni;
+	string $meter = `currentUnit -q -linear`;
+	$AriUVScaleCheckerMagni = 300;
+	string $meterView = $meter;
+	text -e -l ($meterView) $AriUVScaleCheckerGetText[1];
+	text -e -l $meterView          $AriUVScaleCheckerGetText[2];
+	text -e -l ("/X"+$meterView)  $AriUVScaleCheckerGetText[3];
+	text -e -l ("pix/X"+$meterView) $AriUVScaleCheckerGetText[4];
+	text -e -l ("pix/"+$meterView) $AriUVScaleCheckerGetText[12];
+}
+proc AriUVScaleChecke_Save(){
+	global string $AriUVScaleCheckerFloatF[12];
+	global string $AriUVScaleCheckerOptionMenu[3];
+	global string $AriUVScaleCheckerCheckBox[2];
+	global string $AriUVScaleChecker_UI_frameLayout[5];
+	global string $AriUVScaleCheckerScaleVecRB;
+	global string $AriUVScaleChecker_UV_InvalidBorderCB;
+	float $texSize       = `intField   -q -v  $AriUVScaleCheckerFloatF[8]`;
+	float $pixSizePerVer = `floatField -q -v  $AriUVScaleCheckerFloatF[5]`;
+	float $magni         = `floatField -q -v  $AriUVScaleCheckerFloatF[11]`;
+	int $pivMode    = `optionMenu -q -sl $AriUVScaleCheckerOptionMenu[0]`;
+	int $scaleMode  = `optionMenu -q -sl $AriUVScaleCheckerOptionMenu[1]`;
+	int $objPivMode = `optionMenu -q -sl $AriUVScaleCheckerOptionMenu[2]`;
+	int $InvBorder = `checkBox -q -v $AriUVScaleChecker_UV_InvalidBorderCB`;
+	int $scaleVec = `radioButtonGrp -q -sl $AriUVScaleCheckerScaleVecRB`; 
+	int $worldTrue = 0;
+	if(`radioButton -q -sl $AriUVScaleCheckerCheckBox[0]`)$worldTrue = 1;
+	int $frameClose[];
+	$frameClose[0] = `frameLayout -q -cl $AriUVScaleChecker_UI_frameLayout[0]`;
+	$frameClose[1] = `frameLayout -q -cl $AriUVScaleChecker_UI_frameLayout[1]`;
+	$frameClose[2] = `frameLayout -q -cl $AriUVScaleChecker_UI_frameLayout[2]`;
+	optionVar -intValue "AriUVScaleCheckerTexSize" $texSize;
+	optionVar -floatValue "AriUVScaleCheckerReso" $pixSizePerVer;
+	optionVar -floatValue "AriUVScaleCheckerCm" $magni;
+	optionVar -intValue "AriUVScaleCheckerWorld" $worldTrue;
+	optionVar -intValue "AriUVScaleCheckerInvalidBorder" $InvBorder;
+	optionVar -intValue  "AriUVScaleCheckerScaleVec"  $scaleVec;
+	optionVar -intValue  "AriUVScaleCheckerPiv"       $pivMode;
+	optionVar -intValue  "AriUVScaleCheckerObjPiv"    $objPivMode;
+	optionVar -intValue  "AriUVScaleCheckerTexFrameClose0" $frameClose[0];
+	optionVar -intValue  "AriUVScaleCheckerTexFrameClose1" $frameClose[1];
+	optionVar -intValue  "AriUVScaleCheckerTexFrameClose2" $frameClose[2];
+}
+proc AriUVScaleChecke_Load(){
+	global string $AriUVScaleCheckerOptionMenu[5];
+	global string $AriUVScaleChecker_UI_frameLayout[5];
+	global string $AriUVScaleCheckerScaleVecRB;
+	int $frameClose[];
+	$frameClose[0] = 0;
+	$frameClose[1] = 0;
+	$frameClose[2] = 1;
+	if(`optionVar -exists "AriUVScaleCheckerTexFrameClose0"`)	$frameClose[0] =`optionVar -q "AriUVScaleCheckerTexFrameClose0"`;
+	if(`optionVar -exists "AriUVScaleCheckerTexFrameClose1"`)	$frameClose[1] =`optionVar -q "AriUVScaleCheckerTexFrameClose1"`;
+	if(`optionVar -exists "AriUVScaleCheckerTexFrameClose2"`)	$frameClose[2] =`optionVar -q "AriUVScaleCheckerTexFrameClose2"`;
+	int $pivMode    = 2;
+	int $scaleVec   = 1;
+	int $objPivMode = 2;
+	if(`optionVar -exists "AriUVScaleCheckerPiv"`)		$pivMode    =`optionVar -q "AriUVScaleCheckerPiv"`;
+	if(`optionVar -exists "AriUVScaleCheckerObjPiv"`)	$objPivMode =`optionVar -q "AriUVScaleCheckerObjPiv"`;
+	if(`optionVar -exists "AriUVScaleCheckerScaleVec"`)	$scaleVec   =`optionVar -q "AriUVScaleCheckerScaleVec"`;
+	frameLayout -e -cl $frameClose[0] $AriUVScaleChecker_UI_frameLayout[0];
+	frameLayout -e -cl $frameClose[1] $AriUVScaleChecker_UI_frameLayout[1];
+	frameLayout -e -cl $frameClose[2] $AriUVScaleChecker_UI_frameLayout[2];
+	optionMenu -e -sl $pivMode    $AriUVScaleCheckerOptionMenu[0];
+	optionMenu -e -sl $objPivMode $AriUVScaleCheckerOptionMenu[2];
+	radioButtonGrp -e -sl $scaleVec $AriUVScaleCheckerScaleVecRB; 
+}
+proc AriPolygonCounterIsCancelled(){
+	global string $AriUVScaleChecker_UI_info;
+	global string $AriUVScaleChecker_UI_progressbar;
+	global string $gMainProgressBar;
+	textField -e -text "中断" -bgc 0.5 0 0 $AriUVScaleChecker_UI_info;
+	waitCursor -state off;
+	progressBar -e -pr 0 $gMainProgressBar;
+	progressBar -e -pr 0 $AriUVScaleChecker_UI_progressbar;	
+	progressBar -edit -endProgress $gMainProgressBar;
+	progressBar -edit -endProgress $gMainProgressBar;
+}
+proc shellScaleGo(string $group_A[], string $group_B[], float $verDis[], float $uvDis[], vector $uvVector[], int $verMode)
+{
+	global string $AriUVScaleCheckerFloatF[12];
+	global string $AriUVScaleCheckerOptionMenu[3];
+	global string $AriUVScaleCheckerScaleVecRB;
+	global string $AriUVScaleChecker_UI_info;
+	global string $AriUVScaleChecker_UI_progressbar;
+	global string $gMainProgressBar;
+	float $texSize       = `intField -q -v $AriUVScaleCheckerFloatF[8]`;    
+	float $pixSizePerVer = `floatField -q -v $AriUVScaleCheckerFloatF[5]`;  
+	float $magni         = `floatField -q -v $AriUVScaleCheckerFloatF[11]`; 
+	float $par           = `floatField -q -v $AriUVScaleCheckerFloatF[10]`; 
+	int $UVpivMode  = `optionMenu -q -sl $AriUVScaleCheckerOptionMenu[0]`;  
+	int $scaleMode  = `optionMenu -q -sl $AriUVScaleCheckerOptionMenu[1]`; 
+	int $objPivMode = `optionMenu -q -sl $AriUVScaleCheckerOptionMenu[2]`; 
+	int $scaleVec = `radioButtonGrp -q -sl $AriUVScaleCheckerScaleVecRB`; 
+	int $pivMode = $UVpivMode;
+	if($verMode!=1){
+		$pivMode = $objPivMode;
+	}
+	AriUVScaleChecke_Save();
+	if((size($group_A))==0)return;
+	string $selectCom[] = `ls -sl`;
+	string $processedUvList[];
+	string $nowShellUVList[];
+	int $shellTotal=0;
+	progressBar -edit -beginProgress -isInterruptable true -status "..." $gMainProgressBar;
+	progressBar -e -pr 0 -maxValue (size($group_A)) $AriUVScaleChecker_UI_progressbar ;
+	progressBar -e -pr 0 -maxValue (size($group_A)) $gMainProgressBar ;
+	int $breakTrue = false;
+	for($i=0; $i<size($group_A); $i++){
+		progressBar -e -pr $i $AriUVScaleChecker_UI_progressbar;
+		progressBar -e -pr $i $gMainProgressBar;
+		if(`progressBar -query -isCancelled $gMainProgressBar`){
+			$breakTrue = true;
+			break;
+		}
+		if(stringArrayContains($group_A[$i],$processedUvList))continue;
+		$shellTotal++;
+		select $group_A[$i];
+		if($verMode==1) polySelectBorderShell 0; 
+		if($verMode==2) polyConvertToShell;      
+		string $shellList[]=`ls -sl`;
+		if($verMode==3){
+			string $meshList[] = `polyListComponentConversion $group_A[$i]`;
+			$shellList = `polyListComponentConversion -tv $meshList`;
+			$shellList = `filterExpand -selectionMask 31 $shellList`;
+		}
+		if($verMode==1) $shellList = `filterExpand -selectionMask 35 $shellList`;
+		if($verMode==2) $shellList = `filterExpand -selectionMask 31 $shellList`;
+		$processedUvList = stringArrayCatenate($processedUvList,$shellList);
+		$nowShellUVList = $shellList;
+		float $nowVerDisTotal = 0;
+		float $nowUvDisTotal = 0;
+		for($j=0; $j<size($group_A); $j++){
+			if(!stringArrayContains($group_A[$j],$nowShellUVList))continue;
+			$nowVerDisTotal = $nowVerDisTotal + $verDis[$j];
+			$nowUvDisTotal  = $nowUvDisTotal  + $uvDis[$j];
+		}
+		float $nowUvPix   = $texSize * $nowUvDisTotal;
+		float $nowUvPerM  = $nowUvDisTotal / $nowVerDisTotal;
+		float $nowPixPerM = $nowUvPix / $nowVerDisTotal;
+	    float $nowbai     = ($pixSizePerVer / $nowPixPerM);
+		$nowbai = $nowbai * $par * 0.01 / $magni;
+		print ($shellTotal+" Shell "+$nowbai+"\n");
+		textField -e -text ($shellTotal+" Shell")  $AriUVScaleChecker_UI_info;
+		float $piv[0];
+		if($pivMode!=4){
+			string $componentList[];
+			clear $componentList;
+			if($pivMode==1){
+				string $allComponentList[];
+				if($verMode==1){
+					string $allUvList[] = `polyListComponentConversion -tuv $selectCom`;
+					$allComponentList   = `filterExpand -selectionMask 35 $allUvList`;
+				}
+				else{
+					string $allverList[] = `polyListComponentConversion -tv $selectCom`;
+					$allComponentList   = `filterExpand -selectionMask 31 $allverList`;
+				}
+				int $uvCount=0;
+				for($compo in $allComponentList){
+					if(stringArrayContains($compo, $nowShellUVList)){
+						$componentList[$uvCount] = $compo;
+						$uvCount++;
+					}
+				}
+			}
+			if($pivMode==2 || $pivMode==3){
+				$componentList = $nowShellUVList;
+			}
+			float $min[3];
+			float $max[3];
+			if($verMode==1){
+				$min = `polyEditUV -q $componentList[0]`;
+				$max = $min;
+				for($uv in $componentList){
+					float $pos[] =`polyEditUV -q $uv`;
+					if($min[0]>$pos[0])$min[0]=$pos[0];
+					if($min[1]>$pos[1])$min[1]=$pos[1];
+					if($max[0]<$pos[0])$max[0]=$pos[0];
+					if($max[1]<$pos[1])$max[1]=$pos[1];
+				}
+			}
+			if($verMode==2 || $verMode==3){
+				$min = `pointPosition -w $componentList[0]`;
+				$max = $min;
+				for($ver in $componentList){
+					float $pos[] =`pointPosition -w $ver`;
+					if($min[0]>$pos[0])$min[0]=$pos[0];
+					if($min[1]>$pos[1])$min[1]=$pos[1];
+					if($min[2]>$pos[2])$min[2]=$pos[2];
+					if($max[0]<$pos[0])$max[0]=$pos[0];
+					if($max[1]<$pos[1])$max[1]=$pos[1];
+					if($max[2]<$pos[2])$max[2]=$pos[2];
+				}
+			}
+			if($pivMode==1 || $pivMode==2){
+				$piv[0] = ($min[0]+$max[0])/2.0;
+				$piv[1] = ($min[1]+$max[1])/2.0;
+				$piv[2] = ($min[2]+$max[2])/2.0;
+			}
+			if($pivMode==3){
+				$piv[0] = $min[0];
+				$piv[1] = $min[1];
+				$piv[2] = $min[2];
+			}
+		}
+		if($pivMode==4){
+			$piv[0] = 0;
+			$piv[1] = 0;
+			$piv[2] = 0;
+		}
+		if($verMode==1){
+			if($scaleVec==1)polyEditUV -pu $piv[0] -pv $piv[1] -su $nowbai -sv $nowbai $nowShellUVList;
+			if($scaleVec==2)polyEditUV -pu $piv[0] -pv $piv[1] -su $nowbai;
+			if($scaleVec==3)polyEditUV -pu $piv[0] -pv $piv[1] -sv $nowbai;
+			if($scaleVec==4){
+				if(size($uvVector)==1){
+					vector $u=<<1,0,0>>;
+					vector $uvVectorWork = $uvVector[0];
+					float $Slope;
+					float $uvAngle;
+					if($uvVectorWork.x!=0){
+						$Slope = $uvVectorWork.y / $uvVectorWork.x;
+						$uvAngle = `atand($Slope)`;
+					}
+					else{
+						$uvAngle=90;
+					}
+					polyEditUV -pu $piv[0] -pv $piv[1] -a ($uvAngle * -1);
+					polyEditUV -pu $piv[0] -pv $piv[1] -su $nowbai;
+					polyEditUV -pu $piv[0] -pv $piv[1] -a ($uvAngle);
+				}
+				else polyEditUV -pu $piv[0] -pv $piv[1] -su $nowbai -sv $nowbai;
+			}
+		}
+		else{
+			if($verMode==4){
+				string $meshList[] = `polyListComponentConversion $nowShellUVList`;
+				string $transform[] = `listRelatives -p -pa -type "transform" $meshList`;
+				print $transform[0];
+				scale -r (1/$nowbai) (1/$nowbai) (1/$nowbai) $transform;
+			}
+			else{
+				if($pivMode!=3)	scale -r -p $piv[0] $piv[1] $piv[2]  (1/$nowbai) (1/$nowbai) (1/$nowbai) $nowShellUVList;
+				else scale -r (1/$nowbai) (1/$nowbai) (1/$nowbai) $nowShellUVList;
+			}
+		}
+	}
+	progressBar -e -endProgress $AriUVScaleChecker_UI_progressbar;
+	progressBar -e -endProgress $gMainProgressBar;
+	select $selectCom;
+	if($breakTrue){
+		AriPolygonCounterIsCancelled();
+	}
+}
+global proc AriUVScaleChecker_Get(int $mode){
+	global string $AriUVScaleCheckerGetText[10];
+	global string $AriUVScaleCheckerGoButton[3];
+	global string $AriUVScaleCheckerFloatF[12];
+	global string $AriUVScaleCheckerOptionMenu[3];
+	global string $AriUVScaleCheckerScaleVecRB;
+	global string $AriUVScaleChecker_UI_info;
+	global string $AriUVScaleChecker_UI_progressbar;
+	global string $gMainProgressBar;
+	global string $AriUVScaleChecker_UV_InvalidBorderCB;
+	float $texSize       = `intField   -q -v $AriUVScaleCheckerFloatF[8]`;
+	float $pixSizePerVer = `floatField -q -v $AriUVScaleCheckerFloatF[5]`;
+	float $magni         = `floatField -q -v $AriUVScaleCheckerFloatF[11]`;
+	float $par           = `floatField -q -v $AriUVScaleCheckerFloatF[10]`;
+	int $pivMode   = `optionMenu     -q -sl $AriUVScaleCheckerOptionMenu[0]`;
+	int $scaleVec  = `radioButtonGrp -q -sl $AriUVScaleCheckerScaleVecRB`;
+	int $InvBorder = `checkBox -q -v $AriUVScaleChecker_UV_InvalidBorderCB`;
+	string $selectCom[] = `ls -sl`;
+	string $groupUV_A[]; 
+	string $groupUV_B[]; 
+	string $groupVer_A[]; 
+	string $groupVer_B[]; 
+	string $groupUVFromeEdge1[];
+	string $groupUVFromeEdge2[];
+	int $j=0;
+	string $edges[] = `filterExpand -selectionMask 32 $selectCom`;
+	textField -e -tx (size($edges)+" Edges") -bgc 0.2 0.2 0.2 $AriUVScaleChecker_UI_info;
+	int $edgesMax=size($edges);
+	for($i=0; $i<$edgesMax; $i++){
+		if($mode==0){
+			if($InvBorder){	
+				if($j>=1000){
+					break;
+				}
+			}
+			else{
+				if($i>=1000){
+					break;
+				}
+			}
+		}
+		string $edgeToUv[]=`polyListComponentConversion -tuv $edges[$i]`;
+		$edgeToUv=`filterExpand -selectionMask 35 $edgeToUv`;
+		if(size($edgeToUv)==2){
+			$groupUVFromeEdge1[$j] = $edgeToUv[0];
+			$groupUVFromeEdge2[$j] = $edgeToUv[1];
+			$j++;
+		}
+		if($InvBorder) continue;
+		if(size($edgeToUv)==3){	
+			for($k=0;$k<3;$k++){
+				int $l=1;
+				int $m=2;
+				if($k==1)$l=0;
+				if($k==2)$m=0;
+				if(		AriUVScaleChecker_checkSideUv($edgeToUv[$k],$edgeToUv[$l])
+					&&	AriUVScaleChecker_checkSideUv($edgeToUv[$k],$edgeToUv[$m])	){
+					$groupUVFromeEdge1[$j]=$edgeToUv[$k];
+					$groupUVFromeEdge2[$j]=$edgeToUv[$l];
+					$j++;
+					$groupUVFromeEdge1[$j]=$edgeToUv[$k];
+					$groupUVFromeEdge2[$j]=$edgeToUv[$m];
+					$j++;
+				}
+			}
+		}		
+		if(size($edgeToUv)==4){	
+			for($k=1;$k<4;$k++){
+				if(AriUVScaleChecker_checkSideUv($edgeToUv[0],$edgeToUv[$k])){
+					$groupUVFromeEdge1[$j]=$edgeToUv[0];
+					$groupUVFromeEdge2[$j]=$edgeToUv[$k];
+					$j++;
+					int $l=2;
+					int $m=3;
+					if($k==2)$l=1;
+					if($k==3)$m=1;
+					$groupUVFromeEdge1[$j]=$edgeToUv[$l];
+					$groupUVFromeEdge2[$j]=$edgeToUv[$m];
+					$j++;
+					break;
+				}
+			}
+		}
+	}
+	$groupUV_A = $groupUVFromeEdge1;
+	$groupUV_B = $groupUVFromeEdge2;
+	if(size($groupUV_A)==1){
+		radioButtonGrp -e -en4 1  $AriUVScaleCheckerScaleVecRB;
+		if($scaleVec==4){
+			button -e -en 0 $AriUVScaleCheckerGoButton[0];
+		}
+		else{
+			button -e -en 1 $AriUVScaleCheckerGoButton[0];
+		}
+	}
+	else{
+		radioButtonGrp -e -en4 0  $AriUVScaleCheckerScaleVecRB;
+		button -e -en 1 $AriUVScaleCheckerGoButton[0];
+	}
+	float  $uvDis[];	
+	float  $verDis[];	
+	vector $uvBasePos1[];	
+	vector $uvBasePos2[];	
+	vector $uvVector[];	
+	string $edgeNum[];
+	for($i=0;$i<size($groupUV_A);$i++){
+		$uvDis[$i] = AriUVScaleChecker_distanceUV($groupUV_A[$i],$groupUV_B[$i]);
+		string $vers[];
+		$vers =`polyListComponentConversion -tv $groupUV_A[$i]`;
+		$vers =`filterExpand -selectionMask 31 $vers`;
+		string $ver1 = $vers[0];
+		$vers =`polyListComponentConversion -tv $groupUV_B[$i]`;
+		$vers =`filterExpand -selectionMask 31 $vers`;
+		string $ver2 = $vers[0];
+		$verDis[$i] = AriUVScaleChecker_distanceVer($ver1,$ver2);
+		$groupVer_A[$i] = $ver1;
+		$groupVer_B[$i] = $ver2;
+		float $pos[];
+		$pos = `polyEditUV -q $groupUV_A[$i]`;
+		$uvBasePos1[$i] = << $pos[0],$pos[1],$pos[2] >>;
+		$pos = `polyEditUV -q $groupUV_B[$i]`;
+		$uvBasePos2[$i] = << $pos[0],$pos[1],$pos[2] >>;
+		$uvVector[$i] = $uvBasePos2[$i] - $uvBasePos1[$i];
+		string $uvEdge[2]={$ver1,$ver2};
+		string $edges[] =`polyListComponentConversion -in -te $uvEdge`;
+		$edgeNum[$i] = $edges[0];
+	}
+	if($mode==1) shellScaleGo($groupUV_A, $groupUV_B, $verDis, $uvDis, $uvVector,1);   
+	if($mode==2) shellScaleGo($groupVer_A, $groupVer_B, $verDis, $uvDis, $uvVector,2); 
+	if($mode==3) shellScaleGo($groupVer_A, $groupVer_B, $verDis, $uvDis, $uvVector,3); 
+	if($mode==4) shellScaleGo($groupVer_A, $groupVer_B, $verDis, $uvDis, $uvVector,4); 
+	float $verDisTotal;
+	float $uvDisTotal;
+	int	  $edgeTotal;
+	string $processedEdge[];	
+	float $processeduvDis[];	
+	float $processedverDis[];	
+	for($i=0;$i<size($groupUV_A);$i++){	
+		int $edgetrue=0;
+		int $processedNum=0;
+		for($j=0;$j<size($processedEdge);$j++){
+			if($edgeNum[$i]==$processedEdge[$j]){
+				$edgetrue=1;
+				$processedNum=$j;
+				break;
+			}
+		}
+		if($edgetrue == 0){
+			$processeduvDis[$edgeTotal]=$uvDis[$i];
+			$processedverDis[$edgeTotal]=$verDis[$i];
+			$processedEdge[$edgeTotal]=$edgeNum[$i];
+			$edgeTotal++;
+		}
+		else{
+			$processeduvDis[$processedNum]=($processeduvDis[$processedNum]+$uvDis[$i])/2.0;
+		}
+	}
+	for($i=0;$i<$edgeTotal;$i++){
+		$verDisTotal=$verDisTotal+$processedverDis[$i];
+		$uvDisTotal=$uvDisTotal+$processeduvDis[$i];
+	}
+	floatField -e -v $verDisTotal $AriUVScaleCheckerFloatF[0];
+	floatField -e -v $uvDisTotal $AriUVScaleCheckerFloatF[1];
+	float $uvPix=0;
+	float $uvPerXM=0;
+	float $pixPer1M=0;
+	float $pixPerXM=0;
+	float $bai=0;
+	float $per=0;
+	if ($uvDisTotal!=0){
+		$uvPix   = $texSize * $uvDisTotal;
+		$uvPerXM  = $uvDisTotal / ($verDisTotal / $magni);
+		$pixPer1M = $uvPix / $verDisTotal;
+		$pixPerXM = $uvPix / ($verDisTotal / $magni);//倍率 
+		$bai     = ($pixSizePerVer / $pixPerXM);
+		$per     = $pixPerXM / $pixSizePerVer * 100;
+	}
+	floatField -e -v $uvPix $AriUVScaleCheckerFloatF[2];
+	floatField -e -v $uvPerXM $AriUVScaleCheckerFloatF[3];
+	floatField -e -v $pixPer1M $AriUVScaleCheckerFloatF[12];
+	floatField -e -v $pixPerXM $AriUVScaleCheckerFloatF[4];
+	floatField -e -v $bai $AriUVScaleCheckerFloatF[6];
+	intField -e -v $edgeTotal $AriUVScaleCheckerFloatF[7];
+	if($edgeTotal>=1000)intField -e -bgc 0.4 0.2 0.2 $AriUVScaleCheckerFloatF[7];
+	else 				intField -e -bgc 0.25 0.25 0.25 $AriUVScaleCheckerFloatF[7];
+	floatField -e -v $per $AriUVScaleCheckerFloatF[9];
+	if($per>=99.9){
+		floatField -e -bgc 0.2 0.2 0.4  $AriUVScaleCheckerFloatF[9];
+	}
+	else{
+		floatField -e -bgc 0.4 0.2 0.2  $AriUVScaleCheckerFloatF[9];
+	}
+}
+global proc AriUVScaleChecker_scale(int $mode){
+	global string $AriUVScaleCheckerFloatF[12];
+	global string $AriUVScaleCheckerOptionMenu[3];
+	global string $AriUVScaleCheckerScaleVecRB;
+	global float $AriUVScaleCheckerMagni;
+	int $scaleVec =`radioButtonGrp -q -sl $AriUVScaleCheckerScaleVecRB`;
+	int $UVPivMode  = `optionMenu -q -sl $AriUVScaleCheckerOptionMenu[0]`;
+	int $scaleMode  = `optionMenu -q -sl $AriUVScaleCheckerOptionMenu[1]`;
+	int $objPivMode = `optionMenu -q -sl $AriUVScaleCheckerOptionMenu[2]`;
+	string $select[]= `ls -sl`;
+	string $processeduv[];
+	AriUVScaleChecker_Get(0);
+	ConvertSelectionToUVs;
+	if($mode==1){
+		polySelectBorderShell 0;
+	}
+	float $piv[2];
+	if($UVPivMode!=4){
+		string $uvList[];
+		if($UVPivMode==1){
+		$uvList = `polyListComponentConversion -tuv $select`;
+		$uvList = `filterExpand -selectionMask 35 $uvList`;
+		}
+		if($UVPivMode==2 || $UVPivMode==3){
+			$uvList=`ls -sl`;
+			$uvList=`filterExpand -selectionMask 35 $uvList`;
+		}
+		float $min[2];
+		float $max[2];
+		$min=`polyEditUV -q $uvList[0]`;
+		$max=$min;
+		for($uv in $uvList){
+			float $pos[] =`polyEditUV -q $uv`;
+			if($min[0]>$pos[0])$min[0]=$pos[0];
+			if($min[1]>$pos[1])$min[1]=$pos[1];
+			if($max[0]<$pos[0])$max[0]=$pos[0];
+			if($max[1]<$pos[1])$max[1]=$pos[1];
+		}
+		if($UVPivMode==1 || $UVPivMode==2){
+			$piv[0] = ($min[0]+$max[0])/2;
+			$piv[1] = ($min[1]+$max[1])/2;
+		}
+		if($UVPivMode==3){
+			$piv[0] = $min[0];
+			$piv[1] = $min[1];
+		}
+	}
+	if($UVPivMode==4){
+		$piv[0] = 0;
+		$piv[1] = 0;
+	}
+	float $bai  =`floatField -q -v $AriUVScaleCheckerFloatF[6]`;
+	float $par  =`floatField -q -v $AriUVScaleCheckerFloatF[10]`;
+	float $magni=`floatField -q -v $AriUVScaleCheckerFloatF[11]`;
+	$bai = $bai*$par*0.01/$magni;
+	if($scaleVec==1 || $scaleVec==4) polyEditUV -pu $piv[0] -pv $piv[1] -su $bai -sv $bai;
+	if($scaleVec==2) polyEditUV -pu $piv[0] -pv $piv[1] -su $bai;
+	if($scaleVec==3) polyEditUV -pu $piv[0] -pv $piv[1] -sv $bai;
+	PolySelectConvert 2;
+	select $select;
+	AriUVScaleChecker_Get(0);
+}
+global proc AriUVScaleChecker_check(){
+	global int $AriUVScaleChecker_ScriptJob;
+	global string $AriUVScaleCheckerGetButton[2];
+	if(`checkBox -q -v $AriUVScaleCheckerGetButton[0]`){
+		button -e -en 0  $AriUVScaleCheckerGetButton[1];
+		$AriUVScaleChecker_ScriptJob=`scriptJob -p "AriUVScaleChecker" -event "SelectionChanged"  "AriUVScaleChecker_Get(0)"`;
+	}
+	else{
+		button -e -en 1  $AriUVScaleCheckerGetButton[1];
+		scriptJob -kill $AriUVScaleChecker_ScriptJob;
+	}
+	AriUVScaleChecker_Get(0);
+}
+global proc AriUVScaleChecker_GetTexSize(){
+	global string $AriUVScaleCheckerFloatF[12];
+	string $fileList[] = `ls -sl -type "file"`;
+	float $xSize=0;
+	if($fileList[0]!=""){
+		$xSize = `getAttr ($fileList[0]+".outSizeX")`;
+		intField -e -v $xSize $AriUVScaleCheckerFloatF[8];
+	}
+}
+global proc AriUVScaleChecker_ScaleButton(int $mode){
+	global string $AriUVScaleCheckerFloatF[12];
+	float $val;
+	float $newVal;
+	if($mode == 0 || $mode == 1) $val =`intField -q -v $AriUVScaleCheckerFloatF[8]`;
+	if($mode == 2 || $mode == 3) $val =`floatField -q -v $AriUVScaleCheckerFloatF[5]`;
+	if($mode == 4 || $mode == 5) $val =`floatField -q -v $AriUVScaleCheckerFloatF[11]`;
+	if($mode == 0 || $mode == 1 || $mode == 2 || $mode == 3){
+		int $beki=1;
+		if($mode == 0 || $mode ==2){
+			for($i=0;$i<20;$i++){
+				if($beki<=$val && $beki*2>$val){
+					$newVal=$beki*2;
+					break;
+				}
+				$beki=$beki*2;
+			}
+		}
+		if($mode == 1 || $mode ==3){
+			for($i=0;$i<20;$i++){
+				if($beki<$val && $beki*2>=$val){
+					$newVal=$beki;
+					break;
+				}
+				$beki=$beki*2;
+			}
+		}
+		if($newVal<1)$newVal=1;
+		if($newVal>65536)$newVal=65536;
+	}
+	else{
+		if($mode == 4)$newVal=$val*10;
+		if($mode == 5)$newVal=$val/10.0;
+		if($newVal<0.001)$newVal=0.001;
+	}
+	if($mode == 0 || $mode == 1)intField   -e -v $newVal $AriUVScaleCheckerFloatF[8];
+	if($mode == 2 || $mode == 3)floatField -e -v $newVal $AriUVScaleCheckerFloatF[5];
+	if($mode == 4 || $mode == 5)floatField -e -v $newVal $AriUVScaleCheckerFloatF[11];
+	AriUVScaleChecker_Get(0);
+}
+global proc AriUVScaleChecker_getButton(int $mode){
+	global string $AriUVScaleCheckerFloatF[12];
+	float $per=100;
+	if($mode==0){
+		float $pixSizePerVer = `floatField -q -v $AriUVScaleCheckerFloatF[5]`;
+		float $pixPerM = `floatField -q -v $AriUVScaleCheckerFloatF[4]`;
+		$per = $pixPerM/$pixSizePerVer*100;
+	}
+	if($per==0)return;
+	floatField -e -v $per $AriUVScaleCheckerFloatF[10];
+}
+global proc AriUVScaleChecker_getSize(int $mode){
+	global string $AriUVScaleCheckerFloatF[];
+	int   $texSize = `intField -q -v $AriUVScaleCheckerFloatF[8]`;
+	float $reso = `floatField -q -v $AriUVScaleCheckerFloatF[5]`;
+	float $cm   = `floatField -q -v $AriUVScaleCheckerFloatF[11]`;
+	float $edge = `floatField -q -v $AriUVScaleCheckerFloatF[0]`;
+	float $uv   = `floatField -q -v $AriUVScaleCheckerFloatF[1]`;
+	float $pixPer1M = `floatField -q -v $AriUVScaleCheckerFloatF[12]`;
+	float $pixPerXM = `floatField -q -v $AriUVScaleCheckerFloatF[4]`;
+	float $per = `floatField -q -v $AriUVScaleCheckerFloatF[9]`;
+	if($per==0)return;
+	if($mode==1){
+		int $intVal = $texSize/$per*100;
+		intField -e -v $intVal $AriUVScaleCheckerFloatF[8];
+	}
+	if($mode==2){
+		float $val = $reso*$per/100;
+		floatField -e -v $val $AriUVScaleCheckerFloatF[5];
+	}
+	if($mode==3){
+		float $val = $cm/$per*100;
+		floatField -e -v $val $AriUVScaleCheckerFloatF[11];
+	}
+	AriUVScaleChecker_Get(0);
+}
+proc scaleSetting_UI(){
+	global string $AriUVScaleCheckerOptionMenu[10];
+	global string $AriUVScaleCheckerScaleVecRB;
+	global string $AriUVScaleCheckerCheckBox[];
+	global string $AriUVScaleChecker_UI_frameLayout[4];
+	global string $AriUVScaleChecker_UV_InvalidBorderCB;
+	string $label_ScaleSetting = "Option";
+	string $label_UVPivot      = "UV Pivot:";
+	string $label_SelectVector = "Select Vector";
+	string $label_UVselectCenter = "Select UV Center";
+	string $label_UVshellCenter  = "UVShell Center";
+	string $label_UVshellLeft    = "UVShell LeftDown";
+	string $label_UVorigin       = "UV Origin";
+	string $label_UVScale     = "UV Scale";
+	string $label_ObjectScale = "Object Scale";
+	string $label_ScaleType = "Scale Type: ";
+	string $label_Transform = "Transform";
+	string $label_Component = "Component";
+	string $label_ShellPivot= "Shell Pivot: ";
+	string $label_SelectCenter = "Select Center";
+	string $label_ShellCenter  = "Shell Center";
+	string $label_ObjectPivot  = "Object Pivot";
+	string $label_InvalidBorder = "Invalid Border";
+	int $jpTrue = false;
+	if(`about -uil`=="ja_JP")$jpTrue = true;
+	if($jpTrue){
+		$label_ScaleSetting = "設定";
+		$label_UVPivot      = "UV ピボット: ";
+		$label_SelectVector = "選択方向";
+		$label_UVselectCenter = "選択UVの中心";
+		$label_UVshellCenter  = "UVシェルの中心";
+		$label_UVshellLeft    = "UVシェルの左下";
+		$label_UVorigin       = "UV原点";
+		$label_UVScale     = "UV スケール";
+		$label_ObjectScale = "オブジェクト スケール";
+		$label_ScaleType = "スケールタイプ: ";
+		$label_Transform = "トランスフォーム";
+		$label_Component = "コンポーネント";
+		$label_ShellPivot= "シェルピボット: ";
+		$label_SelectCenter = "選択の中心";
+		$label_ShellCenter  = "シェル中心";
+		$label_ObjectPivot  = "オブジェクトピボット";
+		$label_InvalidBorder = "境界を無視";
+	}
+	int $UVPivMode = 2;
+	int $scaleMode = 2;
+	int $objPivMode = 2;
+	int $InvBorder = 0;
+	int $worldTrue = 1;
+	if(`optionVar -exists "AriUVScaleCheckerWorld"`)			$worldTrue =`optionVar -q "AriUVScaleCheckerWorld"`;
+	if(`optionVar -exists "AriUVScaleCheckerPiv"`)				$UVPivMode =`optionVar -q "AriUVScaleCheckerPiv"`;
+	if(`optionVar -exists "AriUVScaleCheckerInvalidBorder"`)	$InvBorder =`optionVar -q "AriUVScaleCheckerInvalidBorder"`;
+	$AriUVScaleChecker_UI_frameLayout[2] = `frameLayout -l $label_ScaleSetting -cll true -cl true -cc "AriUVScaleChecker_setWindowSize()" -ec "AriUVScaleChecker_setWindowSize()"`;
+	columnLayout -adj true -bgc 0.25 0.25 0.25 ;
+	rowLayout -nc 3 -cw3 60 70 60;
+	radioCollection;
+	$AriUVScaleCheckerCheckBox[0] = `radioButton -sl -l "World" -onc "AriUVScaleChecker_changeWorldClose();"`;
+	$AriUVScaleCheckerCheckBox[1] = `radioButton     -l "Local" -onc "AriUVScaleChecker_changeWorldClose();"`;
+	$AriUVScaleChecker_UV_InvalidBorderCB = `checkBox -v $InvBorder -l $label_InvalidBorder -cc "AriUVScaleChecker_Get(0)"`;
+	setParent..;
+	if(!$worldTrue) radioButton -e -sl $AriUVScaleCheckerCheckBox[1];
+	frameLayout -l $label_UVScale -bgc 0.15 0.15 0.15;
+	columnLayout -adj true;
+	$AriUVScaleCheckerScaleVecRB = `radioButtonGrp -nrb 4 -cw5 0 40 30 30 70 -l "" -la4 "UV" "U" "V" $label_SelectVector -sl 1 -cc "AriUVScaleChecker_Get(0)"`;
+	rowLayout -nc 2 -cw 1 90 -adj 2;
+	text -l $label_UVPivot;
+	$AriUVScaleCheckerOptionMenu[0] = `optionMenu -w 90 -label "" `;
+		menuItem -label $label_UVselectCenter;
+		menuItem -label $label_UVshellCenter;
+		menuItem -label $label_UVshellLeft;
+		menuItem -label $label_UVorigin;
+	optionMenu -e -sl $UVPivMode $AriUVScaleCheckerOptionMenu[0];
+	setParent..;
+	setParent..;
+	setParent..;
+	frameLayout -l $label_ObjectScale -bgc 0.15 0.15 0.15;
+	columnLayout -adj true;
+	rowLayout -nc 2 -cw 1 90 -adj 2 -vis false;
+	text -l $label_ScaleType;
+	$AriUVScaleCheckerOptionMenu[1] = `optionMenu -w 90 -label "" `;
+		menuItem -label $label_Transform;
+		menuItem -label $label_Component;
+	optionMenu -e -sl $scaleMode $AriUVScaleCheckerOptionMenu[1];
+	setParent..;
+	rowLayout -nc 2 -cw 1 90 -adj 2;
+	text -l $label_ShellPivot;
+	$AriUVScaleCheckerOptionMenu[2] = `optionMenu -w 90 -label "" `;
+		menuItem -label $label_SelectCenter;
+		menuItem -label $label_ShellCenter;
+		menuItem -label $label_ObjectPivot;
+	optionMenu -e -sl $objPivMode $AriUVScaleCheckerOptionMenu[2];
+	setParent..;
+	setParent..;
+	setParent..;
+	setParent..;
+	setParent..;
+}
+global proc AriUVScaleChecker_setWindowSize(){
+	window -e -h 100  AriUVScaleChecker;
+	AriUVScaleChecke_Save();
+}
+global proc AriUVScaleChecker_changeWorldClose(){
+	AriUVScaleChecke_Save();
+	AriUVScaleChecker_Get(0);
+}
+global proc AriUVScaleChecker(){
+	global string $AriUVScaleCheckerFloatF[12];
+	global string $AriUVScaleCheckerGetButton[2];
+	global string $AriUVScaleCheckerGoButton[3];
+	global string $AriUVScaleCheckerGetText[10];
+	global string $AriUVScaleCheckerCheckBox[2];
+	global string $AriUVScaleCheckerScaleVecRB;
+	global string $AriUVScaleChecker_UI_info;
+	global string $AriUVScaleChecker_UI_frameLayout[5];
+	global string $AriUVScaleChecker_UI_progressbar;
+	global int $AriUVScaleChecker_ScriptJob;
+	int $jpTrue = false;
+	if(`about -uil`=="ja_JP")$jpTrue = true;
+	string $lable_Edge = "Edge";
+	string $lable_UVDistance = "UV";
+	string $lable_Hon = "Edges";
+	string $label_TexSize = "Texture";
+	string $label_Resolution = "Resolution";
+	string $label_EdgeDistance = "Edge Distance";
+	string $label_Rate = "Rate";
+	string $label_ObjectScale = "Object Scale";
+	string $label_ShellScale  = "Shell Scale";
+	string $label_UVScale     = "UV Scale";
+	if($jpTrue){
+		$lable_Edge = "エッジ";
+		$lable_UVDistance = "UV距離";
+		$lable_Hon = "本";
+		$label_TexSize = "Texサイズ";
+		$label_Resolution = "目標解像度";
+		$label_EdgeDistance = "エッジ距離";
+		$label_Rate = "目標率";
+		$label_ObjectScale = "オブジェスケール";
+		$label_ShellScale  = "シェルスケール";
+		$label_UVScale     = "UVスケール";
+	}
+	string $meter = "m";
+	int   $texSize = 1024;
+	float $reso  = 128;
+	float $cm = 1;
+	if(`optionVar -exists "AriUVScaleCheckerTexSize"`)	$texSize   =`optionVar -q "AriUVScaleCheckerTexSize"`;
+	if(`optionVar -exists "AriUVScaleCheckerReso"`)		$reso      =`optionVar -q "AriUVScaleCheckerReso"`;
+	if(`optionVar -exists "AriUVScaleCheckerCm"`)		$cm        =`optionVar -q "AriUVScaleCheckerCm"`;
+	if((`window -ex  AriUVScaleChecker`)==true)deleteUI AriUVScaleChecker;
+	window -title "AriUVScaleChecker" -tlb true -mxb 0  -w 200 -h 120  AriUVScaleChecker;
+	string $mainForm = `formLayout`;
+	string $mainColumn = `columnLayout -adj true`;
+	$AriUVScaleChecker_UI_frameLayout[0] = `frameLayout -cl false -cll true -l "Texture" -cc "AriUVScaleChecker_setWindowSize()" -ec "AriUVScaleChecker_setWindowSize()"`;
+	columnLayout  -adj true;
+	string $form;
+	string $row[10];
+	rowLayout -nc 7 -cw 1 66 -cw 2 14 -adj 4;
+	text -l $label_TexSize;
+	button -w 16 -h 20 -l ">" -c "AriUVScaleChecker_getSize(1)";
+	columnLayout;
+	iconTextButton -i "arrowUp.png"   -w 16 -h 10 -l "" -c "AriUVScaleChecker_ScaleButton(0)";
+	iconTextButton -i "arrowDown.png" -w 16 -h 10 -l "" -c "AriUVScaleChecker_ScaleButton(1)";
+	setParent..;
+	$AriUVScaleCheckerFloatF[8]=`intField -w 50 -v $texSize -cc "AriUVScaleChecker_Get(0)"`;
+	text   -l "pix";
+	button -l "file" -c "AriUVScaleChecker_GetTexSize" -w 38 -h 20;
+	setParent..;
+	rowLayout -nc 3 -cw3  64 120 20 -adj 2;
+	text  -l ($label_Resolution);
+	columnLayout -adj true ;
+	rowLayout -nc 4 -cw4 16 20 60 20 -adj 3;
+		button -w 16 -h 20 -l ">" -c "AriUVScaleChecker_getSize(2)";
+		columnLayout;
+		iconTextButton -i "arrowUp.png"   -w 16 -h 10 -l "" -c "AriUVScaleChecker_ScaleButton(2)";
+		iconTextButton -i "arrowDown.png" -w 16 -h 10 -l "" -c "AriUVScaleChecker_ScaleButton(3)";
+		setParent..;
+		$AriUVScaleCheckerFloatF[5] = `floatField -v $reso -w 60 -pre 3 -cc "AriUVScaleChecker_Get(0)"`;
+		text -w 36 -l ("pix");
+	setParent..;
+	separator -h 2;
+	rowLayout -nc 4 -cw4 16 20 60 20 -adj 3;
+		button -w 16 -h 20 -l ">" -c "AriUVScaleChecker_getSize(3)";
+		columnLayout;
+		iconTextButton -i "arrowUp.png"   -w 16 -h 10 -l "" -c "AriUVScaleChecker_ScaleButton(4)";
+		iconTextButton -i "arrowDown.png" -w 16 -h 10 -l "" -c "AriUVScaleChecker_ScaleButton(5)";
+		setParent..;
+		$AriUVScaleCheckerFloatF[11] = `floatField -v $cm -w 60 -pre 3 -cc "AriUVScaleChecker_Get(0)"`;
+		$AriUVScaleCheckerGetText[1] = `text -w 36  -l ($meter)`;
+	setParent..;
+	setParent..;
+	setParent..;
+	setParent..;
+	setParent..;
+	$AriUVScaleChecker_UI_frameLayout[1] = `frameLayout -l "Info" -cll true -cl false -cc "AriUVScaleChecker_setWindowSize()" -ec "AriUVScaleChecker_setWindowSize()"`;
+	columnLayout  -adj true -w 210;
+	separator -st "in" ;
+	$form = `formLayout`;
+	$row[0] = `rowLayout -nc 6 -adj 2 -cw 1 42`;
+	text -l $lable_Edge ;
+	$AriUVScaleCheckerFloatF[0] = `floatField -w 60 -ed 0 -pre 2`;
+	$AriUVScaleCheckerGetText[2]=`text  -l ($meter) -w 30`;
+	$AriUVScaleCheckerFloatF[7] = `intField -w 46 -ed 0`;	
+	text -l $lable_Hon ;
+	setParent..;
+	setParent..;
+	formLayout -e
+	-af $row[0] "right" 0
+	-af $row[0] "left"  0
+	$form;
+	$form = `formLayout`;
+	$row[0] = `rowLayout -nc 2 -cw 1 40 -adj 2`;
+	text -l $lable_UVDistance;
+	$AriUVScaleCheckerFloatF[1] = `floatField -w 60 -ed 0 -pre 3`;
+	setParent..;
+	$row[1] = `rowLayout -nc 2 -cw 2 40 -adj 1`;
+	$AriUVScaleCheckerFloatF[2] = `floatField -w 60 -ed 0 -pre 2`;
+	text -l "pix";
+	setParent..;
+	setParent..;
+	formLayout -e
+	-af $row[0] "left"  0
+	-ap $row[0] "right" 0 50
+	-af $row[1] "right" 0
+	-ac $row[1] "left"  0 $row[0]
+	$form;
+	$form = `formLayout`;
+	$row[0] = `rowLayout -nc 2 -cw 1 40 -adj 2 -bgc 1 0 0 -vis false`;
+	$AriUVScaleCheckerGetText[3]=`text -l ("/ 1"+$meter)`;
+	$AriUVScaleCheckerFloatF[3]=`floatField -w 60 -ed 0 -pre 3`;
+	setParent..;
+	$row[2] = `rowLayout -nc 2 -cw 1 40 -adj 1 `;
+	$AriUVScaleCheckerFloatF[12]=`floatField -w 60 -ed 0 -pre 3`;
+	$AriUVScaleCheckerGetText[12]=`text -l ("pix/"+$meter)`;
+	setParent..;
+	$row[1] = `rowLayout -nc 2 -cw 1 40 -adj 1`;
+	$AriUVScaleCheckerFloatF[4] = `floatField -w 60 -ed 0 -pre 2`;
+	$AriUVScaleCheckerGetText[4] = `text  -l ("")`;
+	setParent..;
+	setParent..;
+	formLayout -e
+	-af $row[0] "left"  0
+	-ap $row[0] "right" 0 50
+	-af $row[2] "left"  0
+	-ap $row[2] "right" 0 50
+	-af $row[1] "right" 0
+	-ac $row[1] "left"  0 $row[0]
+	$form;
+	setParent..;
+	setParent..;
+	scaleSetting_UI();
+	separator -h 2;
+	columnLayout -adj true ;
+	$form   = `formLayout`;
+	$row[0] = `rowLayout -nc 4 -adj 2`;
+	text -l ($label_Rate);
+	$AriUVScaleCheckerFloatF[9] = `floatField  -w 60 -ed 0 -pre 2`;
+	text -l ("%");
+	setParent..;
+	$row[1] = `rowLayout -nc 4 -adj 2`;
+	button -w 16 -h 20 -l ">" -c "AriUVScaleChecker_getButton(0)";
+	text "  to";
+	$AriUVScaleCheckerFloatF[10] = `floatField -pre 3 -v 100`;
+	button -w 16 -h 20 -l "%" -c "AriUVScaleChecker_getButton(1)";
+	setParent..;
+	setParent..;
+	formLayout -e
+	-af $row[0] "left"  0
+	-ap $row[0] "right" 0 50
+	-af $row[1] "right" 0
+	-ac $row[1] "left"  0 $row[0]
+	$form;
+	separator -st "in" ;
+	rowLayout -nc 4 -vis 0;
+	text -w 50 -l ("何倍");
+	text -w 50 -l ("");
+	$AriUVScaleCheckerFloatF[6]=`floatField  -w 60 -ed 0 -pre 3`;
+	setParent..;
+	setParent..;
+	setParent..;
+	$form   = `formLayout`;
+	$button[0] = `button  -l $label_ObjectScale -ann "" -c "AriUVScaleChecker_Get(3)"`;
+	popupMenu -button 3;
+	menuItem -l "Transform Scale" -c "AriUVScaleChecker_Get(4)";
+	$button[2] = `button  -l $label_ShellScale  -ann "" -c "AriUVScaleChecker_Get(2)"`;
+	$button[1] = `button  -l $label_UVScale     -ann "" -c "AriUVScaleChecker_Get(1)"`;
+	$AriUVScaleCheckerGoButton[0] = `button -vis false -w 100 -l "選択スケール" -ann "選択エッジをスケール" -c "AriUVScaleChecker_scale(0)"`;
+	setParent..;
+	string $progressColumn = `rowLayout -nc 2 -adj 2`;
+		$AriUVScaleChecker_UI_info = `textField -w 100 -ed 0 -text ""`;
+		$AriUVScaleChecker_UI_progressbar = `progressBar`;
+	setParent..;
+	setParent..;
+	formLayout -e
+	-af $button[0] "top"  0
+	-af $button[0] "left"  0
+	-ap $button[0] "right" 0 50
+	-ap $button[0] "bottom" 0 50
+	-ac $button[2] "top"   0 $button[0]	
+	-af $button[2] "left"  0
+	-ap $button[2] "right" 0 50
+	-af $button[2] "bottom"  0
+	-af $button[1] "right" 0
+	-ac $button[1] "left"  0 $button[0]
+	-af $button[1] "bottom"  0
+	-af $button[1] "top"  0
+	$form;
+	formLayout -e
+	-af $progressColumn "left" 0
+	-af $progressColumn "right" 0
+	-af $progressColumn "bottom" 0
+	-af $mainColumn "left"  0
+	-af $mainColumn "right"  0
+	-af $mainColumn "top" 0
+	-ac $form "top" 0 $mainColumn
+	-af $form "left"  0
+	-af $form "right"  0
+	-ac $form "bottom" 0 $progressColumn
+	$mainForm;
+	/*
+	frameLayout -l "移動" -cll true -cl false;
+	columnLayout;
+	rowLayout -nc 4;
+	iconTextButton -w 24 -h 24   -i "arrowLeft.png" -c "AriUVEditor_shellZero(0)";			
+	iconTextButton -w 24 -h 24   -i "arrowUp.png" -c "AriUVEditor_shellZero(3)";
+	iconTextButton -w 24 -h 24   -i "arrowDown.png" -c "AriUVEditor_shellZero(1)";
+	iconTextButton -w 24 -h 24   -i "arrowRight.png" -c "AriUVEditor_shellZero(2)";		
+	setParent..;
+	setParent..;
+	setParent..;
+	*/
+	rowLayout -nc 4 -vis 0;
+	$AriUVScaleCheckerGetButton[0] = `checkBox -h 24 -l "自動取得" -v 1 -cc "AriUVScaleChecker_check;"`;
+	$AriUVScaleCheckerGetButton[1] = `button -w 100 -en 0 -l "取得" -c "AriUVScaleChecker_Get(0);"`;
+	setParent..;
+	showWindow;
+	$AriUVScaleChecker_ScriptJob=`scriptJob -p "AriUVScaleChecker" -event "SelectionChanged"  "AriUVScaleChecker_Get(0)"`;
+	getLiner();
+	AriUVScaleChecker_Get(0);
+	AriUVScaleChecke_Load();
+	AriUVScaleChecker_setWindowSize();
+}

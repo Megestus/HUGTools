@@ -95,6 +95,12 @@ class MoreToolsWindow(QtWidgets.QDialog):
                     "icon": "Im3dJoe/icons/speedCut.png",
                     "tooltip": "Speed Cut Tool", 
                     "description": "Quick mesh cutting and modeling tool"
+                },
+                {
+                    "name": "AriScripts",
+                    "icon": "AriScripts/icons/AriScriptLauncher.png",
+                    "tooltip": "Ari Scripts Launcher",
+                    "description": "启动Ari脚本工具集"
                 }
             ],
             "Dev": [
@@ -117,11 +123,18 @@ class MoreToolsWindow(QtWidgets.QDialog):
                     "description": "提供网格的智能合并、分离、提取和复制功能"
                 },
                 {
+                    "name": "RapidPlace",
+                    "icon": "Im3dJoe/rapidPlace2_77/icons/rapidPlace.png",
+                    "tooltip": "Rapid Place Tool (In Development)",
+                    "description": "快速放置和复制工具 - 正在修复中",
+                    "disabled": True  # 禁用该工具
+                },
+                {
                     "name": "NitroPoly",
                     "icon": "NitroPoly/icons/NitroPoly.png",
                     "tooltip": "NitroPoly Modeling Tool (In Development)",
                     "description": "Advanced polygon modeling toolset",
-                    "disabled": True  # 添加禁用标记
+                    "disabled": True
                 }
             ]
         }
@@ -447,6 +460,7 @@ class MoreToolsWindow(QtWidgets.QDialog):
                 print(f"错误类型: {type(e).__name__}")
                 print(f"错误信息: {str(e)}")
                 traceback.print_exc()
+                
         elif tool_name == "SmartMeshTools":
             try:
                 # 构建MEL脚本路径
@@ -484,32 +498,32 @@ class MoreToolsWindow(QtWidgets.QDialog):
 
 
                 
-        elif tool_name == "QuickExport":
+        elif tool_name == "AriScripts":
             try:
-                # 构建QuickExport工具路径
-                quick_export_dir = toolbox_dir / "QuickExport"
-                quick_export_path = quick_export_dir / "QuickExport.py"
+                # 建AriScripts具路径
+                ari_scripts_dir = toolbox_dir / "AriScripts"
+                ari_scripts_path = ari_scripts_dir / "AriScriptLauncherQt.py"
                 
                 # 检查文件是否存在
-                if not quick_export_path.exists():
-                    raise FileNotFoundError(f"找不到QuickExport.py文件: {quick_export_path}")
+                if not ari_scripts_path.exists():
+                    raise FileNotFoundError(f"找不到AriScriptLauncherQt.py文件: {ari_scripts_path}")
                 
-                # 确保模块所在目录在系统路中
-                module_dir = str(quick_export_dir)
+                # 确保模块所在目录在系统路径中
+                module_dir = str(ari_scripts_dir)
                 if module_dir not in sys.path:
                     sys.path.insert(0, module_dir)
 
                 print("\n=== 工具路径信息 ===")
-                print(f"工具目录: {quick_export_dir}")
-                print(f"主程序文件: {quick_export_path}")
+                print(f"工具目录: {ari_scripts_dir}")
+                print(f"主程序文件: {ari_scripts_path}")
                 print(f"系统路径: {module_dir}")
 
                 try:
-                    import QuickExport
-                    importlib.reload(QuickExport)
-                    QuickExport.show_quick_export_window()
+                    import AriScriptLauncherQt
+                    importlib.reload(AriScriptLauncherQt)
+                    AriScriptLauncherQt.show()
                 except ImportError as ie:
-                    print(f"导入QuickExport模块失败: {ie}")
+                    print(f"导入AriScriptLauncherQt模块失败: {ie}")
                     print(f"当前sys.path: {sys.path}")
                     return
                 
@@ -562,8 +576,8 @@ class MoreToolsWindow(QtWidgets.QDialog):
 
         elif tool_name == "SpeedCut":
             try:
-                # 构建SpeedCut工具路径，使用Im3dJoe文件夹下的1.69版本
-                speed_cut_dir = toolbox_dir / "Im3dJoe"
+                # 构建SpeedCut工具路径
+                speed_cut_dir = toolbox_dir / "SpeedCut"
                 speed_cut_path = speed_cut_dir / "speedCut1.69.py"
                 
                 # 检查文件是否存在
@@ -581,6 +595,44 @@ class MoreToolsWindow(QtWidgets.QDialog):
                 cmds.evalDeferred(
                     f'with open("{script_path}", "r", encoding="utf-8") as f: exec(f.read())'
                 )
+                
+            except Exception as e:
+                print(f"\n=== 错误信息 ===")
+                print(f"加载{tool_name}时出错:")
+                print(f"错误类型: {type(e).__name__}")
+                print(f"错误信息: {str(e)}")
+                traceback.print_exc()
+
+
+                
+        elif tool_name == "RapidPlace":
+            try:
+                # 构建RapidPlace工具路径
+                rapid_place_dir = toolbox_dir / "RapidPlace"
+                rapid_place_path = rapid_place_dir / "rapidPlace.py"
+                
+                # 检查文件是否存在
+                if not rapid_place_path.exists():
+                    raise FileNotFoundError(f"找不到rapidPlace.py文件: {rapid_place_path}")
+                
+                # 确保模块所在目录在系统路径中
+                module_dir = str(rapid_place_dir)
+                if module_dir not in sys.path:
+                    sys.path.insert(0, module_dir)
+
+                print("\n=== 工具路径信息 ===")
+                print(f"工具目录: {rapid_place_dir}")
+                print(f"主程序文件: {rapid_place_path}")
+                print(f"系统路径: {module_dir}")
+
+                try:
+                    import rapidPlace
+                    importlib.reload(rapidPlace)
+                    rapidPlace.rapidPlace()
+                except ImportError as ie:
+                    print(f"导入rapidPlace模块失败: {ie}")
+                    print(f"当前sys.path: {sys.path}")
+                    return
                 
             except Exception as e:
                 print(f"\n=== 错误信息 ===")

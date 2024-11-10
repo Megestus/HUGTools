@@ -1,0 +1,991 @@
+//--------------------------------------------------------------------------
+//
+// ScriptName : AriUVFit
+// Contents   : UVʂUVɏd˂܂B
+// Author     : Ari
+// URL        : http://cgjishu.net/
+// Since      : 2017/01
+// Update     : 2017/05/21 _@\ǉ
+//              2017/03/26 TCYpixel\
+//                         CleardlύX
+//                          Z[u@\ǉ
+//                          {^ꎞ\ǉ
+//                         
+//              2017/01/23 uړvu]vu~[v@\ǉ
+//                           oOC
+//
+//--------------------------------------------------------------------------
+
+global int $AriUVFitRotateReverse;
+global string $AriUVFitIconTextCheckBox;
+
+proc float[] AriUVEditor_MinMax (string $uvList[]){
+	
+	float $min[2];
+	float $max[2];
+	float $minmax[4];
+	
+	
+	$min = `polyEditUV -q $uvList[0]`;
+	$max = $min;
+	
+	for($uv in $uvList){
+		float $pos[] =`polyEditUV -q $uv`;
+		if($min[0]>$pos[0])$min[0]=$pos[0];
+		if($min[1]>$pos[1])$min[1]=$pos[1];
+		if($max[0]<$pos[0])$max[0]=$pos[0];
+		if($max[1]<$pos[1])$max[1]=$pos[1];
+	}
+	$minmax[0]=$min[0];
+	$minmax[1]=$min[1];
+	$minmax[2]=$max[0];
+	$minmax[3]=$max[1];
+	return $minmax;
+}
+proc savePaneLaySize(){
+	global string $AriUVFitPaneLay;
+	int $paneSizeList[] = `paneLayout -q -paneSize $AriUVFitPaneLay`;
+	$paneSize = $paneSizeList[1];
+	optionVar -intValue  "AriUVFit_paneSize" $paneSize;
+}
+proc AriUVFit_Fit(string $targetUVList[],float $sourceMinMax[],float $offsetU,float $offsetV,int $uvScaleMode,int $uniformScale){
+	global string $AriUVFitFloatField_a[];
+	global string $AriUVFitRadioButtonGrp;
+	global string $AriUVFitCheckBox[5];
+	int $pivMode=0;
+	int $shell = true;
+	float $targetMinMax[] = AriUVEditor_MinMax($targetUVList);
+	float $sourceDisU = $sourceMinMax[2]-$sourceMinMax[0];
+	float $sourceDisV = $sourceMinMax[3]-$sourceMinMax[1];
+	float $targetDisU = $targetMinMax[2]-$targetMinMax[0];
+	float $targetDisV = $targetMinMax[3]-$targetMinMax[1];
+	if($targetDisU<=0.00001 && $targetDisU>=-0.00001)return;
+	if($targetDisV<=0.00001 && $targetDisV>=-0.00001)return;
+	float $ScaleU = $sourceDisU/$targetDisU;
+	float $ScaleV = $sourceDisV/$targetDisV;
+	float $sourcePivU;
+	float $sourcePivV;
+	float $targetPivU;
+	float $targetPivV;
+	if($pivMode==0){
+		$sourcePivU = ($sourceDisU/2.0)+$sourceMinMax[0];
+		$sourcePivV = ($sourceDisV/2.0)+$sourceMinMax[1];
+		$targetPivU = ($targetDisU/2.0)+$targetMinMax[0];
+		$targetPivV = ($targetDisV/2.0)+$targetMinMax[1];
+	}
+	if($pivMode==0){
+		$sourcePivU = $sourceMinMax[0];
+		$sourcePivV = $sourceMinMax[1];
+		$targetPivU = $targetMinMax[0];
+		$targetPivV = $targetMinMax[1];
+	}
+	float $MoveU = ($targetPivU-$sourcePivU) * -1 ;
+	float $MoveV = ($targetPivV-$sourcePivV) * -1 ;
+	if($uvScaleMode == 3){
+		$ScaleU = 1;
+		$MoveU  = 0;
+		if($uniformScale)	$ScaleU = $ScaleV;
+	}
+	if($uvScaleMode == 2){
+		$ScaleV = 1;
+		$MoveV  = 0;
+		if($uniformScale)	$ScaleV = $ScaleU;
+	}
+	$MoveU = $MoveU + $offsetU;
+	$MoveV = $MoveV + $offsetV;
+	polyEditUV -pu $targetPivU -pv $targetPivV -su $ScaleU -sv $ScaleV $targetUVList;
+	polyEditUV -u $MoveU -v $MoveV $targetUVList;
+}
+global proc AriUVFit_getImage(){
+	global string $AriUVFitTextCanBG[10];
+	global string $AriUVFitCheckBox[5];
+	global string $AriUVFitIntField[3];
+	int $imageTrue =`checkBox -q -v $AriUVFitCheckBox[1]`;
+	optionVar -intValue  "AriUVFit_ImageTrue" $imageTrue;
+	if($imageTrue){
+		iconTextButton -e -vis true $AriUVFitTextCanBG[4];
+	}
+	else{
+		iconTextButton -e -vis false $AriUVFitTextCanBG[4];
+		return;
+	}
+	$canvasSize = `intField -q -v $AriUVFitIntField[0]`;
+	string $panelName="polyTexturePlacementPanel1";
+	int $index          = `textureWindow -q -imageNumber $panelName`;
+	string $menuNames[] = `textureWindow -q -imageNames $panelName`;
+	int $size[]         = `textureWindow -q -imageSize $panelName`;
+	string $buf[];
+	if(size($menuNames)==0){
+		iconTextButton -e -vis false $AriUVFitTextCanBG[4];
+		return;
+	}
+	tokenize $menuNames[$index] "|" $buf;
+	int $bufSize = size($buf);
+	if($bufSize<0)$bufSize=0;
+	string $fileName=$buf[$bufSize-1];
+	if(`nodeType $fileName`!="file")$fileName="";
+	if($fileName==""){
+		tokenize $menuNames[$index+1] "|" $buf;
+		$bufSize = size($buf);
+		if($bufSize<0)$bufSize=0;
+		$fileName=$buf[$bufSize-1];
+	}
+	if($fileName==""){
+		iconTextButton -e -vis false $AriUVFitTextCanBG[4];
+		return;
+	}
+	if (`attributeExists "fileTextureName" $fileName`) {
+		string $textureName=`getAttr ($fileName+".fileTextureName")`;
+		float $texSize[]=`getAttr ($fileName+".outSize")`;
+		if(`filetest -f $textureName`){
+			iconTextButton -e -vis true -i $textureName $AriUVFitTextCanBG[4];
+		}
+		else{
+			iconTextButton -e -vis false $AriUVFitTextCanBG[4];
+		}
+		if($texSize[0] < $canvasSize){
+			iconTextButton -e -vis false $AriUVFitTextCanBG[4];
+			print ("\n");
+		}
+	}
+	else{
+		iconTextButton -e -vis false $AriUVFitTextCanBG[4];
+	}
+}
+proc AriUVFitWriteFloatField(){
+	global string $AriUVFitTextScrollList;
+	global string $AriUVFitFloatField_b[10];
+	global vector $AriUVFit_Min[];
+	global vector $AriUVFit_Max[];
+	int $selectIndex[]    = `textScrollList -q -sii $AriUVFitTextScrollList`;
+	if(size($selectIndex)==0)return;
+	int $lastIndex = $selectIndex[size($selectIndex)-1];
+	vector $minVec = $AriUVFit_Min[$lastIndex-1];
+	vector $maxVec = $AriUVFit_Max[$lastIndex-1];
+	floatField -e -v ($minVec.x)  $AriUVFitFloatField_b[0];
+	floatField -e -v ($minVec.y)  $AriUVFitFloatField_b[1];
+	floatField -e -v ($maxVec.x)  $AriUVFitFloatField_b[2];
+	floatField -e -v ($maxVec.y)  $AriUVFitFloatField_b[3];
+}
+global proc AriUVFit_DrawButton(int $mode){
+	global string $AriUVFitTextFormLayout;
+	global string $AriUVFitCanvas[];
+	global string $AriUVFitTextCanBG[10];
+	global vector $AriUVFit_Min[];
+	global vector $AriUVFit_Max[];
+	global string $AriUVFitIntField[3];
+	global string $AriUVFitTextScrollList;
+	global string $AriUVFitIconTextCheckBox;
+	int $canvasSize = 200;
+	$canvasSize = `intField -q -v $AriUVFitIntField[0]`;
+	int $selectIndex[]    = `textScrollList -q -sii $AriUVFitTextScrollList`;
+	int $i = 0;
+	for($i=0; $i<size($AriUVFitCanvas); $i++){
+		if(`button -ex $AriUVFitCanvas[$i]`){
+			deleteUI $AriUVFitCanvas[$i];
+		}
+	}
+	clear $AriUVFitCanvas;
+	canvas -e -w ($canvasSize/2) -h ($canvasSize/2)  $AriUVFitTextCanBG[0];
+	canvas -e -w ($canvasSize/2) -h ($canvasSize/2)  $AriUVFitTextCanBG[1];
+	canvas -e -w ($canvasSize/2) -h ($canvasSize/2)  $AriUVFitTextCanBG[2];
+	canvas -e -w ($canvasSize/2) -h ($canvasSize/2)  $AriUVFitTextCanBG[3];
+	iconTextButton -e -w $canvasSize -h $canvasSize  $AriUVFitTextCanBG[4];
+	formLayout -e 
+	-ac $AriUVFitTextCanBG[1] "top" 0 $AriUVFitTextCanBG[0]
+	-ac $AriUVFitTextCanBG[1] "left" 0 $AriUVFitTextCanBG[0]
+	-ac $AriUVFitTextCanBG[2] "top" 0 $AriUVFitTextCanBG[0]
+	-ac $AriUVFitTextCanBG[3] "left" 0 $AriUVFitTextCanBG[0]
+	$AriUVFitTextFormLayout;
+	if($mode==0)iconTextCheckBox -e -v true $AriUVFitIconTextCheckBox;
+	if(`iconTextCheckBox -q -v $AriUVFitIconTextCheckBox`){
+		for($index in $selectIndex){
+			vector $minVec = $AriUVFit_Min[$index-1];
+			vector $maxVec = $AriUVFit_Max[$index-1];
+			float $Umin = $minVec.x;
+			float $Vmin = $minVec.y;
+			float $Umax = $maxVec.x;
+			float $Vmax = $maxVec.y;
+			float $rangeU_Min = 0;
+			float $rangeU_Max = 1;
+			float $rangeV_Min = 0;
+			float $rangeV_Max = 1;
+			int $USize = ($Umax-$Umin)*$canvasSize;
+			int $VSize = ($Vmax-$Vmin)*$canvasSize;
+			$USize = `abs $USize`;
+			$VSize = `abs $VSize`;
+			int $UminUnit = int($Umin * $canvasSize) % $canvasSize;
+			int $VminUnit = int($Vmin * $canvasSize) % $canvasSize;
+			int $UmaxUnit = int($Umax * $canvasSize) % $canvasSize;
+			int $VmaxUnit = int($Vmax * $canvasSize) % $canvasSize;
+			if($UminUnit<0) $UminUnit = $UminUnit + $canvasSize;
+			if($VminUnit<0) $VminUnit = $VminUnit + $canvasSize;
+			if($UmaxUnit<0) $UmaxUnit = $UmaxUnit + $canvasSize;
+			if($VmaxUnit<0) $VmaxUnit = $VmaxUnit + $canvasSize;
+			int $top  = $canvasSize-$VminUnit-$VSize;
+			int $left = $UminUnit;
+			int $drowTop   = $top;
+			int $drowLeft  = $left;
+			int $drowUSize = $USize;
+			int $drowVSize = $VSize;
+			if($drowTop < 0){
+				$drowVSize = $drowVSize+$drowTop;
+				$drowTop=0;
+			}
+			if($drowLeft+$drowUSize > $canvasSize){
+				$drowUSize = $canvasSize-$drowLeft;
+			}
+			if($drowUSize<=1)$drowUSize=1;
+			if($drowVSize<=1)$drowVSize=1;
+			$AriUVFitCanvas[$i] = `button -p $AriUVFitTextFormLayout -l ($index+"") -bgc 0.4 0.4 1 -w $drowUSize -h $drowVSize -c ("AriUVFit_FitGo("+$index+")")`;
+			formLayout -e 
+			-af $AriUVFitCanvas[$i] "top"  ($drowTop)
+			-af $AriUVFitCanvas[$i] "left" ($drowLeft)
+			$AriUVFitTextFormLayout;
+			$i++;
+		}
+	}
+	AriUVFitWriteFloatField;
+	AriUVFit_getImage();
+}
+global proc AriUVFit_SizeChange(int $mode){
+	global string $AriUVFitIntField[3];
+	int $size = `intField -q -v $AriUVFitIntField[0]`;
+	if($mode==1){
+		$size=$size*2;
+	}
+	if($mode==0){
+		$size=$size/2;
+	}
+	if($size < 50)   $size = 50;
+	if($size > 3200) $size = 3200;
+	intField -e -v $size $AriUVFitIntField[0];
+	AriUVFit_DrawButton(0);
+}
+global proc AriUVFit_FitGo(int $mode){
+	global string $AriUVFitFloatField_a[];
+	global string $AriUVFitRadioButtonGrp;
+	global string $AriUVFitCheckBox[5];
+	global string $AriUVFitTextScrollList;
+	global vector $AriUVFit_Min[];
+	global vector $AriUVFit_Max[];
+	global string $gMainProgressBar;
+	global string $AriUVFitProgressBar;
+	string $processedUV[];
+	int $shell=true;
+	float $offset[2];
+	$offset[0] = `floatField -q -v $AriUVFitFloatField_a[0]`;
+	$offset[1] = `floatField -q -v $AriUVFitFloatField_a[1]`;
+	int $uvScaleMode  = `radioButtonGrp -q -sl $AriUVFitRadioButtonGrp`;
+	int $uniformScale = `checkBox -q -v $AriUVFitCheckBox[0]`;
+	optionVar -floatValue "AriUVFit_OffsetU" $offset[0];
+	optionVar -floatValue "AriUVFit_OffsetV" $offset[1];
+	optionVar -intValue   "AriUVFit_ScaleFitUVRadio"  $uvScaleMode;
+	optionVar -intValue   "AriUVFit_EvenlyScaleCheck" $uniformScale;
+	string $selectList[] = `ls -sl`;
+	string $selectUVList[]=`polyListComponentConversion -tuv $selectList`;
+	if(size($selectUVList)==0){
+		print("IUVȂ\n");
+		return;
+	}
+	$selectUVList = `filterExpand -selectionMask 35 $selectUVList`;
+	int $selectIndexList[];
+	int $selectIndex;
+	if($mode==0 || $mode==-1){
+		$selectIndexList = `textScrollList -q -sii $AriUVFitTextScrollList`;
+		if(size($selectIndexList)==0)return;
+		$selectIndex = $selectIndexList[0];
+	}
+	else{
+		$selectIndex = $mode;
+	}
+	vector $minVec = $AriUVFit_Min[$selectIndex-1];
+	vector $maxVec = $AriUVFit_Max[$selectIndex-1];
+	float $getminmax[4];
+	$getminmax[0] = ($minVec.x);
+	$getminmax[1] = ($minVec.y);
+	$getminmax[2] = ($maxVec.x);
+	$getminmax[3] = ($maxVec.y);
+	int $i=0;
+	int $total = size($selectUVList);
+	progressBar -edit -beginProgress -isInterruptable true -max ($total) $AriUVFitProgressBar;
+	progressBar -edit -beginProgress -isInterruptable true -status ("0 / "+$total) -max ($total) $gMainProgressBar;
+	int $cancelTrue=false;
+	for($uv in $selectUVList){
+		$i++;
+		if(stringArrayContains($uv,$processedUV))continue;
+		progressBar    -edit -progress $i $AriUVFitProgressBar;
+		progressBar    -edit -progress $i -status ($i+" / "+$total) $gMainProgressBar;
+		if(`progressBar -q -isCancelled $gMainProgressBar`){
+			$cancelTrue = true;
+			break;
+		}
+		if($mode==-1){
+			int $rand = `rand (size($selectIndexList))`;
+			$selectIndex = $selectIndexList[$rand];
+			$minVec = $AriUVFit_Min[$selectIndex-1];
+			$maxVec = $AriUVFit_Max[$selectIndex-1];
+			$getminmax[0] = ($minVec.x);
+			$getminmax[1] = ($minVec.y);
+			$getminmax[2] = ($maxVec.x);
+			$getminmax[3] = ($maxVec.y);
+		}
+		select $uv;
+		if($shell)polySelectBorderShell 0;
+		string $shellUVList[] = `ls -sl`;
+		$shellUVList = `filterExpand -selectionMask 35 $shellUVList`;
+		$processedUV = stringArrayCatenate($processedUV, $shellUVList);
+		AriUVFit_Fit($shellUVList, $getminmax, $offset[0], $offset[1], $uvScaleMode, $uniformScale);
+	}
+	progressBar -edit -endProgress $AriUVFitProgressBar;
+	progressBar -edit -endProgress $gMainProgressBar;
+	select $processedUV;
+	savePaneLaySize();
+}
+proc TextScrollDrow(){
+	global vector $AriUVFit_Min[];
+	global vector $AriUVFit_Max[];
+	global int $AriUVFitValueViewMode;
+	global string $AriUVFitIntField[3];
+	global string $AriUVFitTextScrollList;
+	int $texSize     = `intField -q -v $AriUVFitIntField[1]`;
+	int $selectIndex[] = `textScrollList -q -sii $AriUVFitTextScrollList`;
+	textScrollList -e -removeAll $AriUVFitTextScrollList;
+	int $i=0;
+	for($i=0; $i<size($AriUVFit_Min); $i++){
+		vector $min = $AriUVFit_Min[$i];
+		vector $max = $AriUVFit_Max[$i];
+		float $minMaxDrow[];
+		if($AriUVFitValueViewMode==0){
+			$minMaxDrow[0] = (floor($min.x * 100 + 0.5)) /100.0;
+			$minMaxDrow[1] = (floor($min.y * 100 + 0.5)) /100.0;
+			$minMaxDrow[2] = (floor($max.x * 100 + 0.5)) /100.0;
+			$minMaxDrow[3] = (floor($max.y * 100 + 0.5)) /100.0;
+		}
+		if($AriUVFitValueViewMode==1){
+			$minMaxDrow[0] = (floor($min.x * $texSize + 0.5)) ;
+			$minMaxDrow[1] = (floor($min.y * $texSize + 0.5)) ;
+			$minMaxDrow[2] = (floor($max.x * $texSize + 0.5)) ;
+			$minMaxDrow[3] = (floor($max.y * $texSize + 0.5)) ;
+		}
+		float $uSize = $minMaxDrow[2]-$minMaxDrow[0];
+		float $vSize = $minMaxDrow[3]-$minMaxDrow[1];
+		string $minmaxString = (($i+1)+": ["+$uSize+"*"+$vSize+"]  ( "+$minMaxDrow[0]+" , "+$minMaxDrow[1]+" ) ( "+$minMaxDrow[2]+" , "+$minMaxDrow[3]+" )  ");
+		textScrollList -e -a $minmaxString $AriUVFitTextScrollList;
+	}
+	for($i=0; $i<=size($selectIndex); $i++){
+		if($selectIndex[$i]==0)break;
+		textScrollList -e -sii $selectIndex[$i] $AriUVFitTextScrollList;
+	}
+}
+global proc AriUVFit_Clear(){
+	global vector $AriUVFit_Min[];
+	global vector $AriUVFit_Max[];
+	global string $AriUVFitTextScrollList;
+	int $selectIndex[] = `textScrollList -q -sii $AriUVFitTextScrollList`;
+	print $selectIndex;
+	int $i=0;
+	int $j=0;
+	int $k=0;
+	vector $new_Min[];
+	vector $new_Max[];
+	for($i=0; $i<size($AriUVFit_Min); $i++){
+		if($i != $selectIndex[$j]-1){
+			$new_Min[$k] = $AriUVFit_Min[$i];
+			$new_Max[$k] = $AriUVFit_Max[$i];
+			$k++;
+		}
+		else{
+			if(size($selectIndex)-1 > $j)$j++;
+		}
+	}
+	clear $AriUVFit_Min;
+	clear $AriUVFit_Max;
+	$AriUVFit_Min = $new_Min;
+	$AriUVFit_Max = $new_Max;
+	textScrollList -e -deselectAll $AriUVFitTextScrollList;
+	TextScrollDrow();
+	AriUVFit_DrawButton(0);
+}
+global proc AriUVFit_Get(){
+	global vector $AriUVFit_Min[];
+	global vector $AriUVFit_Max[];
+	global string $AriUVFitTextScrollList;
+	global string $gMainProgressBar; 
+	global string $AriUVFitProgressBar; 
+	float $gosa=0.00001;
+	int $beforeArraySize = size($AriUVFit_Max);
+	string $processedUV[];
+	int $shell=true;
+	string $selectList[] = `ls -sl`;
+	string $selectUVList[]=`polyListComponentConversion -tuv $selectList`;
+	if(size($selectUVList)==0){
+		print("IUVȂ\n");
+		return;
+	}
+	$selectUVList = `filterExpand -selectionMask 35 $selectUVList`;
+	int $i=0;
+	int $total = size($selectUVList);
+	progressBar -edit -beginProgress -isInterruptable true -max ($total) $AriUVFitProgressBar;
+	progressBar -edit -beginProgress -isInterruptable true -status ("0 / "+$total) -max ($total) $gMainProgressBar;
+	int $cancelTrue = false;
+	for($uv in $selectUVList){
+		$i++;
+		if(stringArrayContains($uv,$processedUV))continue;
+		progressBar    -edit -progress $i $AriUVFitProgressBar;
+		progressBar    -edit -progress $i -status ($i+" / "+$total) $gMainProgressBar;
+		if(`progressBar -q -isCancelled $gMainProgressBar`){
+			$cancelTrue = true;
+			break;
+		}
+		select $uv;
+		if($shell)polySelectBorderShell 0;
+		string $shellUVList[] = `ls -sl`;
+		$shellUVList = `filterExpand -selectionMask 35 $shellUVList`;
+		$processedUV = stringArrayCatenate($processedUV, $shellUVList);
+		float $minmax[] = AriUVEditor_MinMax($shellUVList);
+		int $DupliTrue=false;
+		for($j=0;$j<size($AriUVFit_Min);$j++){
+			vector $fit_min=$AriUVFit_Min[$j];
+			if($minmax[0] > ($fit_min.x)-$gosa && $minmax[0] < ($fit_min.x)+$gosa){
+				if($minmax[1] > ($fit_min.y)-$gosa && $minmax[1] < ($fit_min.y)+$gosa){
+					vector $fit_max=$AriUVFit_Max[$j];
+					if($minmax[2] > ($fit_max.x)-$gosa && $minmax[2] < ($fit_max.x)+$gosa){
+						if($minmax[3] > ($fit_max.y)-$gosa && $minmax[3] < ($fit_max.y)+$gosa){
+							$DupliTrue=true;
+							break;
+						}
+					}
+				}
+			}
+		}
+		if($DupliTrue)continue;
+		$AriUVFit_Min[size($AriUVFit_Min)] = <<$minmax[0],$minmax[1],0>>;
+		$AriUVFit_Max[size($AriUVFit_Max)] = <<$minmax[2],$minmax[3],0>>;
+	}
+	int $afterArraySize = size($AriUVFit_Max);
+	TextScrollDrow();
+	progressBar -edit -endProgress $AriUVFitProgressBar;
+	progressBar -edit -endProgress $gMainProgressBar;
+	select $selectList;
+	for($i=$beforeArraySize+1; $i<=$afterArraySize ; $i++){
+		textScrollList -e -sii $i $AriUVFitTextScrollList;
+	}
+	AriUVFit_DrawButton(0);
+}
+global proc AriUVFit_AllClear(){
+	global string $AriUVFitTextScrollList;
+	global string $AriUVFitCanvas[];
+	global vector $AriUVFit_Min[];
+	global vector $AriUVFit_Max[];
+	textScrollList -e -ra $AriUVFitTextScrollList;
+	for($i=0;$i<size($AriUVFitCanvas);$i++){
+		if(`button -ex $AriUVFitCanvas[$i]`){
+			deleteUI $AriUVFitCanvas[$i];
+		}
+	}
+	clear $AriUVFitCanvas;
+	clear $AriUVFit_Min;
+	clear $AriUVFit_Max;
+}
+global proc AriUVFit_SelectAll(int $mode){
+	global string $AriUVFitTextScrollList;
+	int $total   = `textScrollList -q -numberOfItems $AriUVFitTextScrollList`;
+	int $selIndex[] = `textScrollList -q -sii $AriUVFitTextScrollList`;
+	textScrollList -e -da $AriUVFitTextScrollList;
+	int $j=0;
+	if($mode == 1){
+		for($i=1; $i <= $total; $i++){
+			textScrollList -e -sii $i $AriUVFitTextScrollList;
+		}
+	}
+	if($mode == 2){
+		for($i=1; $i <= $total; $i++){
+			if($i == $selIndex[$j]){
+				$j++;
+			}
+			else{
+				textScrollList -e -sii $i $AriUVFitTextScrollList;
+			}
+		}
+	}
+	AriUVFit_DrawButton(0);
+}
+global proc AriUVFitChangeValueView(int $changeTrue){
+	global int $AriUVFitValueViewMode;
+	global string $AriUVFitButton[3];
+	global string $AriUVFitIntField[3];
+	if($changeTrue){
+		$AriUVFitValueViewMode++;
+		if($AriUVFitValueViewMode >= 2) $AriUVFitValueViewMode=0;
+	}
+	string $buttonLabel = "Pixel";
+	if($AriUVFitValueViewMode==1){
+		$buttonLabel = "Pixel";
+		intField -e -en true $AriUVFitIntField[1];
+	}
+	if($AriUVFitValueViewMode==0){
+		$buttonLabel = "UV";
+		intField -e -en false $AriUVFitIntField[1];
+	}
+	button -e -l $buttonLabel $AriUVFitButton[0];
+	TextScrollDrow();
+	int $texSize     = `intField -q -v $AriUVFitIntField[1]`;
+	optionVar -intValue  "AriUVFit_Resolution"  $texSize;
+	optionVar -intValue  "AriUVFit_PixMode"     $AriUVFitValueViewMode;
+}
+global proc AriUVFit_MoveOk(int $mode){
+	global int $AriUVFitRotateReverse;
+	global string $AriUVFitMoveFloatF[4];
+	global string $AriUVFitMoveRadio[2];
+	global string $AriUVFitCheckBox[5];
+	global float $AriUVFitMoveVal;
+	global float $AriUVFitMoveFractions1;
+	global float $AriUVFitMoveFractions2;
+	global int   $AriUVFitMoveSelect;
+	
+	$AriUVFitRotateReverse = `checkBox -q -v $AriUVFitCheckBox[2]`;
+	if($mode==1 || $mode==2){
+		$AriUVFitMoveVal = `floatField -q -v $AriUVFitMoveFloatF[0]`;
+		$AriUVFitMoveFractions1 = `floatField -q -v $AriUVFitMoveFloatF[1]`;
+		$AriUVFitMoveFractions2 = `floatField -q -v $AriUVFitMoveFloatF[2]`;
+		if(`radioButton -q -sl $AriUVFitMoveRadio[0]`) $AriUVFitMoveSelect=1;
+		if(`radioButton -q -sl $AriUVFitMoveRadio[1]`) $AriUVFitMoveSelect=2;
+		optionVar -floatValue  "AriUVFit_MoveVal"        $AriUVFitMoveVal;
+		optionVar -floatValue  "AriUVFit_MoveFractions1" $AriUVFitMoveFractions1;
+		optionVar -floatValue  "AriUVFit_MoveFractions2" $AriUVFitMoveFractions2;
+		optionVar -intValue    "AriUVFit_MoveSelect"     $AriUVFitMoveSelect;
+		optionVar -intValue    "AriUVFitRotateReverse"   $AriUVFitRotateReverse;
+		if($mode==1){
+			if($AriUVFitMoveSelect==1)print ("Move "+($AriUVFitMoveVal+"  Rotate Reverse "+$AriUVFitRotateReverse+"\n"));
+			if($AriUVFitMoveSelect==2)print ("Move "+($AriUVFitMoveFractions1/$AriUVFitMoveFractions2)+"  Rotate Reverse "+$AriUVFitRotateReverse+"\n");
+		}
+	}
+	if($mode==0 || $mode==1){
+		if((`window -ex  AriUVFit_MoveWindow`)==true)deleteUI AriUVFit_MoveWindow;
+	}
+}
+global proc AriUVFit_MoveWindowSwitch(){
+	global string $AriUVFitMoveFloatF[4];
+	global string $AriUVFitMoveRadio[2];
+	global string $AriUVFitMoveColumn[2];
+	if(`radioButton -q -sl $AriUVFitMoveRadio[0]`){
+		floatField   -e -en true  $AriUVFitMoveFloatF[0];
+		columnLayout -e -en false $AriUVFitMoveColumn[0];
+	}
+	if(`radioButton -q -sl $AriUVFitMoveRadio[1]`){
+		floatField   -e -en false $AriUVFitMoveFloatF[0];
+		columnLayout -e -en true  $AriUVFitMoveColumn[0];
+	}
+	AriUVFit_MoveOk(2);
+}
+global proc AriUVFit_Move(int $mode){
+	global float $AriUVFitMoveVal;
+	global float $AriUVFitMoveFractions1;
+	global float $AriUVFitMoveFractions2;
+	global int   $AriUVFitMoveSelect;
+	float $moveVal;
+	if($AriUVFitMoveSelect==1) $moveVal = $AriUVFitMoveVal;
+	if($AriUVFitMoveSelect==2) $moveVal = $AriUVFitMoveFractions1/$AriUVFitMoveFractions2;
+	string $select[]= `ls -sl`;
+	string $alluvList[]=`polyListComponentConversion -tuv $select`;
+	if(size($alluvList) <= 0)return;
+	polySelectBorderShell 0;
+	string $shellUVList[] = `ls -sl`;
+	float $moveU = 0;
+	float $moveV = 0;
+	if($mode==0) $moveV = $moveVal;
+	if($mode==1) $moveV = -1*$moveVal;
+	if($mode==2) $moveU = -1*$moveVal;
+	if($mode==3) $moveU = $moveVal;
+	polyEditUV -u $moveU -v $moveV $shellUVList;
+	select $select;
+}
+global proc AriUVFit_Rotate(int $mode){
+	global int $AriUVFitRotateReverse;
+	if($AriUVFitRotateReverse){
+		int $work=$mode;
+		if($mode==1)$work=0;
+		if($mode==0)$work=1;
+		$mode=$work;
+	}
+	string $processedUV[];
+	string $select[]= `ls -sl`;
+	string $alluvList[]=`polyListComponentConversion -tuv $select`;
+	$alluvList = `filterExpand -selectionMask 35 $alluvList`;
+	int $i=0;
+	for($oneUV in $alluvList){
+		if(stringArrayContains($oneUV,$processedUV))continue;
+		select $oneUV;
+		polySelectBorderShell 0;
+		string $shellUVList[] = `ls -sl`;
+		$shellUVList = `filterExpand -selectionMask 35 $shellUVList`;
+		$processedUV = stringArrayCatenate($processedUV, $shellUVList);
+		float $minmax[] = AriUVEditor_MinMax($shellUVList);
+		float $disU = $minmax[2]-$minmax[0];
+		float $disV = $minmax[3]-$minmax[1];
+		float $centerU = $minmax[0]+($disU / 2);
+		float $centerV = $minmax[1]+($disV / 2);
+		float $scaleU = 1;
+		float $scaleV = 1;
+		float $rot = 0;
+		if($mode==0){
+			$rot = 90;
+		}
+		if($mode==1){
+			$rot = -90;
+		}
+		if($mode==90){
+			int $rand = `rand -1 3`;
+			$rot = 90*$rand;
+		}
+		if($mode==180){
+			int $rand = `rand 2`;
+			$rot = 180*$rand;
+		}
+		if($rot == -90 || $rot == 90){
+			$scaleU = $disV/$disU;
+			$scaleV = $disU/$disV;
+		}
+		if($mode==2){
+			$scaleU = -1;
+			$scaleV = 1;
+		}
+		if($mode==3){
+			$scaleU = 1;
+			$scaleV = -1;
+		}
+		if($mode==-2){
+			int $rand = `rand 2`;
+			if($rand==0)$scaleU = -1;
+			if($rand==1)$scaleU = 1;
+			$scaleV = 1;
+		}
+		if($mode==-3){
+			int $rand = `rand 2`;
+			if($rand==0)$scaleV = -1;
+			if($rand==1)$scaleV = 1;
+			$scaleU = 1;
+		}
+		polyEditUV -pu $centerU -pv $centerV -su $scaleU -sv $scaleV -angle $rot $shellUVList;
+		$i++;
+	}
+	select $select;
+}
+global proc AriUVFit_SavePlane(){
+	global string $AriUVFitTextScrollList;
+	
+	int $selectIndexs[] = `textScrollList -q -sii $AriUVFitTextScrollList`;
+	if(size($selectIndexs)==0)return;
+	$selectIndex = $selectIndexs[0];
+	
+	$selectIndexs = `textScrollList -q -sii $AriUVFitTextScrollList`;
+	if(size($selectIndexs)==0)return;
+	
+	string $planeList[];
+	for($i=0; $i<size($selectIndexs); $i++){
+		string $savePlane[] = `polyPlane -w 1 -h 1 -sx 1 -sy 1 -ax 0 1 0 -cuv 2 -ch 1 -n "UVFitSavePlaneWork"`;
+		string $faceList[]=`polyListComponentConversion -tf $savePlane`;
+		$faceList = `filterExpand -selectionMask 34 $faceList`;
+		select $faceList;
+		int $index = $selectIndexs[$i];
+		AriUVFit_FitGo($index);
+		string $uvList[] = `polyListComponentConversion -tuv $savePlane`;
+		$uvList = `filterExpand -selectionMask 35 $uvList`;
+		for($uv in $uvList){
+			float $pos[] =`polyEditUV -q $uv`;
+			string $verList[] = `polyListComponentConversion -tv $uv`;
+			$verList = `filterExpand -selectionMask 31 $verList`;
+			move $pos[0] 0 ($pos[1]*-1) $verList[0];
+		}
+		$planeList[$i] = $savePlane[0];
+	}
+	string $unitePlane[];
+	if(size($planeList)!=1){
+		$unitePlane = `polyUnite -ch 0  $planeList`;
+	}
+	else{
+		$unitePlane[0] = $planeList[0];
+	}
+	string $renameObj = `rename $unitePlane[0] "AriUVFitSavePlane"`;
+	delete -ch $renameObj;
+	select $renameObj;
+}
+global proc AriUVFit_MoveWindow(){
+	global int $AriUVFitRotateReverse;
+	global string $AriUVFitMoveFloatF[4];
+	global string $AriUVFitMoveRadio[2];
+	global string $AriUVFitMoveColumn[2];
+	global string $AriUVFitCheckBox[5];
+	global float $AriUVFitMoveVal;
+	global float $AriUVFitMoveFractions1;
+	global float $AriUVFitMoveFractions2;
+	global int   $AriUVFitMoveSelect;
+	
+	if((`window -ex  AriUVFit_MoveWindow`)==true)deleteUI AriUVFit_MoveWindow;
+	window -tlb 1 -title "AriUVFit_Setting"  -w 200 -h 120  AriUVFit_MoveWindow;
+	columnLayout;
+	text -l "Move UV";
+	$AriUVFitRadioCol = `radioCollection`;
+	rowLayout -nc 2;
+	rowLayout -nc 2;
+	$AriUVFitMoveRadio[0]  = `radioButton -l "" -cc "AriUVFit_MoveWindowSwitch()"`;
+	$AriUVFitMoveFloatF[0] = `floatField -v $AriUVFitMoveVal -cc "AriUVFit_MoveOk(2)"`;
+	setParent..;
+	rowLayout -nc 3;
+	$AriUVFitMoveRadio[1]  = `radioButton -l "" -cc "AriUVFit_MoveWindowSwitch()"`;
+	$AriUVFitMoveColumn[0] = `columnLayout`;
+	$AriUVFitMoveFloatF[1] = `floatField -v $AriUVFitMoveFractions1 -cc "AriUVFit_MoveOk(2)"`;
+	separator -w 60;
+	$AriUVFitMoveFloatF[2] = `floatField -v $AriUVFitMoveFractions2 -cc "AriUVFit_MoveOk(2)"`;
+	setParent..;
+	setParent..;
+	setParent..;
+	separator -h 10 -w 160 -st "in";
+	$AriUVFitCheckBox[2] = `checkBox -l "Reverse Rotation" -v $AriUVFitRotateReverse -cc "AriUVFit_MoveOk(2)"`;
+	separator -h 10 -w 160 -st "in";
+	rowLayout -nc 2;
+	button -w 80 -l "OK"     -c "AriUVFit_MoveOk(1)";
+	button -w 80 -l "Cancel" -c "AriUVFit_MoveOk(0)";
+	setParent..;
+	showWindow;
+	if($AriUVFitMoveSelect==1)radioButton -e -sl $AriUVFitMoveRadio[0];
+	if($AriUVFitMoveSelect==2)radioButton -e -sl $AriUVFitMoveRadio[1];
+	AriUVFit_MoveWindowSwitch();
+}
+global proc AriUVFit(){
+	global string $AriUVFitTextScrollList;
+	global string $AriUVFitCanvas[];
+	global string $AriUVFitTextCanBG[10];
+	global string $AriUVFitTextFormLayout;
+	global string $AriUVFitFloatField_a[10];
+	global string $AriUVFitFloatField_b[6];
+	global string $AriUVFitRadioButtonGrp;
+	global string $AriUVFitCheckBox[5];
+	global string $AriUVFitIconTextCheckBox;
+	global string $AriUVFitPaneLay;
+	global string $AriUVFitIntField[3];
+	global string $AriUVFitButton[3];
+	global string $AriUVFitProgressBar;
+	global int $AriUVFitValueViewMode;
+	global float $AriUVFitMoveVal;
+	global float $AriUVFitMoveFractions1;
+	global float $AriUVFitMoveFractions2;
+	global int   $AriUVFitMoveSelect;
+	global int   $AriUVFitRotateReverse;
+	$AriUVFitMoveVal = 1;
+	$AriUVFitMoveFractions1 = 1;
+	$AriUVFitMoveFractions2 = 4;
+	$AriUVFitMoveSelect = 2;
+	int $imageTrue=false;
+	float $offsetU = 0;
+	float $offsetV = 0;
+	int   $scaleFitUV = 1;
+	int   $evenlyScale = true;
+	int   $resolution = 1024;
+	int   $pixMode = true;
+	int   $optionClose = true;
+	int   $paneSize = 60;
+	if(`optionVar -exists "AriUVFit_ImageTrue"`)   $imageTrue = `optionVar -q "AriUVFit_ImageTrue"`;
+	if(`optionVar -exists "AriUVFit_OffsetU"`)     $offsetU   = `optionVar -q "AriUVFit_OffsetU"`;
+	if(`optionVar -exists "AriUVFit_OffsetV"`)     $offsetV   = `optionVar -q "AriUVFit_OffsetV"`;
+	if(`optionVar -exists "AriUVFit_ScaleFitUVRadio"`)  $scaleFitUV  = `optionVar -q "AriUVFit_ScaleFitUVRadio"`;
+	if(`optionVar -exists "AriUVFit_EvenlyScaleCheck"`) $evenlyScale = `optionVar -q "AriUVFit_EvenlyScaleCheck"`;
+	if(`optionVar -exists "AriUVFit_optionClose"`)  $optionClose = `optionVar -q "AriUVFit_optionClose"`;
+	if(`optionVar -exists "AriUVFit_paneSize"`)  $paneSize = `optionVar -q "AriUVFit_paneSize"`;
+	if(`optionVar -exists "AriUVFit_Resolution"`)     $resolution     = `optionVar -q "AriUVFit_Resolution"`;
+	if(`optionVar -exists "AriUVFit_PixMode"`)        $pixMode        = `optionVar -q "AriUVFit_PixMode"`;	
+	if(`optionVar -exists "AriUVFit_MoveVal"`)        $AriUVFitMoveVal        = `optionVar -q "AriUVFit_MoveVal"`;
+	if(`optionVar -exists "AriUVFit_MoveFractions1"`) $AriUVFitMoveFractions1 = `optionVar -q "AriUVFit_MoveFractions1"`;
+	if(`optionVar -exists "AriUVFit_MoveFractions2"`) $AriUVFitMoveFractions2 = `optionVar -q "AriUVFit_MoveFractions2"`;
+	if(`optionVar -exists "AriUVFit_MoveSelect"`)     $AriUVFitMoveSelect     = `optionVar -q "AriUVFit_MoveSelect"`;
+	if(`optionVar -exists "AriUVFitRotateReverse"`)   $AriUVFitRotateReverse = `optionVar -q "AriUVFitRotateReverse"`;
+	$AriUVFitValueViewMode = $pixMode;
+	if((`window -ex  AriUVFit`)==true)deleteUI AriUVFit;
+	window -tlb 1 -title "AriUVFit"  -w 200 -h 120  AriUVFit;
+	string $form = `formLayout`;
+	$AriUVFitPaneLay = `paneLayout -cn "horizontal2" -paneSize 1 100 $paneSize `;
+	string $form2 = `formLayout`;
+	string $scrollLay = `scrollLayout `;
+	$AriUVFitTextFormLayout =`formLayout`;
+	$AriUVFitTextCanBG[0] = `canvas -w 100 -h 100 -bgc 0.3 0.3 0.3`;
+	$AriUVFitTextCanBG[1] = `canvas -w 100 -h 100 -bgc 0.3 0.3 0.3`;
+	$AriUVFitTextCanBG[2] = `canvas -w 100 -h 100 -bgc 0.25 0.25 0.25`;
+	$AriUVFitTextCanBG[3] = `canvas -w 100 -h 100 -bgc 0.25 0.25 0.25`;
+	$AriUVFitTextCanBG[4] = `iconTextButton -po false  -w 200 -h 200 -style "iconOnly" -vis false `;
+	setParent..;
+	setParent..;
+	setParent..;
+	formLayout -e 
+	-ac $AriUVFitTextCanBG[1] "top" 0 $AriUVFitTextCanBG[0]
+	-ac $AriUVFitTextCanBG[1] "left" 0 $AriUVFitTextCanBG[0]
+	-ac $AriUVFitTextCanBG[2] "top" 0 $AriUVFitTextCanBG[0]
+	-ac $AriUVFitTextCanBG[3] "left" 0 $AriUVFitTextCanBG[0]
+	$AriUVFitTextFormLayout;
+	formLayout -e 
+	-af $scrollLay "top" 0
+	-af $scrollLay "left" 0
+	-af $scrollLay "right" 0
+	-af $scrollLay "bottom" 0
+	$form2;
+	string $form3 = `formLayout`;
+	$AriUVFitTextScrollList = `textScrollList -w 200 -ams true -selectCommand "AriUVFit_DrawButton(0)" -dcc "AriUVFit_FitGo(0)"`;
+	        popupMenu -button 3;
+			menuItem -l "Select All" -c "AriUVFit_SelectAll(1)";
+			menuItem -l "Select Inverse" -c "AriUVFit_SelectAll(2)";
+			menuItem -l "------------" ;
+			menuItem -l "Random" -c "AriUVFit_FitGo(-1)";
+			menuItem -l "------------" ;
+			menuItem -l "Save Plane" -c "AriUVFit_SavePlane()";
+	string $button1 = `button -h 28 -l "Zoom out" -c "AriUVFit_SizeChange(0)"`;
+	string $button2 = `button -h 28 -l "Zoom in" -c "AriUVFit_SizeChange(1)"`;
+	$AriUVFitIconTextCheckBox = `iconTextCheckBox -v true -h 28 -style "iconOnly" -image1 "out_checker.png" -cc "AriUVFit_DrawButton(1)"`;
+	$AriUVFitCheckBox[1]  = `checkBox -w 20 -v $imageTrue -l "" -cc "AriUVFit_getImage()"`;
+	$AriUVFitIntField[0] = `intField -ed false -v 200`;
+	setParent..;
+	formLayout -e 
+	-af $button1 "top" 0
+	-af $button1 "left"   40
+	-ap $button1 "right"  0 50
+	-af  $AriUVFitCheckBox[1] "top" 0
+	-af  $AriUVFitCheckBox[1] "right" 0
+	-aoc $AriUVFitCheckBox[1] "bottom" 0 $button1
+	-af $button2 "top" 0
+	-af $button2 "right" 50
+	-ac $button2 "left" 0 $button1
+	-af $AriUVFitIconTextCheckBox "top" 0
+	-ac $AriUVFitIconTextCheckBox "right" 0 $AriUVFitCheckBox[1]
+	-ac $AriUVFitIconTextCheckBox "left" 0 $button2
+	-af $AriUVFitTextScrollList "bottom" 0
+	-af $AriUVFitTextScrollList "left" 0 
+	-af $AriUVFitTextScrollList "right" 0
+	-ac $AriUVFitTextScrollList "top" 0  $button1
+	-af $AriUVFitIntField[0] "top" 0
+	-af $AriUVFitIntField[0] "left"   0
+	-ac $AriUVFitIntField[0] "right"  0 $button1
+	$form3;
+	setParent..;
+	string $column1=`columnLayout -adj true`;
+	string $form6 = `formLayout -vis 0`;
+	$AriUVFitFloatField_b[4] = `floatField -pre 6 -w 20`;
+	$AriUVFitFloatField_b[5] = `floatField -pre 6 -w 20`;
+	setParent..;
+	formLayout -e 
+	-af $AriUVFitFloatField_b[4] "top" 0
+	-af $AriUVFitFloatField_b[4] "left"   0
+	-ap $AriUVFitFloatField_b[4] "right"  0 25
+	-af $AriUVFitFloatField_b[5] "top" 0
+	-ac $AriUVFitFloatField_b[5] "left" 0 $AriUVFitFloatField_b[4]
+	-ap $AriUVFitFloatField_b[5] "right"  0 50
+	$form6;
+	string $form5 = `formLayout -vis 0`;
+	$AriUVFitFloatField_b[0] = `floatField -pre 6 -w 20`;
+	$AriUVFitFloatField_b[1] = `floatField -pre 6 -w 20`;
+	$AriUVFitFloatField_b[2] = `floatField -pre 6 -w 20`;
+	$AriUVFitFloatField_b[3] = `floatField -pre 6 -w 20`;
+	setParent..;
+	formLayout -e 
+	-af $AriUVFitFloatField_b[0] "top" 0
+	-af $AriUVFitFloatField_b[0] "left"   0
+	-ap $AriUVFitFloatField_b[0] "right"  0 25
+	-af $AriUVFitFloatField_b[1] "top" 0
+	-ac $AriUVFitFloatField_b[1] "left" 0 $AriUVFitFloatField_b[0]
+	-ap $AriUVFitFloatField_b[1] "right"  0 50
+	-af $AriUVFitFloatField_b[2] "top" 0
+	-ac $AriUVFitFloatField_b[2] "left" 0 $AriUVFitFloatField_b[1]
+	-ap $AriUVFitFloatField_b[2] "right"  0 75
+	-af $AriUVFitFloatField_b[3] "top" 0
+	-ac $AriUVFitFloatField_b[3] "left" 0 $AriUVFitFloatField_b[2]
+	-af $AriUVFitFloatField_b[3] "right" 0
+	$form5;
+	string $form4 = `formLayout`;
+	string $button5 = `button -w 98 -l "Add" -bgc 0.5 1 0.5  -c "AriUVFit_Get()"`;
+	string $button6 = `button -w 98 -l "Clear" -c "AriUVFit_Clear()"`;
+	        popupMenu -button 3;
+            menuItem -l "All Clear" -c "AriUVFit_AllClear()";
+	setParent..;
+	formLayout -e 
+	-af $button5 "top" 0
+	-af $button5 "left"   0
+	-ap $button5 "right"  0 50
+	-af $button6 "top" 0
+	-ac $button6 "left" 0 $button5
+	-af $button6 "right" 0
+	$form4;
+	frameLayout -l "Option" -cll true -cl $optionClose -cc "optionVar -intValue \"AriUVFit_optionClose\" 1" -ec "optionVar -intValue \"AriUVFit_optionClose\" 0";
+	rowLayout -nc 3 ;
+	columnLayout;
+	rowLayout -nc 3;
+	text -l "Offset";
+	$AriUVFitFloatField_a[0] = `floatField -w 50 -v $offsetU`;
+	$AriUVFitFloatField_a[1] = `floatField -w 50 -v $offsetV`;
+	setParent..;
+	$AriUVFitRadioButtonGrp = `radioButtonGrp -numberOfRadioButtons 3 -cw3 46 30 30 -sl $scaleFitUV -labelArray3 "UV" "U" "V"`;
+	$AriUVFitCheckBox[0]  = `checkBox -v $evenlyScale -l "Equal Scale"`;
+	rowLayout -nc 2;
+	$AriUVFitIntField[1] = `intField -w 42 -v $resolution -cc "AriUVFitChangeValueView(0)"`;
+	$AriUVFitButton[0]   = `button  -w 60 -l "UV"  -c "AriUVFitChangeValueView(1)"`;
+	setParent..;
+	setParent..;
+	separator -hr false -h 60;
+	string $buttonForm = `formLayout`;
+	string $formChild[];
+	int $iconSize = 22;
+	$formChild[0] = `iconTextButton -w $iconSize -h $iconSize  -i "rotateUVccw.png" -c "AriUVFit_Rotate(0)"`;
+		popupMenu -button 3;
+			menuItem -l "Random 90" -c "AriUVFit_Rotate(90)";
+			menuItem -l "Random 180" -c "AriUVFit_Rotate(180)";
+	$formChild[1] = `iconTextButton -w $iconSize -h $iconSize  -i "rotateUVcw.png"  -c "AriUVFit_Rotate(1)"`;
+		popupMenu -button 3;
+			menuItem -l "Random 90" -c "AriUVFit_Rotate(90)";
+			menuItem -l "Random 180" -c "AriUVFit_Rotate(180)";
+	$formChild[2] = `iconTextButton -w $iconSize -h $iconSize  -i "nudgeUp.png"     -c "AriUVFit_Move(0)"`;
+	$formChild[3] = `iconTextButton -w $iconSize -h $iconSize  -i "nudgeDown.png"   -c "AriUVFit_Move(1)"`;
+	$formChild[4] = `iconTextButton -w $iconSize -h $iconSize  -i "nudgeLeft.png"   -c "AriUVFit_Move(2)"`;
+	$formChild[5] = `iconTextButton -w $iconSize -h $iconSize  -i "nudgeRight.png"  -c "AriUVFit_Move(3)"`;
+	$formChild[6] = `iconTextButton -w $iconSize -h $iconSize  -i "flipU.png"       -c "AriUVFit_Rotate(2)"`;
+			popupMenu -button 3;
+			menuItem -l "Random" -c "AriUVFit_Rotate(-2)";
+	$formChild[7] = `iconTextButton -w $iconSize -h $iconSize  -i "flipV.png"       -c "AriUVFit_Rotate(3)"`;
+			popupMenu -button 3;
+			menuItem -l "Random" -c "AriUVFit_Rotate(-3)";
+	$formChild[8] = `button   -w ($iconSize-2) -h ($iconSize-2)  -l ""              -c "AriUVFit_MoveWindow()"`;
+	setParent..;
+	setParent..;
+	setParent..;
+	$AriUVFitProgressBar = `progressBar`;
+	setParent..;
+	formLayout -e
+	-af $formChild[0] "top"  0
+	-af $formChild[0] "left" 0
+	-af $formChild[2] "top"  0
+	-ac $formChild[2] "left" 0 $formChild[0]
+	-af $formChild[1] "top"  0
+	-ac $formChild[1] "left" 0 $formChild[2]
+	-ac $formChild[4] "top"  0 $formChild[0]
+	-af $formChild[4] "left" 0
+	-ac $formChild[5] "top"  0 $formChild[2]
+	-ac $formChild[5] "left" 0 $formChild[2]
+	-ac $formChild[6] "top"  0 $formChild[4]
+	-af $formChild[6] "left" 0
+	-ac $formChild[3] "top"  0 $formChild[4]
+	-ac $formChild[3] "left" 0 $formChild[4]
+	-ac $formChild[7] "top"  0 $formChild[5]
+	-ac $formChild[7] "left" 0 $formChild[3]
+	-ac $formChild[8] "top"  0 $formChild[0]
+	-ac $formChild[8] "left" 0 $formChild[0]
+	$buttonForm;
+	formLayout -e 
+	-af $column1 "bottom" 0
+	-af $column1 "left" 0
+	-af $column1 "right" 0
+	-af $AriUVFitPaneLay "top" 0
+	-af $AriUVFitPaneLay "left" 0
+	-af $AriUVFitPaneLay "right" 0
+	-ac $AriUVFitPaneLay "bottom" 0 $column1
+	$form;
+	showWindow;
+	AriUVFitChangeValueView(0);
+	AriUVFit_getImage();
+	AriUVFit_AllClear();
+}

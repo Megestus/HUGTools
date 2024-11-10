@@ -1,0 +1,1765 @@
+//--------------------------------------------------------------------------
+//
+// ScriptName : AriPolygonCounter
+// Contents   : 多角形ポリゴンやラミナフェース、折り目、ハードエッジなどを検索します。
+// Author     : Ari
+// URL        : cgjishu.net
+// Since      : 2014/06
+// LastUpdate : 2019/03/31 平面ハードエッジ検出機能追加。
+//                         警告カスタマイズ等UI調整。
+//            : 2016/06/12 更新ボタンを追加等、全体的に見直し。
+//            : 2016/06/15 UI微修正
+// Help       : http://cgjishu.net/blog-entry-13.html
+//
+//--------------------------------------------------------------------------
+
+
+
+
+proc int[] AriNumber10to3(int $number){
+	int $boolList[];
+	int $val = $number;
+	for($i=0; $i<15; $i++){
+		$wari = $val/3;
+		$boolList[$i]=$val%3;
+		$val = $wari;
+	}
+	return $boolList;	
+}
+proc int[] AriNumber10to2(int $number){
+	int $boolList[];
+	int $val = $number;
+	for($i=0; $i<20; $i++){
+		$wari = $val/2;
+		$boolList[$i]=$val%2;
+		$val = $wari;
+	}
+	return $boolList;	
+}
+proc int AriNumber3to10(int $boolList[]){
+	int $number;
+	int $baisu=1;
+	for($i=0;$i<size($boolList);$i++){
+		$number += $baisu*$boolList[$i];
+		$baisu = $baisu * 3;
+	}
+	return $number;	
+}
+proc int AriNumber2to10(int $boolList[]){
+	int $number;
+	int $baisu=1;
+	for($i=0;$i<size($boolList);$i++){
+		$number += $baisu*$boolList[$i];
+		$baisu = $baisu * 2;
+	}
+	return $number;	
+}
+proc AriPCounter_valSave(){
+	global int $AriPCounter_ErrorColorNum[];
+	int $errorList1[];
+	int $errorList2[];
+	for($i=0; $i<10; $i++){
+		$errorList1[$i] = $AriPCounter_ErrorColorNum[$i];
+		$errorList2[$i] = $AriPCounter_ErrorColorNum[$i+10];
+	}
+	int $error1 = AriNumber3to10($errorList1);
+	int $error2 = AriNumber3to10($errorList2);
+	optionVar -intValue "AriPolygonCounter_error1" $error1;
+	optionVar -intValue "AriPolygonCounter_error2" $error2;
+	global string $AriPCounterCountCBox[5];
+	int $countTrueList[];
+	for($i=0; $i<3; $i++){
+		$countTrueList[$i] = `checkBox -q -v $AriPCounterCountCBox[$i]`;
+	}
+	int $countTrue = AriNumber2to10($countTrueList);
+	optionVar -intValue "AriPolygonCounter_countTrue" $countTrue;
+	global string $AriPCounter_UI_ThresholdF[];
+	float $wideAngle  = `floatField -q -v $AriPCounter_UI_ThresholdF[5]`;
+	float $planarFace = `floatField -q -v $AriPCounter_UI_ThresholdF[6]`;
+	float $planarEdge = `floatField -q -v $AriPCounter_UI_ThresholdF[20]`;
+	optionVar -intValue "AriPolygonCounter_wideAngle"  $wideAngle;
+	optionVar -intValue "AriPolygonCounter_planarFace" $planarFace;
+	optionVar -intValue "AriPolygonCounter_planarEdge" $planarEdge;
+}
+proc colorValLoad(){
+	global int $AriPCounter_ErrorColorNum[];
+	int $error1;
+	int $error2;
+	if(`optionVar -ex "AriPolygonCounter_error1"`)$error1 = `optionVar -q "AriPolygonCounter_error1"`;
+	if(`optionVar -ex "AriPolygonCounter_error2"`)$error2 = `optionVar -q "AriPolygonCounter_error2"`;
+	int $errorList1[] = AriNumber10to3($error1);
+	int $errorList2[] = AriNumber10to3($error2);
+	$AriPCounter_ErrorColorNum = {0,1,0,2,1,1,1,0,0,2,2,2,0,0,0,0,0,0,0,0,1,0};
+	if(`optionVar -ex "AriPolygonCounter_error1"`){
+		for($i=0; $i<10; $i++){
+			$AriPCounter_ErrorColorNum[$i]    = $errorList1[$i];
+			$AriPCounter_ErrorColorNum[$i+10] = $errorList2[$i];
+		}
+	}
+}
+proc vector tyokusenTen (vector $a1,vector $a2,vector $b1)
+{
+	vector $a3,$c1;
+	float $t;
+	vector $A,$B;
+	$a3=<< $a2.x-$a1.x , $a2.y-$a1.y , $a2.z-$a1.z>>;
+	$t= (-1*($a1.x-$b1.x)*$a3.x - ($a1.y-$b1.y)*$a3.y - ($a1.z-$b1.z)*$a3.z ) / ($a3.x*$a3.x + $a3.y*$a3.y + $a3.z*$a3.z);
+	$c1=<<($a3.x*$t+$a1.x),($a3.y*$t+$a1.y),($a3.z*$t+$a1.z)>>;
+	return $c1;
+}
+proc float edgeAngle(string $edge){
+	string $toVertex[] = `polyListComponentConversion -tv $edge`;
+	$toVertex = `filterExpand -selectionMask 31 $toVertex`;
+	string $toFace[] = `polyListComponentConversion -tf $edge`;
+	$toFace = `filterExpand -selectionMask 34 $toFace`;
+	if(size($toFace)!=2){
+		return 0;
+	}
+	vector $edgeVerPos0 = `pointPosition -l ($toVertex[0])`;
+	vector $edgeVerPos1 = `pointPosition -l ($toVertex[1])`;
+	string $faceVer0[] = `polyListComponentConversion -tv $toFace[0]`;
+	$faceVer0 = `filterExpand -selectionMask 31 $faceVer0`;
+	string $faceVer1[] = `polyListComponentConversion -tv $toFace[1]`;
+	$faceVer1 = `filterExpand -selectionMask 31 $faceVer1`;
+	string $vertex0[];
+	string $vertex1[];
+	int $i=0;
+	for($ver0 in $faceVer0){
+		if(!stringArrayContains($ver0,$toVertex)){
+			$faceVer0[$i] = $ver0;
+			$i++;
+		}
+	}
+	$i=0;
+	for($ver1 in $faceVer1){
+		if(!stringArrayContains($ver1,$toVertex)){
+			$faceVer1[$i] = $ver1;
+			$i++;
+		}
+	}	
+	vector $posC;
+	if(size($faceVer0)==2){
+		vector $pos0 = `pointPosition -l ($faceVer0[0])`;
+		vector $pos1 = `pointPosition -l ($faceVer0[1])`;
+		$posC = ($pos0-$pos1)/2.0;
+	}
+	else{
+		$posC = `pointPosition -l ($faceVer0[0])`;
+	}
+	vector $posD;
+	if(size($faceVer1)==2){
+		vector $pos0 = `pointPosition -l ($faceVer1[0])`;
+		vector $pos1 = `pointPosition -l ($faceVer1[1])`;
+		$posD = ($pos0-$pos1)/2.0;
+	}
+	else{
+		$posD = `pointPosition -l ($faceVer1[0])`;
+	}
+	vector $posA = tyokusenTen ($edgeVerPos0, $edgeVerPos1, $posC);
+	vector $posB = tyokusenTen ($edgeVerPos0, $edgeVerPos1, $posD);
+	float $angleRad;
+	$angleRad = `angle ($posC-$posA) ($posD-$posB)`;
+	float $angle = rad_to_deg($angleRad);
+	$angle = 180-$angle;
+	return $angle;
+}
+proc AriPolygonCounterIsCancelled(int $mode){
+	global string $AriPCounter_progressBar;
+	global string $gMainProgressBar;
+	global string $AriPCounterCountStartBtn;
+	global string $AriPCounterInfo;
+	global int $AriPCounter_jpTrue;
+	string $label_stop = "Stop";
+	string $label_stopMessage = "Stop";
+	if($AriPCounter_jpTrue){
+		$label_stop = "中断";
+		$label_stopMessage = "中断しました";
+	}
+	progressBar -edit -endProgress $gMainProgressBar;
+	textField -e -text $label_stop -bgc 1 0 0 $AriPCounterInfo;
+	/*
+	confirmDialog -title "Confirm" -message $label_stopMessage
+		 -button "Yes" -defaultButton "Yes"
+		 -cancelButton "No" -dismissString "No";
+	*/
+	waitCursor -state off;
+	progressBar -edit -endProgress $gMainProgressBar;
+	progressBar -e -pr 0 $gMainProgressBar;
+	progressBar -e -pr 0 $AriPCounter_progressBar;	
+	button  -en true -e  $AriPCounterCountStartBtn;
+}
+proc int changeButtonColor(int $buttoNum){
+	global int $AriPCounter_ErrorColorNum[];
+	global vector $AriPCounter_ErrorColorVal[];
+	global string $AriPCounterSignal[];
+	int $num = $AriPCounter_ErrorColorNum[$buttoNum];
+	vector $color = $AriPCounter_ErrorColorVal[$num];
+	button -e  -bgc ($color.x) ($color.y) ($color.z)  $AriPCounterSignal[$buttoNum];
+	return $num;
+}
+global proc int AriPolygonCounterGetFace(int $mode){
+	global string $AriPCounterSelObjects[];
+	global string $AriPCounterSignal[];	
+	global string $AriPCounterTotalTxL[];
+	global string $AriPCounterTotalTxR[];
+	global string $AriPCounterLabelTxA[];
+	global string $AriPCounter_UI_AllSelectBtn[];
+	global string $AriPCounter_UI_OneSelectBtn[];
+	global string $AriPCounterCountCBox[5];
+	global string $AriPCounterActiveCheckUI[5];
+	global string $AriPCounter_UI_compoButton[];
+	global string $AriPCounter_UI_ThresholdF[];
+	global string $AriPCounter_PolyID_1[];
+	global string $AriPCounter_PolyID_2[];
+	global string $AriPCounter_PolyID_3[];
+	global string $AriPCounter_PolyID_4[];
+	global string $AriPCounter_PolyID_5[];
+	global string $AriPCounter_PolyID_6[];
+	global string $AriPCounter_progressBar;
+	global string $gMainProgressBar;
+	global string $AriPCounterInfo;
+	global int $AriPCounter_ErrorColorNum[];
+	global vector $AriPCounter_ErrorColorVal[];
+	global int $AriPCounter_jpTrue;
+	clear $AriPCounter_PolyID_1;
+	clear $AriPCounter_PolyID_2;
+	clear $AriPCounter_PolyID_3;
+	clear $AriPCounter_PolyID_4;
+	clear $AriPCounter_PolyID_5;
+	clear $AriPCounter_PolyID_6;
+	string $label_faceCount = "Face Count ";
+	string $label_faceEnd   = "Face End";
+	string $label_faceAuto  = "Face Auto";
+	string $lable_irregularFace = "Irregular Face";
+	string $label_stop = "Stop";
+	if($AriPCounter_jpTrue){
+		$label_faceCount = "フェースカウント中";
+		$label_faceEnd   = "フェースカウント終了";
+		$label_faceAuto  = "フェース自動更新";
+		$lable_irregularFace = "異形四角形カウント中";
+		$label_stop = "中断";
+	}
+	textField -e -text "フェースカウント中" -bgc 0.3 0.3 0.3 $AriPCounterInfo;
+	progressBar -edit -beginProgress -isInterruptable true -status "..." -maxValue 100 $gMainProgressBar;
+	waitCursor -state on;
+	string $selectObj[];
+	$selectObj = `ls -sl`;
+	if(size($selectObj)==0){
+		$selectObj = `ls -type mesh`;
+	}
+	if($mode==2)$selectObj = $AriPCounterSelObjects;
+	string $faces[] = `polyListComponentConversion -toFace $selectObj`;
+	$faceList = `filterExpand -selectionMask 34 $faces`;
+	textField -e -text (size($faceList)) $AriPCounterTotalTxR[0];
+	$AriPCounter_PolyID_16=$faceList;
+	textField -e -text (size($AriPCounter_PolyID_16)) $AriPCounterTotalTxL[16];
+	progressBar -e -pr 0 $gMainProgressBar;
+	int $totalPoly;
+	int $countTriangle;
+	int $countSquare;
+	int $countSquare2;
+	int $countPentagon;
+	int $countPentagon2;
+	int $progressTotal=size($faceList);
+	int $loopCounter=0;
+	int $progressCounter=0;
+	print $label_faceCount;
+	string $message = $label_faceCount;
+	if($mode==2)$message = "フェース変更検出 自動更新中";
+	string $face;
+	string $infoVeltexList[];
+	float $startTime = `timerX`;
+	for($face in $faceList)
+	{
+		/*
+		string $verList[] = `polyListComponentConversion -tv $face`;
+		$verList = `filterExpand -selectionMask 31 $verList`;
+		if(size($verList) == 3){
+			$AriPCounter_PolyID_1[$countTriangle]=$face;
+			$countTriangle++;
+		}
+		if(size($verList) == 4){
+			$AriPCounter_PolyID_2[$countSquare]=$face;
+			$countSquare++;
+			$countSquare2=$countSquare2+size($verList);
+		}
+		if(size($verList) >= 5){
+			$AriPCounter_PolyID_3[$countPentagon]=$face;
+			$countPentagon++;
+			$countPentagon2=$countPentagon2+size($verList);
+		}
+		$totalPoly=$totalPoly+size($verList);
+		*/
+		string $list[];
+		string $infoVeltex[] = `polyInfo -fv $face`;
+		tokenizeList($infoVeltex[0], $list);
+		if(size($list) == 5){
+			$AriPCounter_PolyID_1[$countTriangle]=$face;
+			$countTriangle++;
+		}
+		if(size($list) == 6){
+			$AriPCounter_PolyID_2[$countSquare]=$face;
+			$infoVeltexList[$countSquare] = $infoVeltex[0];
+			$countSquare++;
+			$countSquare2=$countSquare2+size($list)-4;
+		}
+		if(size($list) >= 7){
+			$AriPCounter_PolyID_3[$countPentagon]=$face;
+			$countPentagon++;
+			$countPentagon2=$countPentagon2+size($list)-4;
+		}
+		$totalPoly=$totalPoly+size($list)-4;
+		$loopCounter++;
+		if($loopCounter>=500){
+			textField -e -text ($totalPoly)      $AriPCounterTotalTxL[0];
+			textField -e -text ($countTriangle)  $AriPCounterTotalTxL[1];
+			textField -e -text ($countSquare)    $AriPCounterTotalTxL[2];
+			textField -e -text ($countSquare2)   $AriPCounterTotalTxR[2];
+			textField -e -text ($countPentagon)  $AriPCounterTotalTxL[3];
+			textField -e -text ($countPentagon2) $AriPCounterTotalTxR[3];	
+			$loopCounter=0;
+			if(`progressBar -q -ic $gMainProgressBar`){
+				print("フェース中断\n");
+				AriPolygonCounterIsCancelled(1);
+				return 0;
+			}
+		}
+		int $progressValue = ($progressCounter*1.0) / $progressTotal * 100;
+		progressBar -e -pr $progressValue $gMainProgressBar;
+		progressBar -e -pr $progressValue $AriPCounter_progressBar;
+		textField -e -text ($message+" "+$progressCounter+"/"+$progressTotal) $AriPCounterInfo;
+		$progressCounter++;
+	}
+	/*
+	コンストレインでカウント
+	string $selects[];
+	string $faceList2[];
+	string $selectPoly[] = `polyListComponentConversion -tf $selectObj`;
+	$selectPoly = `filterExpand -selectionMask 34 $selectPoly`;
+	polySelectConstraint -m 0 -sz 0;
+	select $selectPoly;
+	polySelectConstraint -m 2 -sz 1;
+	$selects  = `ls -sl`;
+	$faceList2 = `polyListComponentConversion -tf $selects`;
+	$faceList2 = `filterExpand -selectionMask 34 $faceList2`;
+	$AriPCounter_PolyID_1 = $faceList2;
+	$countTriangle = size($faceList2);
+	print ($countTriangle+"\n");
+	polySelectConstraint -m 0 -sz 0;
+	select $selectPoly;
+	polySelectConstraint -m 2 -sz 2;
+	$selects  = `ls -sl`;
+	$faceList2 = `polyListComponentConversion -tf $selects`;
+	$faceList2 = `filterExpand -selectionMask 34 $faceList2`;
+	$AriPCounter_PolyID_2 = $faceList2;
+	$countSquare = size($faceList2);
+	print ($countSquare+"\n");
+	polySelectConstraint -m 0 -sz 0;
+	select $selectPoly;
+	polySelectConstraint -m 2 -sz 3;
+	$selects  = `ls -sl`;
+	$faceList2 = `polyListComponentConversion -tf $selects`;
+	$faceList2 = `filterExpand -selectionMask 34 $faceList2`;
+	$AriPCounter_PolyID_3 = $faceList2;
+	$countPentagon = size($faceList2);
+	print ($countPentagon+"\n");
+	select $selectObj;
+	*/
+	progressBar -e -pr 100 $gMainProgressBar;
+	progressBar -e -pr 100 $AriPCounter_progressBar;	
+	float $totalTime = `timerX -st $startTime`;
+	print($totalTime+"\n");
+	for($i=1; $i<=3; $i++ ){
+		vector $color = $AriPCounter_ErrorColorVal[0];
+		button -e  -bgc ($color.x) ($color.y) ($color.z) $AriPCounterSignal[$i];
+	}
+	int $maxNum = 0;
+	if($countTriangle > 0){
+		int $num = changeButtonColor(1);
+		if($maxNum<$num)$maxNum = $num;
+	}
+	if($countTriangle > 0){
+		int $num = changeButtonColor(2);
+		if($maxNum<$num)$maxNum = $num;
+	}
+	if($countPentagon > 0){
+		int $num = changeButtonColor(3);
+		if($maxNum<$num)$maxNum = $num;
+	}
+	textField -e -text ($totalPoly)      $AriPCounterTotalTxL[0];
+	textField -e -text ($countTriangle)  $AriPCounterTotalTxL[1];
+	textField -e -text ($countSquare)    $AriPCounterTotalTxL[2];
+	textField -e -text ($countSquare2)   $AriPCounterTotalTxR[2];	
+	textField -e -text ($countPentagon)  $AriPCounterTotalTxL[3];
+	textField -e -text ($countPentagon2) $AriPCounterTotalTxR[3];
+	for($i=1;$i<=6;$i++){
+		$total = eval("size($AriPCounter_PolyID_"+$i+")");
+		if($total>0){
+			button -e -enable true $AriPCounter_UI_AllSelectBtn[$i];
+			button -e -enable true $AriPCounter_UI_OneSelectBtn[$i];
+		}
+		else{
+			button -e -enable false $AriPCounter_UI_AllSelectBtn[$i];
+			button -e -enable false $AriPCounter_UI_OneSelectBtn[$i];
+		}
+	}
+	int $dentSearch = false;
+	if(`checkBox -q -v $AriPCounterCountCBox[1]` && `columnLayout -q -vis $AriPCounterActiveCheckUI[5]`)
+	$dentSearch=`checkBox -q -v $AriPCounterCountCBox[1]`;
+	if($dentSearch){
+		print $lable_irregularFace;
+		$message = $lable_irregularFace;
+		if($mode==2)$message = "フェース変更検出 自動更新中";
+		float $angle1 = `floatField -q -v $AriPCounter_UI_ThresholdF[5]`;		
+		float $angle2 = `floatField -q -v $AriPCounter_UI_ThresholdF[6]`;
+		int $counPolyConcave= 0;
+		int $countPolyWide  = 0;
+		int $countNonPlanar = 0;
+		$progressCounter=0;
+		vector $verpos[];
+		$progressTotal=size($AriPCounter_PolyID_2);
+		$startTime = `timerX`;
+		for($face in $AriPCounter_PolyID_2){
+			string $verNum[];
+			string $objName[];
+			string $infoVer = $infoVeltexList[$progressCounter];
+			tokenizeList($infoVer, $verNum);
+			tokenize $face "." $objName;
+			int $over1;
+			int $over2;
+			int $over3;
+			$verpos[0]=`pointPosition -l($objName[0]+".vtx["+$verNum[2]+"]")`;
+			$verpos[1]=`pointPosition -l($objName[0]+".vtx["+$verNum[3]+"]")`;
+			$verpos[2]=`pointPosition -l($objName[0]+".vtx["+$verNum[4]+"]")`;
+			$verpos[3]=`pointPosition -l($objName[0]+".vtx["+$verNum[5]+"]")`;
+			$over1=0;
+			$over2=0;
+			$over3=0;
+			float $kaku;
+			float $kaku2;
+			float $kakuDeg;
+			vector $verA;
+			vector $verB;
+			$verA = $verpos[0] - $verpos[1];
+			$verB = $verpos[0] - $verpos[3];
+			$kaku = (`angle $verA $verB`);
+			$kakuDeg =`rad_to_deg $kaku`;
+			if($kakuDeg>$angle1) $over1=1;
+			$verA = $verpos[1] - $verpos[0];
+			$verB = $verpos[1] - $verpos[2];
+			$kaku = (`angle $verA $verB`);
+			$kakuDeg =`rad_to_deg $kaku`;
+			if($kakuDeg>$angle1) $over1=1;
+			$verA = $verpos[2] - $verpos[1];
+			$verB = $verpos[2] - $verpos[3];
+			$kaku = (`angle $verA $verB`);
+			$kakuDeg =`rad_to_deg $kaku`;
+			if($kakuDeg>$angle1) $over1=1;
+			$verA = $verpos[3] - $verpos[2];
+			$verB = $verpos[3] - $verpos[0];
+			$kaku = (`angle $verA $verB`);
+			$kakuDeg =`rad_to_deg $kaku`;
+			if($kakuDeg>$angle1) $over1=1;
+			vector $c = tyokusenTen ($verpos[1],$verpos[3],$verpos[0]);
+			vector $d = tyokusenTen ($verpos[1],$verpos[3],$verpos[2]);
+			$kaku = `angle ($verpos[0]-$c) ($verpos[2]-$d)`;
+			$kaku2 =`rad_to_deg $kaku`;
+			if( $kaku2 > $angle2 && $kaku2 < (180-$angle2) ) $over2=1;
+			if( $kaku2 < 90 ) $over3=1;
+			$c = tyokusenTen ($verpos[0],$verpos[2],$verpos[1]);
+			$d = tyokusenTen ($verpos[0],$verpos[2],$verpos[3]);
+			$kaku = `angle ($verpos[1]-$c) ($verpos[3]-$d)`;
+			$kaku2 =`rad_to_deg $kaku`;
+			if( $kaku2 > $angle2 && $kaku2 < (180-$angle2) ) $over2=1;
+			if( $kaku2 < 90 ) $over3=1;
+			if($over1==1|| $over3==1){//広角四角形
+				$AriPCounter_PolyID_5[$countPolyWide]=$face;
+				$countPolyWide++;
+			}
+			if($over2==1){
+				$AriPCounter_PolyID_6[$countNonPlanar]=$face;
+				$countNonPlanar++;
+			}
+			if($over3==1){
+				$AriPCounter_PolyID_4[$counPolyConcave]=$face;
+				$counPolyConcave++;
+			}
+			$loopCounter++;
+			if($loopCounter>=500){
+			    textField -e  -text ($counPolyConcave) $AriPCounterTotalTxL[4];	
+			    textField -e  -text ($countPolyWide)   $AriPCounterTotalTxL[5];	
+			    textField -e  -text ($countNonPlanar)  $AriPCounterTotalTxL[6];	
+				$loopCounter=0;
+				if(`progressBar -q -ic $gMainProgressBar`){
+					print("異形フェース中断\n");
+					AriPolygonCounterIsCancelled(1);
+					return 0;
+				}
+			}
+			int $progressValue = ($progressCounter*1.0) / $progressTotal * 100;
+			progressBar -e -pr $progressValue $gMainProgressBar;
+			progressBar -e -pr $progressValue $AriPCounter_progressBar;
+			textField -e -text ($message+" "+$progressCounter+"/"+$progressTotal) $AriPCounterInfo;
+			$progressCounter++;
+		}
+		$totalTime = `timerX -st $startTime`;
+		print($totalTime+"\n");
+		if($counPolyConcave>0){
+			int $num = changeButtonColor(4);
+			if($maxNum<$num)$maxNum = $num;
+		}
+		if($countPolyWide>0){
+			int $num = changeButtonColor(5);
+			if($maxNum<$num)$maxNum = $num;
+		}
+		if($countNonPlanar>0){
+			int $num = changeButtonColor(6);
+			if($maxNum<$num)$maxNum = $num;
+		}
+		textField -e -text ($counPolyConcave) $AriPCounterTotalTxL[4];
+		textField -e -text ($countPolyWide)   $AriPCounterTotalTxL[5];
+		textField -e -text ($countNonPlanar)  $AriPCounterTotalTxL[6];
+		$copro=0.0;
+	}
+	waitCursor -state off;
+	vector $color = $AriPCounter_ErrorColorVal[$maxNum];
+	iconTextButton -e -bgc ($color.x) ($color.y) ($color.z) $AriPCounter_UI_compoButton[0];
+	if($mode==2)	textField -e -text "フェース自動更新" -bgc 0.6 0.8 1 $AriPCounterInfo;
+	else textField -e -text $label_faceEnd $AriPCounterInfo;
+	progressBar -edit -endProgress $gMainProgressBar;
+	progressBar -e -pr 0 $AriPCounter_progressBar;	
+	return 1;
+}
+global proc int AriPolygonCounterGetEdges(int $mode){
+	global string $AriPCounterSelObjects[];
+	global string $AriPCounterSignal[];	
+	global string $AriPCounterTotalTxL[];
+	global string $AriPCounterLabelTxA[];
+	global string $AriPCounter_UI_AllSelectBtn[];
+	global string $AriPCounter_UI_OneSelectBtn[];
+	global string $AriPCounter_PolyID_7[];
+	global string $AriPCounter_PolyID_20[];
+	global string $AriPCounter_PolyID_19[];
+	global string $AriPCounter_PolyID_8[];
+	global string $AriPCounter_PolyID_12[];
+	global string $AriPCounter_PolyID_13[];
+	global string $AriPCounter_UI_compoButton[];
+	global string $gMainProgressBar;
+	global string $AriPCounter_progressBar;
+	global string $AriPCounterInfo;
+	global int $AriPCounter_ErrorColorNum[];
+	global vector $AriPCounter_ErrorColorVal[];
+	global string $AriPCounter_UI_ThresholdF[];
+	global int $AriPCounter_jpTrue;
+	clear $AriPCounter_PolyID_7;
+	clear $AriPCounter_PolyID_20;
+	clear $AriPCounter_PolyID_19;
+	clear $AriPCounter_PolyID_8;
+	clear $AriPCounter_PolyID_12;
+	clear $AriPCounter_PolyID_13;
+	string $label_edgeCount = "Edge Count";
+	string $label_edgeEnd   = "Edge End";
+	string $label_edgeAuto  = "Edge Auto";
+	if($AriPCounter_jpTrue){
+		$label_edgeCount = "エッジカウント中";
+		$label_edgeEnd   = "エッジカウント終了";
+		$label_edgeAuto  = "エッジ自動更新";
+	}
+	textField -e -text $label_edgeCount -bgc 0.3 0.3 0.3 $AriPCounterInfo;
+	print($label_edgeCount+" ");
+	progressBar -edit
+    -beginProgress
+    -isInterruptable true
+    -status "..."
+    -maxValue 100
+    $gMainProgressBar;
+	string $selectObj[];
+	$selectObj = `ls -sl`;
+	if(size($selectObj)==0){
+		$selectObj = `ls -type mesh`;
+	}
+	if($mode==2)	$selectObj = $AriPCounterSelObjects;
+	string $message = $label_edgeCount;
+	if($mode==2)$message="エッジ変更検出 自動更新中";
+	string $edges[] = `polyListComponentConversion -toEdge $selectObj`;
+	$edgeList = `filterExpand -selectionMask 32 $edges`;
+	$AriPCounter_PolyID_17 = $edgeList ;
+	textField -e -text (size($AriPCounter_PolyID_17)) $AriPCounterTotalTxL[17];
+	textField -e -text (size($AriPCounter_PolyID_17)) $AriPCounterTotalTxL[21];
+	progressBar -e -pr 0 $gMainProgressBar;
+	progressBar -e -pr 0 $AriPCounter_progressBar;	
+	int $countEdgeEnd;
+	int $countEdgeHard;
+	int $countEdgeSoft;
+	int $countEdgeCrease1;
+	int $countEdgeCrease0;
+	$progressTotal = size($edgeList);
+	float $per=0;
+	$loopCounter=0;
+	int $progressCounter=0;
+	float $startTime = `timerX`;
+	for( $edge in $edgeList)
+	{
+		string $list[];
+		string $list2[];
+		$num = `polyInfo -ev  $edge`;
+		tokenizeList($num[0], $list);
+		if(size($list) == 5){		
+			$num = `polyInfo -ef  $edge`;
+			tokenizeList($num[0], $list);
+			if(size($list) <= 3){
+				$AriPCounter_PolyID_8[$countEdgeEnd]= $edge;
+				$countEdgeEnd++;
+			}
+			else{		
+				$AriPCounter_PolyID_7[$countEdgeHard]= $edge;
+				$countEdgeHard++;
+			}
+		}
+		else{
+			$AriPCounter_PolyID_19[$countEdgeSoft]= $edge;
+			$countEdgeSoft++;
+		}
+		float $creaseValue[]=`polyCrease -q -v $edge`;
+		if($creaseValue[0]>0){
+			$AriPCounter_PolyID_12[$countEdgeCrease1]= $edge;
+			$countEdgeCrease1++;
+		}
+		if($creaseValue[0]==0){
+			$AriPCounter_PolyID_13[$countEdgeCrease0]= $edge;
+			$countEdgeCrease0++;
+		}
+		$per += 100.0/$progressTotal;
+		$loopCounter++;
+		if($loopCounter>1000){
+			int $perView = int($per);
+			textField -e -text $countEdgeSoft    $AriPCounterTotalTxL[19];
+			textField -e -text $countEdgeHard    $AriPCounterTotalTxL[7];
+			textField -e -text $countEdgeEnd     $AriPCounterTotalTxL[8];
+			textField -e -text $countEdgeCrease1 $AriPCounterTotalTxL[12];
+			textField -e -text $countEdgeCrease0 $AriPCounterTotalTxL[13];
+			$loopCounter=0;
+			if(`progressBar -q -ic $gMainProgressBar`){
+				print("エッジ中断\n");
+				AriPolygonCounterIsCancelled(2);
+				return 0;
+			}
+		}
+		int $progressValue = ($progressCounter*1.0) / $progressTotal * 100;
+		progressBar -e -pr $progressValue $gMainProgressBar;
+		progressBar -e -pr $progressValue $AriPCounter_progressBar;
+		textField -e -text ($message+" "+$progressCounter+"/"+$progressTotal) -bgc 0.3 0.3 0.3 $AriPCounterInfo;
+		$progressCounter++;
+	}
+	/*
+	string $selects[];
+	string $edgeList2[];
+	string $selectPoly[] = `polyListComponentConversion -te $selectObj`;
+	$selectPoly = `filterExpand -selectionMask 32 $selectPoly`;
+	polySelectConstraint -m 0 -sm 0 -w 0;
+	select $selectPoly;
+	polySelectConstraint -m 2 -sm 1;
+	$selects  = `ls -sl`;
+	$edgeList2 = `polyListComponentConversion -te $selects`;
+	$edgeList2 = `filterExpand -selectionMask 32 $edgeList2`;
+	$AriPCounter_PolyID_7 = $edgeList2;
+	$countEdgeHard = size($edgeList2);
+	print ($countEdgeHard+"\n");
+	polySelectConstraint -m 0 -sm 0 -w 0;
+	select $selectPoly;
+	polySelectConstraint -m 2 -w 1;
+	$selects  = `ls -sl`;
+	$edgeList2 = `polyListComponentConversion -te $selects`;
+	$edgeList2 = `filterExpand -selectionMask 32 $edgeList2`;
+	$AriPCounter_PolyID_8 = $edgeList2;
+	$countEdgeEnd = size($edgeList2);
+	print ($countEdgeEnd+"\n");
+	polySelectConstraint -m 0 -sz 0 -sm 0 -w 0;
+	select $selectPoly;
+	polySelectConstraint -m 2 -w 1;
+	$selects  = `ls -sl`;
+	$edgeList2 = `polyListComponentConversion -te $selects`;
+	$edgeList2 = `filterExpand -selectionMask 32 $edgeList2`;
+	$AriPCounter_PolyID_12 = $edgeList2;
+	$countPentagon = size($edgeList2);
+	print ($countPentagon+"\n");
+	select $selectObj;
+	*/
+	float $totalTime = `timerX -st $startTime`;
+	print($totalTime+"\n");
+	progressBar -e -pr 100 $gMainProgressBar;
+	progressBar -e -pr 100 $AriPCounter_progressBar;
+	textField -e -text $countEdgeSoft    $AriPCounterTotalTxL[19];
+	textField -e -text $countEdgeHard    $AriPCounterTotalTxL[7];
+	textField -e -text $countEdgeEnd     $AriPCounterTotalTxL[8];
+	textField -e -text $countEdgeCrease1 $AriPCounterTotalTxL[12];
+	textField -e -text $countEdgeCrease0 $AriPCounterTotalTxL[13];
+	for($i=7;$i<=19;$i++){
+		if($i==14 || $i==15 || $i==16 || $i==17 || $i==18)continue;
+		$total = eval("size($AriPCounter_PolyID_"+$i+")");
+		if($total>0){
+			button -e -enable true $AriPCounter_UI_OneSelectBtn[$i];
+			button -e -enable true $AriPCounter_UI_AllSelectBtn[$i];
+		}
+		else{
+			button -e -enable false $AriPCounter_UI_OneSelectBtn[$i];
+			button -e -enable false $AriPCounter_UI_AllSelectBtn[$i];
+		}
+	}
+	if($mode==2)	textField -e -text "エッジ自動更新" -bgc 0.6 0.8 1 $AriPCounterInfo;
+	else 			textField -e -text $label_edgeEnd $AriPCounterInfo;
+	progressBar -edit -endProgress $gMainProgressBar;
+	progressBar -e -pr 0 $AriPCounter_progressBar;	
+	int $countPlaneEdgeHard;
+	float $thresholdAngle = `floatField -q -v $AriPCounter_UI_ThresholdF[20]`;
+	for($edge in $AriPCounter_PolyID_7){
+		float $edgeAngle = edgeAngle($edge);
+		if($edgeAngle < $thresholdAngle){
+			$AriPCounter_PolyID_20[$countPlaneEdgeHard] = $edge;
+			$countPlaneEdgeHard++;
+		}
+	}
+	textField -e -text ($countPlaneEdgeHard)  $AriPCounterTotalTxL[20];
+	$total = size($AriPCounterTotalTxL[20]);
+	if($total>0){
+		button -e -enable true $AriPCounter_UI_OneSelectBtn[20];
+		button -e -enable true $AriPCounter_UI_AllSelectBtn[20];
+	}
+	textField -e -text $countEdgeHard    $AriPCounterTotalTxL[7];
+	textField -e -text $countEdgeEnd     $AriPCounterTotalTxL[8];
+	textField -e -text $countEdgeCrease1 $AriPCounterTotalTxL[12];
+	textField -e -text $countEdgeCrease0 $AriPCounterTotalTxL[13];
+	int $maxNum = 0;
+	if($countEdgeSoft > 0){ 
+		int $num = changeButtonColor(19);
+		if($maxNum<$num)$maxNum = $num;
+	}
+	if($countEdgeHard > 0){ 
+		int $num = changeButtonColor(7);
+		if($maxNum<$num)$maxNum = $num;
+	}
+	if($countEdgeEnd > 0){ 
+		int $num = changeButtonColor(8);
+		if($maxNum<$num)$maxNum = $num;
+	}
+	if($countEdgeCrease1 > 0){ 
+		int $num = changeButtonColor(12);
+		if($maxNum<$num)$maxNum = $num;
+	}
+	if($countPlaneEdgeHard > 0){ 
+		int $num = changeButtonColor(20);
+		if($maxNum<$num)$maxNum = $num;
+	}
+	vector $color = $AriPCounter_ErrorColorVal[$maxNum];
+	iconTextButton -e -bgc ($color.x) ($color.y) ($color.z) $AriPCounter_UI_compoButton[1];
+	return 1;
+}
+global proc AriPolygonCounterGetErrorPoly(int $mode){
+	global string $AriPCounterSelObjects[];
+	global string $AriPCounterSignal[];	
+	global string $AriPCounterTotalTxL[];
+	global string $AriPCounterLabelTxA[];
+	global string $AriPCounter_UI_AllSelectBtn[];
+	global string $AriPCounter_UI_OneSelectBtn[];
+	global string $AriPCounter_PolyID_9[];
+	global string $AriPCounter_PolyID_10[];
+	global string $AriPCounter_PolyID_11[];
+	global string $gMainProgressBar;
+	global string $AriPCounter_progressBar;
+	global string $AriPCounterInfo;
+	global string $AriPCounter_UI_compoButton[];
+	global int    $AriPCounter_ErrorColorNum[];
+	global vector $AriPCounter_ErrorColorVal[];
+	$selectObj = `ls -sl`;
+	if(size($selectObj)==0){
+		$selectObj = `ls -type mesh`;
+	}
+	if($mode==2)$selectObj = $AriPCounterSelObjects;
+	string $obj[] = `polyListComponentConversion  $selectObj`;
+	string $polygon[]=`filterExpand -selectionMask 12 $obj`;
+	$AriPCounter_PolyID_14=$polygon;
+	textField -e -text (size($AriPCounter_PolyID_14)) $AriPCounterTotalTxL[14];
+	clear $AriPCounter_PolyID_9;
+	clear $AriPCounter_PolyID_10;
+	clear $AriPCounter_PolyID_11;
+	string $nonVer[]  = `polyInfo -nmv $polygon`;
+	string $nonEdge[] = `polyInfo -nme $polygon`;
+	string $nonFace[] = `polyInfo -lf $polygon`;
+	$AriPCounter_PolyID_9  = `filterExpand -selectionMask 31 $nonVer`;
+	$AriPCounter_PolyID_10 = `filterExpand -selectionMask 32 $nonEdge`;
+	$AriPCounter_PolyID_11 = `filterExpand -selectionMask 34 $nonFace`;
+	textField -e -text (size($AriPCounter_PolyID_11)) $AriPCounterTotalTxL[11];
+	textField -e -text (size($AriPCounter_PolyID_10)) $AriPCounterTotalTxL[10];
+	textField -e -text (size($AriPCounter_PolyID_9)) $AriPCounterTotalTxL[9];
+	int $maxNum = 0;
+	if(size($AriPCounter_PolyID_11)>0){
+		int $num = changeButtonColor(11);
+		if($maxNum<$num)$maxNum = $num;
+	}
+	if(size($AriPCounter_PolyID_10)>0){
+		int $num = changeButtonColor(10);
+		if($maxNum<$num)$maxNum = $num;
+	}
+	if(size($AriPCounter_PolyID_9)>0){
+		int $num = changeButtonColor(9);
+		if($maxNum<$num)$maxNum = $num;
+	}
+	for($i=9;$i<=12;$i++){
+		$total = eval("size($AriPCounter_PolyID_"+$i+")");
+		if($total>0){
+			button -e -enable true $AriPCounter_UI_AllSelectBtn[$i];
+			button -e -enable true $AriPCounter_UI_OneSelectBtn[$i];
+		}
+		else{
+			button -e -enable false $AriPCounter_UI_AllSelectBtn[$i];
+			button -e -enable false $AriPCounter_UI_OneSelectBtn[$i];
+		}
+	}
+	if($mode==2)	textField -e -text "非多様体自動更新" -bgc 0.6 0.8 1 $AriPCounterInfo;
+	else 			textField -e -text "非多様体カウント終了" $AriPCounterInfo;
+	$color = $AriPCounter_ErrorColorVal[$maxNum];
+	iconTextButton -e -bgc ($color.x) ($color.y) ($color.z) $AriPCounter_UI_compoButton[2];
+	return;
+}
+global proc AriPolygonCounterGO(int $mode)
+{	
+	global string $AriPCounterSelObjects[];
+	global string $textCounterA[];
+	global string $AriPCounterTotalTxL[];
+	global string $AriPCounterTotalTxR[];
+	global string $AriPCounterLabelTxA[];
+	global string $AriPCounter_UI_AllSelectBtn[];
+	global string $AriPCounter_UI_OneSelectBtn[];
+	global string $AriPCounter_UI_compoButton[0];
+	global string $AriPCounterTextSc;
+	global string $AriPCounterSignal[];	
+	global string $AriPCounter_PolyID_9[];
+	global string $AriPCounter_PolyID_10[];
+	global string $AriPCounter_PolyID_11[];
+	global string $AriPCounter_PolyID_14[];
+	global string $AriPCounter_PolyID_15[];
+	global string $AriPCounter_PolyID_16[];
+	global string $AriPCounter_PolyID_17[];
+	global string $AriPCounter_PolyID_18[];
+	global string $AriPCounter_PolyID_19[];
+	global int $AriPCounterActiveSelectMode;
+	global string $AriPCounterCountStartBtn;
+	global string $AriPCounterReCountBtn;
+	global string $AriPCounterCountCBox[3];
+	global string $AriPCounter_progressBar;
+	global string $gMainProgressBar;
+	global string $AriPCounterInfo;
+	global vector $AriPCounter_ErrorColorVal[];
+	global int $AriPCounter_jpTrue;
+	string $label_start = "Start";
+	string $label_end   = "End";
+	if($AriPCounter_jpTrue){
+		$label_start = "開始";
+		$label_end   = "終了";
+	}
+	AriPCounter_valSave();
+	$timerA = `timerX`;
+	textField -e -enableBackground false  $AriPCounterInfo;
+	textField -e -text $label_start -bgc 0.3 0.3 0.3 $AriPCounterInfo;
+	for($i=0;$i<20;$i++){
+		if(`textField -ex $AriPCounterTotalTxL[$i]`)
+		textField -e -text "" $AriPCounterTotalTxL[$i];
+	}
+	textField -e -text "" $AriPCounterTotalTxR[0];
+	textField -e -text "" $AriPCounterTotalTxR[2];
+	textField -e -text "" $AriPCounterTotalTxR[3];
+	for($i=1;$i<=20;$i++){
+		button -e -enable false $AriPCounter_UI_AllSelectBtn[$i];
+		button -e -enable false $AriPCounter_UI_OneSelectBtn[$i];
+	}
+	$AriPCounterActiveSelectMode=100;
+	string $saveSelectObj[];
+	if($mode==2){
+		$saveSelectObj=`ls -sl`;
+		int $exists=true;
+		for($obj in $AriPCounterSelObjects){
+			if(!`objExists $obj` ){
+				$exists=false;
+				break;
+			}
+		}
+		if($exists){
+			select $AriPCounterSelObjects;
+		}	
+		else{
+			print("オブジェクトが存在しない\n");
+			return;
+		}
+	}
+	textScrollList -e -removeAll $AriPCounterTextSc;
+	int $x=0;
+	for($x=0;$x<size($AriPCounterTotalTxL);$x++){
+		textField -e -text "" $AriPCounterTotalTxL[0];
+	}
+	textField -e -text "" $AriPCounterTotalTxR[2];
+	textField -e -text "" $AriPCounterTotalTxR[3];
+	vector $color = $AriPCounter_ErrorColorVal[0];
+	for($i=1; $i<=20; $i++){
+		textField -e -text ""  $AriPCounterTotalTxL[$i];
+		button -e  -bgc ($color.x) ($color.y) ($color.z) $AriPCounterSignal[$i];
+	}
+	iconTextButton -e -bgc ($color.x) ($color.y) ($color.z) $AriPCounter_UI_compoButton[0];
+	iconTextButton -e -bgc ($color.x) ($color.y) ($color.z) $AriPCounter_UI_compoButton[1];
+	iconTextButton -e -bgc ($color.x) ($color.y) ($color.z) $AriPCounter_UI_compoButton[2];
+	iconTextButton -e -bgc ($color.x) ($color.y) ($color.z) $AriPCounter_UI_compoButton[3];
+	progressBar -edit
+    -beginProgress
+    -isInterruptable true
+    -status "..."
+    -maxValue 100
+    $gMainProgressBar;
+	clear $AriPCounterSelObjects;
+	string $selectObj[];
+	$selectObj = `ls -sl`;
+	$AriPCounterSelObjects = `ls -sl -tr`;
+	if(size($selectObj)==0){
+		progressBar -edit -endProgress $gMainProgressBar;
+		textField -e -text ($label_end) $AriPCounterInfo;
+		return;
+	}
+	if(size($AriPCounterSelObjects)==0) button -e -en false $AriPCounterReCountBtn; 
+	else button -e -en true $AriPCounterReCountBtn;
+	string $faceList[];
+	string $dilectFaceList[] = `filterExpand -selectionMask 34 $selectObj`;
+		$faceList = $dilectFaceList;
+	textField -e -text (size($faceList)) $AriPCounterTotalTxR[0];
+	int $progressCounter=0;
+	int $isCancelledTrue = false;
+	if(`checkBox -q -v $AriPCounterCountCBox[0]` || `checkBox -q -v $AriPCounterCountCBox[2]`){
+		/*
+		for($selObj in $selectObj){
+			string $objToFaceList[] = `polyListComponentConversion -tf $selObj`;
+			$objToFaceList = `filterExpand -selectionMask 34 $objToFaceList`;
+			$faceList = stringArrayCatenate ($faceList, $objToFaceList);
+			int $progressValue = ($progressCounter*1.0)/size($selectObj) * 100 ;
+			textField -e -v (size($faceList)) $AriPCounterTotalTxR[0];
+			textField -e -v ($progressValue) $AriPCounterTotalTxL[0];
+			if(`progressBar -q -ic $gMainProgressBar`){
+				print("初期リスト中断\n");
+				$isCancelledTrue = true;
+				break;
+			}
+			progressBar -e -pr $progressValue $gMainProgressBar;
+			progressBar -e -pr $progressValue $AriPCounter_progressBar;	
+			$progressCounter++;
+		}
+		*/
+	}
+	if($isCancelledTrue == true){
+		 AriPolygonCounterIsCancelled(0);
+		return;
+	}
+	int $totalAllPoly = size($faceList);
+	print ($totalAllPoly);
+	textField -e -text $totalAllPoly $AriPCounterTotalTxR[0];
+	button -e -en false  $AriPCounterCountStartBtn;
+	/*
+	if($totalAllPoly>50000){
+		string $ans=`confirmDialog -title "ポリゴン過多" -message ("フェース数が "+$totalAllPoly+" あり、検索に時間がかかる可能性があります。\n実行しますか？")
+		-button "Yes" -button "No" -defaultButton "Yes"
+    	-cancelButton "No" -dismissString "No"`;
+		if($ans=="No"){
+			button -e -en true  $AriPCounterCountStartBtn;
+			return;
+		}
+	}
+	*/
+	waitCursor -state on;
+	int $countPolyWide;
+	int $countNonPlanar ;
+	int $counPolyConcave ;
+	float $copro=0;
+	float $progressValue=0;
+	float $progressTotal=0;
+	clear $AriPCounter_PolyID_14;
+	waitCursor -state off;
+	if(`checkBox -q -v $AriPCounterCountCBox[0]`){
+		$isCancelledTrue = !AriPolygonCounterGetFace(0);	
+	}
+	if($isCancelledTrue == true){
+		print("フェースキャンセル受信\n");
+		return;
+	}
+	if(`checkBox -q -v $AriPCounterCountCBox[2]`){
+		$isCancelledTrue = !AriPolygonCounterGetEdges(0);
+	}
+	if($isCancelledTrue == true){
+		print("エッジキャンセル受信\n");
+		return;
+	}
+	waitCursor -state on;
+	AriPolygonCounterGetErrorPoly(1);
+	string $obj[] = `polyListComponentConversion  $selectObj`;
+	string $polygon[]=`filterExpand -selectionMask 12 $obj`;
+	$AriPCounter_PolyID_14 = $polygon;
+	textField -e -text (size($AriPCounter_PolyID_14)) $AriPCounterTotalTxL[14];
+	int $shellCounter[];
+	if(size($polygon)>0){
+		$shellCounter = `polyEvaluate -s $polygon`;
+		textField -e -text ($shellCounter[0]) $AriPCounterTotalTxL[15];
+	}
+	string $vertexs[] = `polyListComponentConversion -toVertex $selectObj`;
+	$vertexList = `filterExpand -selectionMask 31 $vertexs`;
+	$AriPCounter_PolyID_18=$vertexList;
+	textField -e -text (size($AriPCounter_PolyID_18)) $AriPCounterTotalTxL[18];
+	for($i=1;$i<=19;$i++){
+		$total = eval("size($AriPCounter_PolyID_"+$i+")");
+		if($total>0){
+			button -e -enable true $AriPCounter_UI_AllSelectBtn[$i];
+			button -e -enable true $AriPCounter_UI_OneSelectBtn[$i];
+		}
+		else{
+			button -e -enable false $AriPCounter_UI_AllSelectBtn[$i];
+			button -e -enable false $AriPCounter_UI_OneSelectBtn[$i];
+		}
+	}
+	waitCursor -state off;
+	button  -en true -e  $AriPCounterCountStartBtn;
+	progressBar -edit  -endProgress $gMainProgressBar;
+	int $totalTime = `timerX -st $timerA`;
+	textField -e -text ($label_end) $AriPCounterInfo;
+	progressBar -edit -endProgress $gMainProgressBar;
+	if($mode==2)select $saveSelectObj;
+	return;
+}
+proc APCpolyList(int $countNo){
+	global string $AriPCounter_PolyID_1[];
+	global string $AriPCounter_PolyID_2[];
+	global string $AriPCounter_PolyID_3[];
+	global string $AriPCounter_PolyID_4[];
+	global string $AriPCounter_PolyID_5[];
+	global string $AriPCounter_PolyID_6[];
+	global string $AriPCounter_PolyID_7[];
+	global string $AriPCounter_PolyID_8[];
+	global string $AriPCounter_PolyID_9[];
+	global string $AriPCounter_PolyID_10[];
+	global string $AriPCounter_PolyID_11[];
+	global string $AriPCounter_PolyID_12[];
+	global string $AriPCounter_PolyID_13[];
+	global string $AriPCounter_PolyID_14[];
+	global string $AriPCounter_PolyID_15[];
+	global string $AriPCounter_PolyID_16[];
+	global string $AriPCounter_PolyID_17[];
+	global string $AriPCounter_PolyID_18[];
+	global string $AriPCounter_PolyID_19[];
+	global string $AriPCounter_PolyID_20[];
+	global string $AriPCounterTextSc;
+	string $AriPCounter_PolyID[]={"aa"};
+	switch($countNo){
+		case  1:	$AriPCounter_PolyID = $AriPCounter_PolyID_1;break;
+		case  2:	$AriPCounter_PolyID = $AriPCounter_PolyID_2;break;
+		case  3:	$AriPCounter_PolyID = $AriPCounter_PolyID_3;break;
+		case  4:	$AriPCounter_PolyID = $AriPCounter_PolyID_4;break;
+		case  5:	$AriPCounter_PolyID = $AriPCounter_PolyID_5;break;
+		case  6:	$AriPCounter_PolyID = $AriPCounter_PolyID_6;break;
+		case  7:	$AriPCounter_PolyID = $AriPCounter_PolyID_7;break;
+		case  8:	$AriPCounter_PolyID = $AriPCounter_PolyID_8;break;
+		case  9:	$AriPCounter_PolyID = $AriPCounter_PolyID_9;break;
+		case 10:	$AriPCounter_PolyID = $AriPCounter_PolyID_10;break;
+		case 11:	$AriPCounter_PolyID = $AriPCounter_PolyID_11;break;
+		case 12:	$AriPCounter_PolyID = $AriPCounter_PolyID_12;break;
+		case 13:	$AriPCounter_PolyID = $AriPCounter_PolyID_13;break;
+		case 14:	$AriPCounter_PolyID = $AriPCounter_PolyID_14;break;
+		case 15:	$AriPCounter_PolyID = $AriPCounter_PolyID_15;break;
+		case 16:	$AriPCounter_PolyID = $AriPCounter_PolyID_16;break;
+		case 17:	$AriPCounter_PolyID = $AriPCounter_PolyID_17;break;
+		case 18:	$AriPCounter_PolyID = $AriPCounter_PolyID_18;break;
+		case 19:	$AriPCounter_PolyID = $AriPCounter_PolyID_19;break;
+		case 20:	$AriPCounter_PolyID = $AriPCounter_PolyID_20;break;
+	}
+	string $applist;
+	$applist = "textScrollList -e -ra -allowMultiSelection true -showIndexedItem 1 ";
+	int $viewTotal=size($AriPCounter_PolyID);
+	if($viewTotal>100)$viewTotal=100;
+	for($i=0; $i<$viewTotal; $i++){
+		$applist += " -append "+ $AriPCounter_PolyID[$i];
+	}
+	if(size($AriPCounter_PolyID)>100)$applist += " -append \"...etc   Total "+size($AriPCounter_PolyID)+"\"";
+	eval ($applist+" $AriPCounterTextSc");
+	textScrollList -e -selectCommand ("APCpolyListSelect()") $AriPCounterTextSc;
+}
+global proc APCpolyListSelect(){
+	global int $AriPCounterActiveSelectMode;
+	global string $APCfitCameraCheckBox;
+	global string $AriPCounterTextSc;
+	string $selectPoly[];
+	$polyList = `textScrollList -q -selectItem $AriPCounterTextSc`;
+	int $totalSelect=false;
+	int $i=0;
+	for($poly in $polyList){
+		if(`objExists($poly)`){
+			$selectPoly[$i] = $poly;
+			$i++;
+		}
+		if(startsWith($poly,"...etc   Total")){
+			$totalSelect = true;
+		}
+	}
+	if($totalSelect){
+		APCpolySelectAll($AriPCounterActiveSelectMode);
+		return;
+	}
+	select $selectPoly;
+	int $autoReroad=false;
+	if($autoReroad){
+		if($AriPCounterActiveSelectMode==1){
+			int $errorPoly = false;
+			for ($poly in $selectPoly){
+				string $verList[] = `polyListComponentConversion -tv $poly`;
+				$verList = `filterExpand -selectionMask 31 $verList`;
+				if(size($verList)!=3){
+					print "三角形じゃない\n";
+					$errorPoly=true;
+					break;
+				}
+			}
+			if($errorPoly){
+				AriPolygonCounterGetFace(2);
+				APCpolySelectOnes(1,1);
+			}
+		}
+		if($AriPCounterActiveSelectMode==2){
+			int $errorPoly = false;
+			for ($poly in $selectPoly){
+				string $verList[] = `polyListComponentConversion -tv $poly`;
+				$verList = `filterExpand -selectionMask 31 $verList`;
+				if(size($verList)!=4){
+					print "四角形じゃない\n";
+					$errorPoly=true;
+					break;
+				}
+			}
+			if($errorPoly){
+				AriPolygonCounterGetFace(2);
+				APCpolySelectOnes(2,1);
+			}
+		}
+		if($AriPCounterActiveSelectMode==3){
+			int $errorPoly = false;
+			for ($poly in $selectPoly){
+				string $verList[] = `polyListComponentConversion -tv $poly`;
+				$verList = `filterExpand -selectionMask 31 $verList`;
+				if(size($verList)<5){
+					print "多角形じゃない\n";
+					$errorPoly=true;
+					break;
+				}
+			}
+			if($errorPoly){
+				AriPolygonCounterGetFace(2);
+				APCpolySelectOnes(3,1);
+			}
+		}
+		if($AriPCounterActiveSelectMode==7 || $AriPCounterActiveSelectMode==8 || $AriPCounterActiveSelectMode==19){
+			int $softEdgeTrue = false;
+			int $hardEdgeTrue = false;
+			int $borderEdgeTrue = false;
+			for($edge in $selectPoly){
+				string $list[];
+				$num = `polyInfo -ev  $edge`;
+				tokenizeList($num[0], $list);
+				if(size($list) == 5){		
+					$num = `polyInfo -ef $edge`;
+					tokenizeList($num[0], $list);
+					if(size($list) <= 3){ 
+						$borderEdgeTrue=true;
+					}
+					else{		
+						$hardEdgeTrue=true;
+					}
+				}
+				else{
+					$softEdgeTrue=true;
+				}
+			}
+			if($AriPCounterActiveSelectMode==7 && !$hardEdgeTrue){
+				print "ハードエッジじゃない\n";
+				AriPolygonCounterGetEdges(2);
+				APCpolySelectOnes(7,1);
+			}
+			if($AriPCounterActiveSelectMode==19 && !$softEdgeTrue){
+				print "ソフトエッジじゃない\n";
+				AriPolygonCounterGetEdges(2);
+				APCpolySelectOnes(19,1);
+			}
+			if($AriPCounterActiveSelectMode==8 && !$borderEdgeTrue){
+				print "非共有エッジじゃない\n";
+				AriPolygonCounterGetEdges(2);
+				APCpolySelectOnes(8,1);
+			}
+		}
+		if($AriPCounterActiveSelectMode==12){
+			int $creaseTrue = false;
+			for($edge in $selectPoly){
+				float $creaseValue[]=`polyCrease -q -v $edge`;
+				if($creaseValue[0]>0){
+					$creaseTrue = true;
+					break;
+				}
+			}
+			if(!$creaseTrue){
+				print "折り目エッジじゃない\n";
+				AriPolygonCounterGetEdges(2);
+				APCpolySelectOnes(12,1);
+			}
+		}
+		if($AriPCounterActiveSelectMode==9){
+			int $LaminaTrue=false;
+			string $polygon[] = `polyListComponentConversion  $selectPoly`;
+			$polygon=`filterExpand -selectionMask 12 $polygon`;
+			string $LaminaList[]  = `polyInfo -nmv $polygon`;
+			$LaminaList  = `filterExpand -selectionMask 31 $LaminaList`;
+			for($poly in $selectPoly){
+				if(stringArrayContains($poly,$LaminaList)){
+					$LaminaTrue=true;
+				}
+				else{
+					$LaminaTrue=false;
+					break;
+				}
+			}
+			if(!$LaminaTrue){
+				print "非多様頂点じゃない\n";
+				AriPolygonCounterGetErrorPoly(2);
+				APCpolySelectOnes(9,1);
+			}
+		}
+		if($AriPCounterActiveSelectMode==10){
+			int $LaminaTrue=false;
+			string $polygon[] = `polyListComponentConversion  $selectPoly`;
+			$polygon=`filterExpand -selectionMask 12 $polygon`;
+			string $LaminaList[]  = `polyInfo -nme $polygon`;
+			$LaminaList  = `filterExpand -selectionMask 32 $LaminaList`;
+			for($poly in $selectPoly){
+				if(stringArrayContains($poly,$LaminaList)){
+					$LaminaTrue=true;
+				}
+				else{
+					$LaminaTrue=false;
+					break;
+				}
+			}
+			if(!$LaminaTrue){
+				print "非多様エッジじゃない\n";
+				AriPolygonCounterGetErrorPoly(2);
+				APCpolySelectOnes(10,1);
+			}
+		}
+		if($AriPCounterActiveSelectMode==11){
+			int $LaminaTrue=false;
+			string $polygon[] = `polyListComponentConversion  $selectPoly`;
+			$polygon=`filterExpand -selectionMask 12 $polygon`;
+			string $LaminaList[]  = `polyInfo -lf $polygon`;
+			$LaminaList  = `filterExpand -selectionMask 34 $LaminaList`;
+			for($poly in $selectPoly){
+				if(stringArrayContains($poly,$LaminaList)){
+					$LaminaTrue=true;
+				}
+				else{
+					$LaminaTrue=false;
+					break;
+				}
+			}
+			if(!$LaminaTrue){
+				print "ラミナフェースじゃない\n";
+				AriPolygonCounterGetErrorPoly(2);
+				APCpolySelectOnes(11,1);
+			}
+		}
+	}
+	if(`checkBox -q -v $APCfitCameraCheckBox`)viewFit -f 0.1;
+	return;
+}
+global proc APC_SelectUpDown(int $mode){
+	global string $AriPCounterTextSc;
+	global int $APC_KeyCommand;
+	int $selectNumber[] = `textScrollList -q -sii $AriPCounterTextSc`;
+	int $listTotal      = `textScrollList -q -ni $AriPCounterTextSc`;
+	if($mode==0){
+		if($APC_KeyCommand==0 || $APC_KeyCommand==1 || $APC_KeyCommand==4)$APC_KeyCommand++;
+		else $APC_KeyCommand=0;
+	}
+	if($mode==1){
+		if($APC_KeyCommand==2 || $APC_KeyCommand==3 || $APC_KeyCommand==5 || $APC_KeyCommand==6)$APC_KeyCommand++;
+		else $APC_KeyCommand=0;
+		if($APC_KeyCommand==7){
+			int $ext=0;
+			if(`optionVar -ex "AriPolygonCounterExtend"`)$ext=`optionVar -q "AriPolygonCounterExtend"`;
+			$ext=!$ext;
+			print("extend!!"+$ext+"\n");
+			optionVar -intValue "AriPolygonCounterExtend" $ext;
+		}
+	}
+	if ($listTotal==0)return;
+	int $nextNumber;
+	if($mode==1) $nextNumber = $selectNumber[size($selectNumber)-1]+1;
+	if($mode==0) $nextNumber = $selectNumber[size($selectNumber)-1]-1;
+	if($nextNumber > $listTotal)$nextNumber=1;
+	if($nextNumber <= 0)$nextNumber=$listTotal;
+	if($nextNumber == 101){
+		if($mode==1)$nextNumber=1;
+		if($mode==0)$nextNumber=100;
+	}
+	textScrollList -e -da -sii $nextNumber $AriPCounterTextSc;
+	APCpolyListSelect();
+	/*
+	if($APCcountNo==$countNo){
+		if($listTotal != 0) {
+			int $selectIndex[] = `textScrollList -q -selectIndexedItem  $AriPCounterTextSc`;
+			if($listTotal  > $selectIndex[0]){
+				textScrollList -e -da -selectIndexedItem ($selectIndex[0]+1) $AriPCounterTextSc;
+			}
+			else{
+				textScrollList -e -da -selectIndexedItem 1 $AriPCounterTextSc;
+			}
+			APCpolyListSelect($countNo);
+		}
+	}
+	else {
+		APCpolyList($countNo);
+		$listTotal = `textScrollList -q -numberOfItems $AriPCounterTextSc`;
+		if($listTotal >= 1){
+			textScrollList -e -selectIndexedItem 1 $AriPCounterTextSc;
+			APCpolyListSelect($countNo);
+		}
+	}
+	$APCcountNo=$countNo;
+	*/
+}
+global proc APCpolySelectOnes(int $countNo,int $compulsory){
+	global int $AriPCounterActiveSelectMode;
+	global string $AriPCounterTextSc;
+	global string $AriPCounterInfo;
+	print("number " + $countNo +"\n");
+	if($compulsory!=1)textField -e -bgc 0.3 0.3 0.3 -text "Done" $AriPCounterInfo;
+	if($AriPCounterActiveSelectMode != $countNo || $compulsory == 1){
+		$AriPCounterActiveSelectMode = $countNo;
+		APCpolyList($countNo);	
+		int $count=`textScrollList -q -ni $AriPCounterTextSc`;
+		if($count==0){
+			select -cl;
+			return;
+		}
+		textScrollList -e -sii 1 $AriPCounterTextSc;
+		APCpolyListSelect();
+	}
+	else{
+		APC_SelectUpDown(1);
+	}
+	return;
+}
+global proc APCpolySelectAll(int $countNo){
+	global int $AriPCounterActiveSelectMode;
+	global string $AriPCounterInfo;
+	global string $AriPCounter_PolyID_1[];
+	global string $AriPCounter_PolyID_2[];
+	global string $AriPCounter_PolyID_3[];
+	global string $AriPCounter_PolyID_4[];
+	global string $AriPCounter_PolyID_5[];
+	global string $AriPCounter_PolyID_6[];
+	global string $AriPCounter_PolyID_7[];
+	global string $AriPCounter_PolyID_8[];
+	global string $AriPCounter_PolyID_9[];
+	global string $AriPCounter_PolyID_10[];
+	global string $AriPCounter_PolyID_11[];
+	global string $AriPCounter_PolyID_12[];
+	global string $AriPCounter_PolyID_13[];
+	global string $AriPCounter_PolyID_14[];
+	global string $AriPCounter_PolyID_15[];
+	global string $AriPCounter_PolyID_16[];
+	global string $AriPCounter_PolyID_17[];
+	global string $AriPCounter_PolyID_18[];
+	global string $AriPCounter_PolyID_19[];
+	global string $AriPCounter_PolyID_20[];
+	global string $APCfitCameraCheckBox;	
+	global string $AriPCounterTextSc;
+	$AriPCounterActiveSelectMode = $countNo;
+	textField -e -bgc 0.3 0.3 0.3 -text "Done" $AriPCounterInfo;
+	eval ("select -r $AriPCounter_PolyID_"+$countNo);	
+	if(`checkBox -q -v $APCfitCameraCheckBox`)viewFit -f 0.7;
+	APCpolyList($countNo);	
+	int $listTotal = `textScrollList -q -numberOfItems $AriPCounterTextSc`;
+	for($i=0; $i<$listTotal; $i++){
+		textScrollList -e -selectIndexedItem ($i+1) $AriPCounterTextSc;
+	}
+	textScrollList -e -showIndexedItem 1 $AriPCounterTextSc;
+}
+global proc AriPolygonCounter_ErrorColorChange(int $number,int $mode){
+	global int $AriPCounter_ErrorColorNum[];
+	$AriPCounter_ErrorColorNum[$number] = $mode;
+	AriPCounter_valSave();
+}
+global proc AriPolygonCounter_UIchange(){
+	global string $AriPCounterActiveCheckUI[5];
+	global string $AriPCounterCountCBox[5];
+	global string $AriPCounterTotalTxR[];
+	global string $AriPCounterTotalTxL[];
+	if(`checkBox -q -v $AriPCounterCountCBox[1]`){
+		columnLayout -e -en true $AriPCounterActiveCheckUI[1];
+	}
+	else{
+		columnLayout -e -en false $AriPCounterActiveCheckUI[1];
+	}
+	if(`checkBox -q -v $AriPCounterCountCBox[0]`){
+		columnLayout -e -en true $AriPCounterActiveCheckUI[0];
+		textField -e -en true $AriPCounterTotalTxR[0];
+		textField -e -en true $AriPCounterTotalTxL[0];
+		checkBox -e -en true $AriPCounterCountCBox[1];
+	}
+	else{
+		columnLayout -e -en false $AriPCounterActiveCheckUI[0];
+		textField -e -en false $AriPCounterTotalTxR[0];
+		textField -e -en false $AriPCounterTotalTxL[0];
+		columnLayout -e -en false $AriPCounterActiveCheckUI[1];
+		checkBox -e -en false $AriPCounterCountCBox[1];
+	}
+	if(`checkBox -q -v $AriPCounterCountCBox[2]`){
+		columnLayout -e -en true $AriPCounterActiveCheckUI[2];
+		textField -e -en true $AriPCounterTotalTxL[17];
+	}
+	else{
+		columnLayout -e -en false $AriPCounterActiveCheckUI[2];
+		textField -e -en false $AriPCounterTotalTxL[17];
+	}
+	AriPCounter_valSave();
+}
+global proc AriPolygonCounter_frameOpen(int $mode){
+	global string $AriPCounter_UI_frameLayout[];
+	if($mode != 10){
+		frameLayout -e -cl true $AriPCounter_UI_frameLayout[0];
+		frameLayout -e -cl true $AriPCounter_UI_frameLayout[1];
+		frameLayout -e -cl true $AriPCounter_UI_frameLayout[2];
+		frameLayout -e -cl true $AriPCounter_UI_frameLayout[3];
+		frameLayout -e -cl false $AriPCounter_UI_frameLayout[$mode];
+	}
+	else{
+		frameLayout -e -cl false $AriPCounter_UI_frameLayout[0];
+		frameLayout -e -cl false $AriPCounter_UI_frameLayout[1];
+		frameLayout -e -cl false $AriPCounter_UI_frameLayout[2];
+		frameLayout -e -cl false $AriPCounter_UI_frameLayout[3];
+	}
+}
+proc APC_rowLayoutGroup(int $countNo, string $countName, int $info){
+	global string $AriPCounterSignal[];
+	global string $AriPCounterTotalTxL[];
+	global string $AriPCounterTotalTxR[];
+	global string $AriPCounter_UI_AllSelectBtn[];
+	global string $AriPCounter_UI_OneSelectBtn[];
+	global string $AriPCounter_UI_ThresholdF[];
+	global string $AriPCounterLabelTxA[];
+	global int $AriPCounter_ErrorColorNum[];
+	string $radioButton[];
+	string $row = `rowLayout -nc 5 -cw 2 80  -cl5 "center" "center" "center" "center" "center" `;
+		$AriPCounterSignal[$countNo] = `button -label " " -h 18 -w 8  -bgc 0.2 0.2 0.2  -en true`;
+		if($countNo < 14 || $countNo > 18){
+			popupMenu -button 1 ;
+			radioMenuItemCollection;
+			$radioButton[0] = `menuItem -radioButton off -c ("AriPolygonCounter_ErrorColorChange(\""+$countNo+"\",0)") -l "Notice"`;
+			$radioButton[1] = `menuItem -radioButton off -c ("AriPolygonCounter_ErrorColorChange(\""+$countNo+"\",1)") -l "Warning (Yellow)"`;
+			$radioButton[2] = `menuItem -radioButton on  -c ("AriPolygonCounter_ErrorColorChange(\""+$countNo+"\",2)") -l "Error (Red)"`;
+		}
+		rowLayout -nc 2 -cw 1 40;
+		$AriPCounterLabelTxA[$countNo] =`text -label $countName`;
+		if($countNo == 5)  $AriPCounter_UI_ThresholdF[5]  = `floatField -w 40 -v 160  -pre 1`;
+		if($countNo == 6)  $AriPCounter_UI_ThresholdF[6]  = `floatField -w 40 -v 50 -pre 1`;
+		if($countNo == 20) $AriPCounter_UI_ThresholdF[20] = `floatField -w 40 -v 10  -pre 1`;
+		if($countNo==2 || $countNo==3){
+		}
+		setParent..;
+		if($countNo==2 || $countNo==3){
+			columnLayout;
+			$AriPCounterTotalTxL[$countNo]  =`textField -h 24 -ed false -w 60 -ann "Square" -text ""`;
+			$AriPCounterTotalTxR[$countNo]  =`textField -h 24 -ed false -w 60 -ann "Triangle" -text ""`;
+			setParent..;
+		}
+		else{
+			columnLayout;
+			$AriPCounterTotalTxL[$countNo]  =`textField -h 24 -ed false -w 60 -text ""`;
+			setParent..;
+		}
+		rowLayout -nc 3 -cl3 "center" "center" "center";
+		$AriPCounter_UI_AllSelectBtn[$countNo] = `button -h 24 -label "All" -w 26 -en false -command ("APCpolySelectAll("+$countNo+")")`;
+		$AriPCounter_UI_OneSelectBtn[$countNo] = `button -h 24 -label "Sel" -w 26 -en false -command ("APCpolySelectOnes("+$countNo+",0)")`;
+		setParent..;
+	setParent..;
+	if($countNo==15 || $countNo==17 || $countNo==16 || $countNo==18){
+		button -e -vis false $AriPCounter_UI_AllSelectBtn[$countNo];
+		button -e -vis false $AriPCounter_UI_OneSelectBtn[$countNo];
+	}
+	menuItem -e -radioButton on $radioButton[$AriPCounter_ErrorColorNum[$countNo]];
+	if($countNo==13){
+		rowLayout -e -vis 0  $row;
+	}
+}
+global proc AriPolygonCounter(){
+	global string $AriPCounterSelObjects[];
+	global string $AriPCounterTotalTxL[];
+	global string $AriPCounterTotalTxR[];
+	global string $AriPCounterLabelTxA[];
+	global string $AriPCounterSignal[];
+	global string $AriPCounterCountStartBtn;
+	global string $AriPCounterReCountBtn;
+	global string $AriPCounterInfo;
+	global string $AriPCounter_UI_frameLayout[];
+	global string $AriPCounter_UI_compoButton[];
+	global string $AriPCounter_UI_ThresholdF[];
+	global int $AriPCounter_ErrorColorNum[];
+	global string $AriPCounterTextSc;
+	global string $APCfitCameraCheckBox;
+	global string $AriPCounterCountCBox[3];
+	global string $AriPCounterActiveCheckUI[5];
+	global string $gMainProgressBar;
+	global string $AriPCounter_progressBar;
+	global int $AriPCounter_jpTrue;
+	global int $APC_KeyCommand;
+	$APC_KeyCommand = 0;
+	clear $AriPCounterSelObjects;
+	global vector $AriPCounter_ErrorColorVal[];
+	$AriPCounter_ErrorColorVal[0] = <<0.2, 0.2, 0.2>>;
+	$AriPCounter_ErrorColorVal[1] = <<1, 1, 0>>;
+	$AriPCounter_ErrorColorVal[2] = <<1, 0, 0>>;
+	colorValLoad();
+	$AriPCounter_jpTrue = false;
+	if(`about -uil`=="ja_JP")$AriPCounter_jpTrue = true;
+	string $label_faceTotal= "Face Total";
+	string $label_face     = "Face";
+	string $label_triangle = "Triangle";
+	string $label_quads    = "Quads";
+	string $label_nsided   = "Nsided";
+	string $label_irregular = "Irregular";
+	string $label_concave   = "Concave";
+	string $label_wideAngle = "Wide";
+	string $label_nonPlanar = "NonP";
+	string $label_edgeTotal = "Edge Total";
+	string $label_edge      = "Edge";
+	string $label_soft      = "Soft Edge";
+	string $label_hard      = "Hard Edge";
+	string $label_border    = "Border Edge";
+	string $label_crease    = "Crease Edge";
+	string $label_plane     = "PlaneHE";
+	string $label_nonGeometry  = "Nonmanifold Geometry";
+	string $label_lamina       = "Lamina Faces";
+	string $label_nonmanifoldE = "Non Edge";
+	string $label_nonmanifoldV = "Non Vertex";
+	string $label_object = "Object";
+	string $label_shell  = "Shell";
+	string $label_vertex = "Vertex";
+	string $label_total = "Total";
+	string $label_reload = "Reload";
+	string $label_search = "Search";
+	if($AriPCounter_jpTrue){
+		$label_faceTotal = "フェース 計";
+		$label_face      = "フェース";
+		$label_triangle  = "三角形";
+		$label_quads     = "四角形";
+		$label_nsided    = "多角形";
+		$label_irregular = "異形四角形";
+		$label_concave   = "凹型";
+		$label_wideAngle = "広角";
+		$label_nonPlanar = "非平面";
+		$label_edgeTotal= "エッジ 計";
+		$label_edge     = "エッジ";
+		$label_soft     = "ソフトエッジ";
+		$label_hard     = "ハードエッジ";
+		$label_border   = "境界エッジ";
+		$label_crease   = "折り目エッジ";
+		$label_plane    = "平ハード";
+		$label_lamina       = "ラミナフェース";
+		$label_nonmanifoldE = "非多様エッジ";
+		$label_nonmanifoldV = "非多様頂点";
+		$label_nonGeometry  ="非多様";
+		$label_object = "オブジェクト";
+		$label_shell  = "シェル";
+		$label_vertex = "頂点";
+		$label_reload = "更新";
+		$label_search = "カウント実行";
+	}
+	int $ext = 0;
+	if(`optionVar -ex "AriPolygonCounterExtend"`)$ext=`optionVar -q "AriPolygonCounterExtend"`;
+	int $sepa =220;
+	int $rowW[]={10,80,100,35,35};
+	int $sig[]={24,12};
+	string $selectAll="All";
+	string $selectOnce="Once";
+	string $mage;
+	if((`window -ex  AriPolygonCounter`)==true)deleteUI AriPolygonCounter;
+	window -title "AriPolygonCounter"  -w 500 -h 400  AriPolygonCounter;
+	string $form =`formLayout`;
+	$AriPCounterInfo = `textField -ed false -text ""`;
+	string $frame1 = `scrollLayout  -hst 0 `;
+	string $frame2 = `columnLayout  -adj true -rs 0 `;
+	$AriPCounter_UI_frameLayout[0] = `frameLayout -l $label_face -cll true`;
+	columnLayout -adj true ;
+	rowLayout -nc 2 -cw2 90 60 ;
+		$AriPCounterCountCBox[0] = `checkBox -label $label_faceTotal -v true -cc "AriPolygonCounter_UIchange"`;
+		columnLayout;
+		$AriPCounterTotalTxR[0]  =`textField -w 60 -text "" -ed false `;
+		$AriPCounterTotalTxL[0]  =`textField -w 60 -text "" -ed false `;
+		setParent..;
+	setParent..;
+	$AriPCounterActiveCheckUI[0] = `columnLayout`;
+	separator -w $sepa -style "in" -h 6;
+	APC_rowLayoutGroup(1, $label_triangle,0);
+	APC_rowLayoutGroup(2, $label_quads,  0);
+	APC_rowLayoutGroup(3, $label_nsided, 0);
+	setParent..;
+	$AriPCounterActiveCheckUI[5] =`columnLayout -vis $ext`;
+	separator -w $sepa -style "single" -h 10 -hr true;
+	rowLayout -nc 2 -cw2 90 60 ;
+		$AriPCounterCountCBox[1] = `checkBox -label $label_irregular -v 1 -cc "AriPolygonCounter_UIchange"`;
+		columnLayout;
+		setParent..;
+	setParent..;
+	$AriPCounterActiveCheckUI[1] = `columnLayout`;
+	separator -w $sepa -style "in" -h 6 ;
+	APC_rowLayoutGroup(4, $label_concave   ,0);
+	APC_rowLayoutGroup(5, $label_wideAngle ,1);
+	APC_rowLayoutGroup(6, $label_nonPlanar ,1);
+	/*
+	rowLayout -nc 4 ;
+	text -label "閾値(度): 広角";
+	floatField -min 90 -max 180 -value 160 -step 1 -pre 1 -w 40 "AriPolygonCounter_angleSlider1";
+	text -label "  非平面";
+	floatField -min 0  -max 90  -value 50 -step 1 -pre 1 -w 40 "AriPolygonCounter_angleSlider2";
+	setParent..;
+	*/
+	setParent..;
+	setParent..;
+	separator -w $sepa -style "double" -h 10;
+	setParent..;
+	setParent..;
+	$AriPCounter_UI_frameLayout[1] = `frameLayout -l $label_edge  -cll true`;
+	columnLayout -adj true;
+	rowLayout -nc 2 -cw2 90 60  ;
+		$AriPCounterCountCBox[2] =`checkBox -label $label_edgeTotal -v true -cc "AriPolygonCounter_UIchange"`;
+		$AriPCounterTotalTxL[21] =`textField -w 60 -text "" -ed false `;
+	setParent..;
+	$AriPCounterActiveCheckUI[2] = `columnLayout -adj true`;
+	separator -w $sepa -style "in" -h 6 ;
+	APC_rowLayoutGroup(19, $label_soft,   0);
+	APC_rowLayoutGroup( 7, $label_hard,   0);
+	APC_rowLayoutGroup( 8, $label_border, 0);
+	APC_rowLayoutGroup(12, $label_crease, 0);
+	APC_rowLayoutGroup(13,"折り目0エッジ",0);
+	separator -style "in" -h 8;
+	APC_rowLayoutGroup(20, $label_plane, 0);
+	setParent..;
+	setParent..;
+	setParent..;
+	$AriPCounter_UI_frameLayout[2] = `frameLayout -l $label_nonGeometry -cll true`;
+	APC_rowLayoutGroup(11, $label_lamina, 0);
+	APC_rowLayoutGroup(10, $label_nonmanifoldE, 0);
+	APC_rowLayoutGroup( 9, $label_nonmanifoldV, 0);		
+	separator -w $sepa -style "double" -h 10;
+	setParent..;
+	$AriPCounter_UI_frameLayout[3] = `frameLayout -l $label_total -cll true`;
+	APC_rowLayoutGroup(14, $label_object ,0);
+	APC_rowLayoutGroup(15, $label_shell  ,0);
+	APC_rowLayoutGroup(16, $label_face   ,0);
+	APC_rowLayoutGroup(17, $label_edge   ,0);
+	APC_rowLayoutGroup(18, $label_vertex ,0);
+	separator -w $sepa -style "double" -h 10;
+	setParent..;
+	setParent ..;
+	setParent..;
+	string $rightform = `formLayout`;
+	$AriPCounterTextSc=`textScrollList`;
+	string $BtnUP = `button -l "Up" -command ("APC_SelectUpDown(0)")`;
+	string $BtnDown = `button -l "Down" -command ("APC_SelectUpDown(1)")`; 
+	string $iconButton4set =`formLayout`;
+	string $BtnWfss =`nodeIconButton -h 26 -style "iconOnly" -image1 "WireFrame.png" -command "string $Wfs=`getPanel -wf`;if(`modelEditor -q -da  $Wfs` == \"wireframe\" )modelEditor -e -da \"smoothShaded\" $Wfs; else modelEditor -e -da \"wireframe\" $Wfs;"`;
+	string $BtnWfs  =`nodeIconButton -h 26 -style "iconOnly" -image1 "WireFrameOnShaded.png" -command "string $Wfs=`getPanel -wf`;if(`modelEditor -q -wos  $Wfs` )modelEditor -e -wos 0 $Wfs; else modelEditor -e -wos 1 $Wfs;"`;
+	string $BtnTex  =`nodeIconButton -h 26 -style "iconOnly" -image1 "Textured.png" -command "string $Wfs=`getPanel -wf`;if(`modelEditor -q -dtx  $Wfs` )modelEditor -e -dtx 0 $Wfs; else modelEditor -e -dtx 1 $Wfs;"`;
+	string $BtnXray =`nodeIconButton -h 26 -style "iconOnly" -image1 "XRay.png" -command "string $xray=`getPanel -wf`;if(`modelEditor -q -xr  $xray` )modelEditor -e -xr 0 $xray; else modelEditor -e -xr 1 $xray;"`;
+	setParent..;
+	formLayout -e
+		-af $BtnWfss "left" 0  -ac $BtnWfss "right"  0 $BtnWfs
+		-ap $BtnWfs "left" 0 25  -ac $BtnWfs "right"  0  $BtnTex
+		-ap $BtnTex "left" 0 50  -ac $BtnTex "right"  0  $BtnXray
+		-ap $BtnXray "left" 0 75 -af $BtnXray "right"  0 
+	$iconButton4set;
+	$APCfitCameraCheckBox = `checkBox -label "FitCamera"-v 1 `;
+	setParent ..;
+	$AriPCounterCountStartBtn =`button -h 30 -bgc 0  0.5 0.4  -label $label_search -command "AriPolygonCounterGO(0)"`; 
+	$AriPCounterReCountBtn    =`button -en false -label $label_reload -command "AriPolygonCounterGO(2)"`; 
+	$AriPCounter_progressBar = `progressBar -maxValue 100 `;
+	string $seperator = `separator -h 6`;
+	string $openButtonGroup = `rowLayout -nc 5`;
+	$AriPCounter_UI_compoButton[0] = `iconTextButton -i "pickGeometryObj.png"        -bgc 0.2 0.2 0.2 -c "AriPolygonCounter_frameOpen(0)"`;
+	$AriPCounter_UI_compoButton[1] = `iconTextButton -i "pickLineComp.png"           -bgc 0.2 0.2 0.2 -c "AriPolygonCounter_frameOpen(1)"`;
+	$AriPCounter_UI_compoButton[2] = `iconTextButton -i "out_symmetryConstraint.png" -bgc 0.2 0.2 0.2 -c "AriPolygonCounter_frameOpen(2)"`;
+	$AriPCounter_UI_compoButton[3] = `iconTextButton -i "out_polyCube.png" -bgc 0.2 0.2 0.2 -c "AriPolygonCounter_frameOpen(3)"`;
+	button -l "ALL" -c "AriPolygonCounter_frameOpen(10)";
+	setParent..;
+	setParent..;
+	formLayout -edit
+	-af $BtnUP "bottom" 0 
+	-af $BtnUP "left" 0
+	-ap $BtnUP "right" 0 50
+	-af $BtnDown "bottom" 0
+	-ac $BtnDown "left" 0 $BtnUP
+	-af $BtnDown "right" 0
+	-ac $APCfitCameraCheckBox "bottom" 0 $BtnUP
+	-af $APCfitCameraCheckBox "left"   0 
+	-af $APCfitCameraCheckBox "right"  0
+	-ac $iconButton4set "bottom" 0 $APCfitCameraCheckBox
+	-af $iconButton4set "left" 0
+	-af $iconButton4set "right" 0
+	-af $AriPCounterTextSc "top" 0		
+	-af $AriPCounterTextSc "left" 0
+	-af $AriPCounterTextSc "right"  0
+	-ac $AriPCounterTextSc "bottom" 0 $iconButton4set
+	$rightform;
+	formLayout -edit
+		-af $AriPCounterCountStartBtn "left"   0
+		-ac $AriPCounterCountStartBtn "right"  0 $rightform
+		-af $AriPCounterCountStartBtn "bottom" 0
+		-af $AriPCounterReCountBtn "left"   0
+		-aoc $AriPCounterReCountBtn "right"  0 $AriPCounterCountStartBtn
+		-ac $AriPCounterReCountBtn "bottom" 0 $AriPCounterCountStartBtn
+		-af $AriPCounterInfo "left" 0
+		-aoc $AriPCounterInfo "right" 0 $AriPCounterCountStartBtn
+		-ac $AriPCounterInfo "bottom" 0 $AriPCounterReCountBtn
+		-af  $AriPCounter_progressBar "left"   0
+		-aoc $AriPCounter_progressBar "right"  0 $AriPCounterCountStartBtn
+		-ac  $AriPCounter_progressBar "bottom" 0 $AriPCounterInfo
+		-af  $openButtonGroup "left"   0
+		-aoc $openButtonGroup "right"  0 $AriPCounterCountStartBtn
+		-ac  $openButtonGroup "bottom" 0 $AriPCounter_progressBar
+		-af  $seperator "left"   0
+		-aoc $seperator "right"  0 $AriPCounterCountStartBtn
+		-ac  $seperator "bottom" 0 $openButtonGroup
+		-af $frame1 "top"   0
+		-af $frame1 "left"   0
+		-aoc $frame1 "right"  0 $AriPCounterCountStartBtn
+		-ac $frame1 "bottom" 0 $seperator
+		-af $rightform "top" 0		
+		-af $rightform "left" 250
+		-af $rightform "right"  0
+		-af $rightform "bottom" 0
+	$form;
+	global string $AriPCounterCountCBox[5];
+	int $countTrue = 7;
+	if(`optionVar -ex "AriPolygonCounter_countTrue"`)$countTrue = `optionVar -q "AriPolygonCounter_countTrue"`;
+	int $countTrueList[];
+	$countTrueList = AriNumber10to2($countTrue);
+	for($i=0; $i<3; $i++){
+		checkBox -e -v $countTrueList[$i] $AriPCounterCountCBox[$i];
+	}
+	float $wideAngle  = 160;
+	float $planarFace = 50;
+	float $planarEdge = 10;
+	if(`optionVar -ex "AriPolygonCounter_wideAngle"`) $wideAngle = `optionVar -q "AriPolygonCounter_wideAngle"`;
+	if(`optionVar -ex "AriPolygonCounter_planarFace"`)$planarFace = `optionVar -q "AriPolygonCounter_planarFace"`;
+	if(`optionVar -ex "AriPolygonCounter_planarEdge"`)$planarEdge = `optionVar -q "AriPolygonCounter_planarEdge"`;
+	floatField -e -v $wideAngle  $AriPCounter_UI_ThresholdF[5];
+	floatField -e -v $planarFace $AriPCounter_UI_ThresholdF[6];
+	floatField -e -v $planarEdge $AriPCounter_UI_ThresholdF[20];
+	AriPolygonCounter_UIchange();
+	showWindow;
+}

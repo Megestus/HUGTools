@@ -1,0 +1,73 @@
+//--------------------------------------------------------------------------
+//
+// ScriptName : AriWindowAllClose
+// Contents   : Maya上で開いているウィンドウをすべて閉じます。
+// Author     : Ari
+// LastUpdate : 2019/10/14 WorkspaceControlに対応
+//              2016/03/03 閉じたウィンドウ名と数を表示
+//                         別のMEL AriCompactToolSettingsWindowの表示がおかしくなるバグ修正
+//              2014/06
+// Note       : GoZや2014からのモデリングツールキットもウィンドウ扱いなので、それらは閉じないようにしています。
+// Help       : http://cgjishu.net/blog-entry-288.html
+//
+//--------------------------------------------------------------------------
+
+
+
+proc AriWindowAllClose_close(string $ui){
+	
+	
+	if(`exists("workspaceControl")`){
+		if(`workspaceControl -ex $ui`){
+			if(`workspaceControl -q -floating $ui`){
+				string $label = `workspaceControl -q -label $ui`;
+				print ("workspaceControl   " + $label + "   Close\n");
+				workspaceControl -e -close $ui;
+				return;
+			}
+		}
+	}
+	if(`window -ex $ui`){
+		if(    $ui != "learningMoviesLaunchWnd"
+			&& $ui != "ColorEditor"
+			&& $ui != "MayaWindow"
+			&& $ui != "CommandWindow"
+			&& $ui != "gozwin"
+			&& $ui != "nexFloatWindow"
+			&& $ui != "AriCompactToolSettingsWindow"
+			){
+			$label = `window -q -title $ui`;
+			print ("window     "+$label + "Delete\n");
+			deleteUI $ui;
+		}
+	}	
+}
+global proc AriWindowAllClose(){
+	global string $AriWindowAllCloseW_SL;
+	global string $AriWindowAllCloseW_CL;
+	string $processedUI[];
+	int $processCount = 0;
+	string $dumpWidgetsList[] =`lsUI -dw`;
+	string $windowList[] =`lsUI -typ "window"`;
+	if(`exists("workspaceControl")`){
+		for($dumpWidgets in $dumpWidgetsList){
+			if(`workspaceControl -ex $dumpWidgets`){
+				if(`workspaceControl -q -fl $dumpWidgets`){
+					AriWindowAllClose_close($dumpWidgets);
+					$processedUI[$processCount] = $dumpWidgets;
+					$processCount++;
+				}
+			}
+		}
+	}
+	for($window in $windowList){
+		if(stringArrayContains($window,$processedUI))continue;
+		if(`window -ex $window`){
+			if($window != "MayaWindow" && $window != "AriWindowAllClose"){
+				AriWindowAllClose_close($window);
+				$processedUI[$processCount] = $window;
+				$processCount++;
+			}
+		}
+	}
+}

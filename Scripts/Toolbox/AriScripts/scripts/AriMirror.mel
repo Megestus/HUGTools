@@ -1,0 +1,1163 @@
+//--------------------------------------------------------------------------
+//
+// ScriptName : AriMirror
+// Contents   : オブジェクトを複製ミラー結合マージします
+// Author     : Ari
+// URL        : http://cgjishu.net/
+// Since      : 2014/05
+// LastUpdate : 2019/04/21 ローカル軸基準コピー機能追加。英語UI追加。
+//              2018/04/22 UVSetバグ修正。半分選択機能追加。
+//              2017/06/18 UI変更。バグ修正。
+//              2016/09/08 「結合」のチェックをON/OFFするとエラーが出るのを修正。
+//              2016/07/08 結合時座標が移動してしまう不具合を修正。
+//              2016/05/05 UVミラーに自動を追加
+//                         親に回転値がある場合移動してしまう不具合を調整できるように移動値リセットチェックボックス追加
+//              2015/10/16 マテリアルが単一の場合マテリアルアサインをフェースではなくオブジェクトにするよう修正。
+//              2015/09/23 中心をオーバーしてるフェースの探索機能と修正機能を追加しました。
+//              2015/04/05 バグ修正(途中エラー)。
+//              2015/04/02 選択項目の分離表示状態でミラー化しても非表示にならないように調整。(うまくいかないこと有)
+//              2015/01/25 マージする頂点の閾値を小さく。
+//              2015/02/18 削除するポリゴンの閾値を小さくしました。
+//
+//--------------------------------------------------------------------------
+
+
+
+proc int AriCheckFlag(string $cmd,string $flag){
+	
+	
+	int $flagTrue=false;
+	
+	string $res = `help $cmd`;
+	
+	string $flags[];
+	tokenize $res "\r\n" $flags;
+	int $i;
+	string $flagList[];
+	for ($flagLine in $flags) {
+		string $sepa[];
+		tokenize $flagLine " " $sepa;
+		if(startsWith($sepa[0],"-")){
+			$flagList[$i] = $sepa[0];
+			$i++;
+			if($sepa[0] == $flag) $flagTrue=true;
+		}
+	}
+	return $flagTrue;
+}
+proc int AriCombineExtract_ListNum (string $obj){
+	int $num;
+	string $parent[]=`listRelatives -p -pa $obj`;
+	string $children[];
+	if($parent[0]=="")	$children=`ls -as`;
+	else $children=		`listRelatives -c -pa $parent[0]`;
+	int $i=0;
+	for($child in $children){
+		if($child == $obj){
+			$num=$i;
+			break;
+		}
+		$i++;
+	}
+	return $num;
+}
+proc string[] AriCombineExtract_ObjectsToMaterials(string $objectList[]){
+	string $materialList[];
+	string $beforeSelectList[]=`ls -sl`;
+	select $objectList;
+	hyperShade -smn "";
+	$materialList = `ls -sl -mat`;
+	select $beforeSelectList;
+	return $materialList;
+}
+proc int[] AriNumber10to2(int $number){
+	int $boolList[];
+	int $baisu=pow(2,20);
+	$amari=$number;
+	for($i=20;$i>=0;$i--){
+		if($amari-$baisu>=0){
+			$amari=$amari-$baisu;
+			$boolList[$i]=1;
+		}
+		else $boolList[$i]=0;
+		$baisu=$baisu/2;
+	}
+	return $boolList;	
+}
+proc int AriNumber2to10(int $boolList[]){
+	int $number;
+	int $baisu=1;
+	for($i=0;$i<size($boolList);$i++){
+		$number += $baisu*$boolList[$i];
+		$baisu = $baisu*2;
+	}
+	return $number;	
+}
+proc string AriCombineExtract_CombineGo(string $selectObj[]){
+	delete -ch;
+	string $lastSelect=$selectObj[size($selectObj)-1];
+	string $parent[]=`listRelatives -pa -p  $lastSelect`;
+	string $setList[] = `ls -type "objectSet"`;
+	string $menberSetList[];
+	int $i=0;
+	for($set in $setList){
+		string $setMembers[]=`sets -q $set`;
+		if(stringArrayContains($lastSelect, $setMembers)){
+			$menberSetList[$i]=$set;
+			$i++;
+		}
+	}
+	int $lastObjNum=AriCombineExtract_ListNum($lastSelect);
+	if($parent[0] != ""){
+		string $parentName[]=`parent -w $lastSelect`;
+		$lastSelect=$parentName[0];
+		$selectObj[size($selectObj)-1]=$lastSelect;
+	}
+	float $translateVal[] = `getAttr ($lastSelect+".translate")` ;
+	float $rotateVal[]    = `getAttr ($lastSelect+".rotate")` ;
+	float $scaleVal[]     = `getAttr ($lastSelect+".scale")` ;
+	for($i=0 ; $i<size($selectObj)-1 ; $i++){
+		string $parentName[]=`parent $selectObj[$i] $lastSelect`;
+		$selectObj[$i]=$parentName[0];
+	}
+	setAttr ($lastSelect+".translate" )0 0 0;
+	setAttr ($lastSelect+".rotate") 0 0 0;
+	setAttr ($lastSelect+".scale") 1 1 1;
+	for($i=0 ; $i<size($selectObj)-1 ; $i++){
+		string $parentName[]=`parent -w $selectObj[$i] `;
+		$selectObj[$i]=$parentName[0];
+	}
+	makeIdentity -apply true -t 1 -r 1 -s 1 -n 0 $selectObj;
+	float $rotatePiv[] = `getAttr ($lastSelect+".rotatePivot")` ;
+	float $scalePiv[]  = `getAttr ($lastSelect+".scalePivot")` ;
+	for($obj in $selectObj){
+		string $meshs[]= `listRelatives -pa -s $obj`;
+		if(size($meshs)>0){
+			if(`getAttr($meshs[0]+".opposite")`==1){
+				polyNormal -normalMode 0 -userNormalMode 0 $obj;
+				setAttr ($meshs[0]+".opposite") 0;
+			}
+		}
+	}
+	delete -ch;
+	string $combineObjList[]=`polyUnite -ch 1 $selectObj`;
+	string $combineObj=$combineObjList[0];
+	string $matList[] = AriCombineExtract_ObjectsToMaterials($combineObjList);
+	if(size($matList)==1){
+		select $combineObj;
+		hyperShade -assign $matList[0];
+	}
+	delete -ch $combineObj;
+	setAttr ($combineObj+".rotatePivot")  $rotatePiv[0]  $rotatePiv[1]  $rotatePiv[2];
+	setAttr ($combineObj+".scalePivot") $scalePiv[0] $scalePiv[1] $scalePiv[2];
+	setAttr ($combineObj+".translate" ) $translateVal[0] $translateVal[1] $translateVal[2];
+	setAttr ($combineObj+".rotate")     $rotateVal[0] $rotateVal[1] $rotateVal[2];
+	setAttr ($combineObj+".scale")      $scaleVal[0] $scaleVal[1] $scaleVal[2];
+	if($parent[0]!=""){
+		string $parentName[]=`parent $combineObj $parent[0]`;
+		$combineObj=$parentName[0];
+	}
+	reorder -relative ($lastObjNum+1) $combineObj;
+	delete -ch $combineObj;
+	if(!`isValidObjectName($lastSelect)`){
+		$lastSelect=endString($lastSelect,size($lastSelect)-1);
+	}
+	string $combineName=`rename $combineObj $lastSelect`;
+	for($set in $menberSetList){
+		sets -edit -forceElement $set $combineName;
+	}
+	return $combineName;
+}
+proc float getVectorMinMax(vector $valList[],int $xy,int $mode){
+	float $minmax;
+	float $min = $valList[0];
+	float $max = $valList[0];
+	for($val in $valList){
+		float $xyVal;
+		if($xy==1)$xyVal = ($val.x);
+		if($xy==2)$xyVal = ($val.y);
+		if($xyVal > $max)$max = $xyVal;
+		if($xyVal < $min)$min = $xyVal;
+	}
+	if($mode==0)$minmax=$min;
+	if($mode==1)$minmax=$max;
+	return $minmax;
+}
+proc uvSimpleMirror(string $uvList[]){
+	global string $AriMirrorUI_radioXYZUV[6];
+	global string $AriMirrorUI_UVCenterFF;
+	int $jikuUV;
+	if(`radioButton -q -select $AriMirrorUI_radioXYZUV[3]`)$jikuUV = 1;
+	if(`radioButton -q -select $AriMirrorUI_radioXYZUV[4]`)$jikuUV = 2;
+	float $uvCenter;
+	$uvCenter = `floatField -q -v $AriMirrorUI_UVCenterFF`;
+	int $shelSideTrue = 0;
+	string $processedUVList[];
+	clear $processedUVList;
+	float $uCenter;
+	float $vCenter;
+	float $vai = 1;
+	if($jikuUV==2) $vai=$vai*-1;
+	if($shelSideTrue != 0){
+		for($uv in $uvList){
+			if(stringArrayContains($uv,$processedUVList))continue;
+			select $uv;
+			polySelectBorderShell 0;
+			string $shellList[] = `ls -sl`;
+			$shellList=`filterExpand -selectionMask 35 $shellList`;
+			$processedUVList = stringArrayCatenate( $processedUVList, $shellList);
+			vector $posList[];
+			clear $posList;
+			int $i = 0;
+			for($shellUV in $shellList){
+				vector $uvPos = `polyEditUV -q $shellUV`;
+				$posList[$i] = $uvPos;
+				$i++;
+			}
+			$uvCenter = getVectorMinMax($posList,$jikuUV,0);
+			print(size($shellList)+"  "+$uvCenter+"\n");
+			polyEditUV -pu $uvCenter -pv $uvCenter -su (-$vai) -sv ($vai) $shellList;
+		}
+	}
+	else{
+		polyEditUV -pu $uvCenter -pv $uvCenter -su (-$vai) -sv ($vai) $uvList;
+	}
+}
+proc AriMirror_uvMirror(string $baseObj,string $copyObj,int $jikuXYZ, float $gosa,int $parentTrue){
+	global string $AriMirrorUI_radioXYZUV[6];
+	global string $AriMirrorUI_objCheckBox[];
+	int $uvAllTrue         = `checkBox -q -v $AriMirrorUI_objCheckBox[9]`;
+	int $autoMirrorTrue    = `checkBox -q -v $AriMirrorUI_objCheckBox[4]`;
+	float $scalePiv[]=`getAttr ($copyObj+".scalePivot")`;
+	float $pivPos;
+	if($jikuXYZ==1)$pivPos=$scalePiv[0];
+	if($jikuXYZ==2)$pivPos=$scalePiv[1];
+	if($jikuXYZ==3)$pivPos=$scalePiv[2];
+	string $centerVerList[];
+	clear $centerVerList;
+	int $i=0;
+	if($autoMirrorTrue && $parentTrue==false){
+		string $verList[] = `polyListComponentConversion -tv $baseObj`;
+		$verList = `filterExpand -selectionMask 31 $verList`;
+		for($ver in $verList){
+			float $posXYZ;
+			vector $vPos=`pointPosition -l $ver`;
+			if($jikuXYZ==1) $posXYZ=$vPos.x;
+			if($jikuXYZ==2) $posXYZ=$vPos.y;
+			if($jikuXYZ==3) $posXYZ=$vPos.z;
+			$posXYZ -= $pivPos;
+			if($posXYZ < $gosa && $posXYZ > ($gosa * -1)){
+				$centerVerList[$i]=$ver;
+				$i++;
+			}
+		}
+	}
+	int $shellSideMode = 0;
+	string $currentUV[] = `polyUVSet -q -cuv $copyObj`;
+	string $uvMapList[] = `polyUVSet -q -allUVSets $copyObj`;
+	float $pivotU = 0;
+	if( size($uvMapList)>0){	
+		for($uvSet in $uvMapList){
+			if(!$uvAllTrue){
+				if($uvSet != $currentUV[0]) continue;
+			}
+			polyUVSet -cuv -uvSet $uvSet $copyObj;
+			polyUVSet -cuv -uvSet $uvSet $baseObj;
+			string $copyUVAll[] = `polyListComponentConversion -tuv $copyObj`;
+			$copyUVAll = `filterExpand -selectionMask 35 $copyUVAll`;
+			if(!$autoMirrorTrue){
+				uvSimpleMirror($copyUVAll);
+			}
+			else{
+				string $processedBaseUVList[];
+				clear $processedBaseUVList;
+				string $processedCopyUVList[];
+				clear $processedCopyUVList;
+				string $beforeprocessed[] = $processedBaseUVList;
+				string $centerUVs[] = `polyListComponentConversion -tuv $centerVerList`;
+				$centerUVs = `filterExpand -selectionMask 35 $centerUVs`;
+				int $m=0;
+				while($m<500){
+					string $uvA="";
+					string $uvB="";
+					for($i=0;$i<size($centerUVs);$i++){
+						if(stringArrayContains ($centerUVs[$i],$processedBaseUVList))continue;
+						string $uvToEdge[]=`polyListComponentConversion -te $centerUVs[$i]`;
+						string $edgeToUv[]=`polyListComponentConversion -tuv $uvToEdge`;
+						$edgeToUv=`filterExpand -selectionMask 35 $edgeToUv`;
+						string $uvToFace[]=`polyListComponentConversion -tf $centerUVs[$i]`;
+						string $faceToUv[]=`polyListComponentConversion -tuv $uvToFace`;
+						$faceToUv=`filterExpand -selectionMask 35 $faceToUv`;
+						for($j=$i+1;$j<size($centerUVs);$j++){
+							if(stringArrayContains($centerUVs[$j],$edgeToUv) && stringArrayContains($centerUVs[$j],$faceToUv) ){
+								$uvA = $centerUVs[$i];
+								$uvB = $centerUVs[$j];
+								select $uvA;
+								polySelectBorderShell 0;
+								string $shellList[]=`ls -sl`;
+								$shellList=`filterExpand -selectionMask 35 $shellList`;
+								$processedBaseUVList = stringArrayCatenate( $processedBaseUVList, $shellList);
+								break;
+							}
+						}
+						if($uvA != "")break;
+					}
+					if($uvA != "" && $uvB != ""){
+						string $toke[];
+						tokenize $uvA "." $toke;
+						string $copyUVA=($copyObj+"."+$toke[size($toke)-1]);
+						select $copyUVA;
+						polySelectBorderShell 0;
+						string $copyUVShell[] = `ls -sl`;
+						$copyUVShell=`filterExpand -selectionMask 35 $copyUVShell`;
+						$processedCopyUVList = stringArrayCatenate( $processedCopyUVList, $copyUVShell);
+						vector $uvApos =`polyEditUV -q $uvA`;
+						vector $uvBpos =`polyEditUV -q $uvB`;
+						vector $vectorAB = $uvApos-$uvBpos;
+						vector $vectorAC = <<($vectorAB.x)*-1,($vectorAB.y),($vectorAB.z)>>;
+						float $rotY;
+						float $Ax = ($vectorAB.x);
+						float $Ay = ($vectorAB.y);
+						float $Bx = ($vectorAC.x);
+						float $By = ($vectorAC.y);
+						float $dotAB   = $Ax * $Bx + $Ay * $By;
+						float $crossAB = $Ax * $By - $Ay * $Bx;
+						$rotY = atan2($crossAB,$dotAB);	
+						$rotY = rad_to_deg($rotY)* -1;
+						polyEditUV -pu ($uvApos.x) -su -1 -sv 1 $copyUVShell;
+						polyEditUV -pu ($uvApos.x) -pv ($uvApos.y) -a $rotY $copyUVShell;
+					}
+					else{
+						string $unProcessed[] = stringArrayRemoveExact($processedCopyUVList, $copyUVAll);
+						if(size($unProcessed)!=0){
+							uvSimpleMirror($unProcessed);
+						}
+					}
+					if(size($beforeprocessed) == size($processedBaseUVList)){
+						break;
+					}
+					$beforeprocessed = $processedBaseUVList;
+					$m++;
+				}
+				print ("\n");
+			}
+		}
+		polyUVSet -cuv -uvSet $currentUV[0] $baseObj;
+		polyUVSet -cuv -uvSet $currentUV[0] $copyObj;
+	}
+}
+proc UVMarge(string $obj, string $margeVerList[]){
+	global string $AriMirrorUI_objCheckBox[];
+	int $uvAllTrue    = `checkBox -q -v $AriMirrorUI_objCheckBox[9]`;
+	string $currentUV[] = `polyUVSet -q -cuv $obj`;
+	string $uvMapList[] = `polyUVSet -q -allUVSets $obj`;
+	for($uvSet in $uvMapList){
+		if(!$uvAllTrue){
+			if($uvSet != $currentUV[0]) continue;
+		}
+		polyUVSet -cuv -uvSet $uvSet $obj;
+		string $toUV[] = `polyListComponentConversion -tuv $margeVerList`;
+		polyMergeUV -d 0.01 $toUV;
+		select -cl;
+	}
+	polyUVSet -cuv -uvSet $currentUV[0] $obj;
+}
+global proc AriMirror_ParentMirror(){
+	global string $AriMirrorUI_radioXYZUV[];
+	global string $AriMirrorUI_objCheckBox[12];
+	global string $AriMirror_floatTolerance;
+	int $jikuXYZ=0;
+	if(`radioButton -q -select $AriMirrorUI_radioXYZUV[0]`)$jikuXYZ =1;
+	if(`radioButton -q -select $AriMirrorUI_radioXYZUV[1]`)$jikuXYZ =2;
+	if(`radioButton -q -select $AriMirrorUI_radioXYZUV[2]`)$jikuXYZ =3;
+	int $freezeTrue   = `menuItem -q -cb $AriMirrorUI_objCheckBox[10]`;
+	int $uvMirrorTrue = `checkBox -q -v  $AriMirrorUI_objCheckBox[8]`;
+	float $gosa = 0.01;
+	$gosa  = `floatField -q -v $AriMirror_floatTolerance`;
+	string $objList[] = `ls -sl -tr`;
+	string $newObjList[];
+	int $counter = 0;
+	for($obj in $objList){
+		string $parents[] = `listRelatives -p -pa -type "transform" $obj`;
+		string $group;
+		if($parents[0]!="")	$group = `group -em -p $parents[0]`;
+		else				$group = `group -em`;
+		string $dubObj[] = `duplicate $obj`;
+		string $obj2[] = `parent $dubObj[0] $group`;
+		if($jikuXYZ==1) setAttr ($group+".scaleX") -1;
+		if($jikuXYZ==2) setAttr ($group+".scaleY") -1;
+		if($jikuXYZ==3) setAttr ($group+".scaleZ") -1;
+		string $obj3[];
+		if($parents[0]!="")	$obj3 = `parent $obj2[0] $parents[0]`;
+		else				$obj3 = `parent -world $obj2[0]`;
+		delete $group;
+		if($freezeTrue){
+			float $source_scaleX = `getAttr ($obj + ".scaleX")`;
+			float $source_scaleY = `getAttr ($obj + ".scaleY")`;
+			float $source_scaleZ = `getAttr ($obj + ".scaleZ")`;
+			float $target_scaleX = `getAttr ($obj3[0] + ".scaleX")`;
+			float $target_scaleY = `getAttr ($obj3[0] + ".scaleY")`;
+			float $target_scaleZ = `getAttr ($obj3[0] + ".scaleZ")`;
+			float $oneX = 1;
+			float $oneY = 1;
+			float $oneZ = 1;
+			if($source_scaleX <= ($target_scaleX * -1 + $gosa)  && $source_scaleX >= ($target_scaleX * -1 - $gosa)) $oneX = -1;
+			if($source_scaleY <= ($target_scaleY * -1 + $gosa)  && $source_scaleY >= ($target_scaleY * -1 - $gosa)) $oneY = -1;
+			if($source_scaleZ <= ($target_scaleZ * -1 + $gosa)  && $source_scaleZ >= ($target_scaleZ * -1 - $gosa)) $oneZ = -1;
+			print ($oneX+" "+$oneY+" "+$oneZ+"\n");
+			setAttr ($obj3[0] + ".scaleX") $oneX;
+			setAttr ($obj3[0] + ".scaleY") $oneY;
+			setAttr ($obj3[0] + ".scaleZ") $oneZ;
+			if(AriCheckFlag("makeIdentity","-pn"))  makeIdentity -apply true -t 0 -r 0 -s 1 -n 0 -pn true $obj3[0];
+			else                                    makeIdentity -apply true -t 0 -r 0 -s 1 -n 0          $obj3[0];
+			float $scaleX = $source_scaleX;
+			float $scaleY = $source_scaleY;
+			float $scaleZ = $source_scaleZ;
+			setAttr ($obj3[0] + ".scaleX") $scaleX;
+			setAttr ($obj3[0] + ".scaleY") $scaleY;
+			setAttr ($obj3[0] + ".scaleZ") $scaleZ;
+		}
+		if($uvMirrorTrue) AriMirror_uvMirror($obj, $obj3[0], $jikuXYZ, 0.001,1);
+		$newObjList[$counter]=$obj3[0];
+		$counter++;
+	}
+	select $newObjList;
+}
+global proc AriMirror_GO(int $mirrorWorld){
+	global string $AriMirror_floatTolerance;
+	global string $AriMirrorUI_objCheckBox[12];
+	global string $AriMirrorUI_radioXYZUV[6];
+	string $JPTrue;
+	if(`about -uil`=="ja_JP")$JPTrue = true;
+	else $JPTrue = false;
+	string $label_SelectHarfObj = "Select half of the objects and execute";
+	if($JPTrue){
+		$label_SelectHarfObj = "半分のオブジェクトを選択して実行してください";
+	}
+	float $gosa = 0.01;
+	$gosa  = `floatField -q -v $AriMirror_floatTolerance`;
+	string $objList[]=`ls -sl -tr`;
+	if(size($objList)<=0){
+		confirmDialog -title "Reverse" -message $label_SelectHarfObj;
+		return;
+	}
+	delete -ch $objList ;
+	string $margeObj;
+	int $jikuXYZ=0;
+	if(`radioButton -q -select $AriMirrorUI_radioXYZUV[0]`)$jikuXYZ =1;
+	if(`radioButton -q -select $AriMirrorUI_radioXYZUV[1]`)$jikuXYZ =2;
+	if(`radioButton -q -select $AriMirrorUI_radioXYZUV[2]`)$jikuXYZ =3;
+	int $conbineTrue       = `checkBox -q -value $AriMirrorUI_objCheckBox[0]`;
+	int $centerMargeTrue   = `checkBox -q -value $AriMirrorUI_objCheckBox[1]`;
+	int $centerSoftTrue    = `checkBox -q -value $AriMirrorUI_objCheckBox[2]`;
+	int $uvcenterMargeTrue = `checkBox -q -value $AriMirrorUI_objCheckBox[5]`;
+	int $uvMirrorTrue = `checkBox -q -v $AriMirrorUI_objCheckBox[8]`;
+	string $selectObjectList[];
+	for($obj in $objList){
+		float $attrTranslate[] = `getAttr ($obj+".translate")`;
+		float $attrRotate[]    = `getAttr ($obj+".rotate")`;
+		float $attrScale[]     = `getAttr ($obj+".scale")`;
+		if($mirrorWorld==0){
+			setAttr ($obj+".translate") 0 0 0 ;
+			setAttr ($obj+".rotate") 0 0 0 ;
+			setAttr ($obj+".scale") 1 1 1;
+		}
+		string $parent[] =`listRelatives -p -pa $obj`;
+		string $obj2[] = `duplicate $obj`;
+		string $copyObj = $obj2[0];
+		int $lastObjNum=AriCombineExtract_ListNum($obj);
+		if($mirrorWorld==0){
+			if($jikuXYZ==1) setAttr ($copyObj+".scaleX") -1;
+			if($jikuXYZ==2) setAttr ($copyObj+".scaleY") -1; 
+			if($jikuXYZ==3) setAttr ($copyObj+".scaleZ") -1;
+		}
+		if($mirrorWorld==1){
+			string $parents[] = `listRelatives -p -pa -type "transform" $copyObj`;
+			string $group;
+			if($parents[0]!="")	$group = `group -em -p $parents[0]`;
+			else				$group = `group -em`;
+			string $obj2[] = `parent $copyObj $group`;
+			if($jikuXYZ==1) setAttr ($group+".scaleX") -1;
+			if($jikuXYZ==2) setAttr ($group+".scaleY") -1; 
+			if($jikuXYZ==3) setAttr ($group+".scaleZ") -1;
+			string $obj3[];
+			if($parents[0]!="")	$obj3 = `parent $obj2[0] $parents[0]`;
+			else				$obj3 = `parent -world $obj2[0]`;
+			delete $group;
+		}
+		string $currentUV[] = `polyUVSet -q -cuv $obj`;
+		if($uvMirrorTrue) AriMirror_uvMirror($obj, $copyObj, $jikuXYZ, 0.001,0);
+		string $margeList[];
+		$margeList[0]=$copyObj;
+		$margeList[1]=$obj;
+		reorder -relative ($lastObjNum+2) $copyObj;
+		if(AriCheckFlag("makeIdentity","-pn")){
+			makeIdentity -apply true -t 1 -r 1 -s 1 -n 0 -pn true $copyObj;
+		}
+		else{
+			makeIdentity -apply true -t 1 -r 1 -s 1 -n 0 $copyObj;
+		}
+		string $meshs[]= `listRelatives -pa -s $copyObj`;
+		if(size($meshs)>0){
+			if(`getAttr($meshs[0]+".opposite")`==1){
+				polyNormal -normalMode 0 -userNormalMode 0 $copyObj;
+				setAttr ($meshs[0]+".opposite") 0;
+				delete -ch $copyObj ;
+			}
+		}
+		if($mirrorWorld==0){
+			setAttr ($obj+".translate") $attrTranslate[0] $attrTranslate[1] $attrTranslate[2];
+			setAttr ($obj+".rotate") $attrRotate[0] $attrRotate[1] $attrRotate[2] ;
+			setAttr ($obj+".scale") $attrScale[0]  $attrScale[1]  $attrScale[2];
+			setAttr ($copyObj+".translate") $attrTranslate[0] $attrTranslate[1] $attrTranslate[2];
+			setAttr ($copyObj+".rotate") $attrRotate[0] $attrRotate[1] $attrRotate[2] ;
+			setAttr ($copyObj+".scale") $attrScale[0]  $attrScale[1]  $attrScale[2];
+		}
+		if(!$conbineTrue){
+			$selectObjectList[size($selectObjectList)] = $copyObj;
+			continue;
+		}
+		$margeObj = AriCombineExtract_CombineGo($margeList);
+		$scalePiv = `getAttr ($margeObj+".scalePivot")`;
+		float $newPivPos;
+		if($jikuXYZ==1)$newPivPos=$scalePiv[0];
+		if($jikuXYZ==2)$newPivPos=$scalePiv[1];
+		if($jikuXYZ==3)$newPivPos=$scalePiv[2];
+		$selectObjectList[size($selectObjectList)] = $margeObj;
+		if(!$centerMargeTrue){
+			setAttr ($margeObj+".translate") $attrTranslate[0] $attrTranslate[1] $attrTranslate[2];
+			setAttr ($margeObj+".rotate") $attrRotate[0] $attrRotate[1] $attrRotate[2] ;
+			setAttr ($margeObj+".scale") $attrScale[0]  $attrScale[1]  $attrScale[2];			
+			polyUVSet -cuv -uvSet $currentUV[0] $margeObj;
+			continue;	
+		}
+		string $newVerList[] = `polyListComponentConversion -tv $margeObj`;	
+		$newVerList = `filterExpand -selectionMask 31 $newVerList`;	
+		string $margeVerList[];
+		$i=0;
+		clear $margeVerList;
+		for($ver in $newVerList){
+			float $posXYZ;
+			vector $vPos=`pointPosition -l $ver`;
+			if($jikuXYZ==1) $posXYZ=$vPos.x;
+			if($jikuXYZ==2) $posXYZ=$vPos.y;
+			if($jikuXYZ==3) $posXYZ=$vPos.z;
+			 $posXYZ -= $newPivPos;
+			if($posXYZ < $gosa && $posXYZ > ($gosa * -1)){
+				$margeVerList[$i] = $ver;
+				$i++;
+			}
+		}
+		if(size($margeVerList)>0){
+			select -cl;
+			select $margeVerList;
+			polyMergeVertex -d 0.001 $margeVerList;	
+			$margeVerList =`ls -sl`;
+			ConvertSelectionToContainedEdges;		
+			if($centerSoftTrue) polySoftEdge -a 180 -ch 1;	
+			if($uvMirrorTrue){
+				if($uvcenterMargeTrue){
+					UVMarge($obj, $margeVerList);
+				}
+			}
+		}
+		/*
+		if($transformResetTrue){
+			setAttr ($margeObj+".translate") $attrTranslate[0] $attrTranslate[1] $attrTranslate[2];
+		}
+		setAttr ($margeObj+".rotate") $attrRotate[0] $attrRotate[1] $attrRotate[2] ;
+		setAttr ($margeObj+".scale") $attrScale[0]  $attrScale[1]  $attrScale[2];
+		*/
+		delete -ch $margeObj;
+		if($currentUV[0]!="")polyUVSet -cuv -uvSet $currentUV[0] $obj;
+	}
+	select $selectObjectList;
+}
+global proc  AriMirror_matagariVertexMove(string $faceList[],float $pivPos, int $jikuXYZ, float $gosa){
+	string $matagariFace[];
+	int $matagariFaceAfterSize=0;
+	int $matagariFaceBeforeSize=1;
+	string $afterOverfaceList[];
+	$afterOverfaceList=$faceList;
+	int $i=0;
+	while($matagariFaceBeforeSize!=$matagariFaceAfterSize){
+		$matagariFaceBeforeSize=size($afterOverfaceList);
+		$afterOverfaceList = AriMirror_matagariFaceList  ($afterOverfaceList,$pivPos,$jikuXYZ,$gosa);
+		string $matagariVer[] =       AriMirror_matagariVertexList($afterOverfaceList,$pivPos,$jikuXYZ,$gosa);
+		if(size($matagariVer)){
+			if($jikuXYZ==1)move -ls -x $pivPos $pivPos $pivPos $matagariVer;
+			if($jikuXYZ==2)move -ls -y $pivPos $pivPos $pivPos $matagariVer;
+			if($jikuXYZ==3)move -ls -z $pivPos $pivPos $pivPos $matagariVer;
+			select -add $matagariVer;
+		}
+		$matagariFaceAfterSize=size($afterOverfaceList);
+		$i++;
+		if($i>50)break;
+	}
+	$matagariFace = AriMirror_matagariFaceList($faceList,$pivPos,$jikuXYZ,$gosa);
+	select -add $matagariFace;
+}
+global proc string[] AriMirror_getObjectList(){
+	string $selectList_tr[]=`ls -sl -tr`;
+	string $selectList[]=`ls -sl`;
+	string $objectList_tr[]=`filterExpand -selectionMask 12 $selectList_tr`;
+	$selectList = stringArrayRemove($selectList_tr,$selectList);
+	string $ObjtList_con[];
+	string $shape[] = `polyListComponentConversion $selectList`;
+	$objtList_con = `listRelatives -pa -p $shape`;
+	string $objList[]=stringArrayCatenate($selectList_tr,$objtList_con);
+	/*
+	string $objList_con[]=`ls -hl`;
+	string $objList_tr[]=`ls -sl -tr`;
+	string $objList[]=stringArrayCatenate($objtList_tr,$objtList_con);
+	*/
+	return $objList;
+}
+global proc AriMirror_DeleteMinusMesh(int $mode){
+	global string $AriMirrorUI_objCheckBox[12];
+	global string $AriMirrorUI_radioXYZUV[6];
+	global string $AriMirror_floatTolerance;
+	string $JPTrue;
+	if(`about -uil`=="ja_JP")$JPTrue = true;
+	else $JPTrue = false;
+	string $label_CenterOverMess = "There is a face that protrudes from the center";
+	string $label_Cancel   = "Cancel";
+	string $label_Force    = "Force";
+	string $label_MoveVer  = "Move Vertex";
+	if($JPTrue){
+		$label_CenterOverMess = "中心からはみ出しているフェースがあります";
+		$label_Cancel   = "キャンセル";
+		$label_Force    = "強行";
+		$label_MoveVer  = "頂点移動";
+	}
+	int $jikuXYZ = 0;
+	if(`radioButton -q -select $AriMirrorUI_radioXYZUV[0]`)$jikuXYZ =1;
+	if(`radioButton -q -select $AriMirrorUI_radioXYZUV[1]`)$jikuXYZ =2;
+	if(`radioButton -q -select $AriMirrorUI_radioXYZUV[2]`)$jikuXYZ =3;
+	float $gosa  = `floatField -q -v $AriMirror_floatTolerance`;
+	string $objectList[]=AriMirror_getObjectList();
+	if(!size($objectList))return;
+	string $deleteObjList[];
+	string $selectObjList[];
+	clear $deleteObjList;
+	clear $selectObjList;
+	select -cl;
+	for($obj in $objectList){
+		float $scalePiv[]=`getAttr ($obj+".scalePivot")`;
+		float $pivPos = $scalePiv[$jikuXYZ-1];
+		string $vertex[] = `polyListComponentConversion -tv $obj`;
+		string $vertexs[] = `filterExpand -selectionMask 31 $vertex`;
+		string $verToFace[]= `polyListComponentConversion -tf $obj`;
+		$verToFace = `filterExpand -selectionMask 34 $verToFace`;
+		if(`checkBox -q -v $AriMirrorUI_objCheckBox[7]`){
+			if($mode==0 || $mode==1){
+				string $getDialog;
+				string $overFaceList[]=AriMirror_matagariFaceList($verToFace, $pivPos, $jikuXYZ, $gosa);
+				if(size($overFaceList)){
+					select -add $overFaceList;
+					refresh;
+					$getDialog =	`confirmDialog 	-title "Center Over" -message $label_CenterOverMess
+									-button $label_MoveVer -button $label_Force  -button $label_Cancel  -defaultButton "Yes"
+									-cancelButton $label_Cancel -dismissString $label_Cancel`;
+					select -d $overFaceList;
+					if($getDialog==$label_MoveVer){
+						AriMirror_matagariVertexMove($verToFace,$pivPos,$jikuXYZ,$gosa);
+						continue;
+					}
+					if($getDialog==$label_Cancel)continue;
+				}
+			}
+		}
+		string $zeroNum[];
+		vector $verPlus_Pos[];
+		string $verPlus_Num[];
+		vector $verMinus_Pos[];
+		string $verMinus_Num[];
+		clear $zeroNum;
+		clear $verPlus_Pos;
+		clear $verPlus_Num;
+		clear $verMinus_Pos;
+		clear $verMinus_Num;
+		$coPlus=0;
+		$coMinus=0;
+		$coZero=0;
+		for($ver in $vertexs){
+			vector $pos=`pointPosition -l $ver`;
+			float $posXYZ;
+			if($jikuXYZ==1)$posXYZ=$pos.x;
+			if($jikuXYZ==2)$posXYZ=$pos.y;
+			if($jikuXYZ==3)$posXYZ=$pos.z;
+			$posXYZ -= $pivPos;
+			if($posXYZ<=$gosa && $posXYZ>=-1*$gosa){
+				$zeroNum[$coZero]= $ver;
+				$coZero++;
+			}
+			if($posXYZ>$gosa){
+				$verPlus_Pos[$coPlus]=$pos;
+				$verPlus_Num[$coPlus]=$ver;
+				$coPlus++;
+			}
+			if($posXYZ<-1*$gosa){
+				$verMinus_Pos[$coMinus]=$pos;
+				$verMinus_Num[$coMinus]=$ver;
+				$coMinus++;
+			}
+		}
+		clear $verToFace;
+		if($mode==1 || $mode==3)	$verToFace = `polyListComponentConversion -tf $verPlus_Num`;
+		if($mode==0 || $mode==2)	$verToFace = `polyListComponentConversion -tf $verMinus_Num`;
+		if(size($verToFace)){
+			$deleteObjList = stringArrayCatenate( $deleteObjList, $verToFace);
+		}
+		$selectObjList[size($selectObjList)] = $obj;
+	}
+	if(size($deleteObjList)){
+		if($mode==0 || $mode==1) delete $deleteObjList;
+		if($mode==2 || $mode==3) select $deleteObjList;
+	}
+	if($mode==0 || $mode==1){
+		select $selectObjList;
+	}
+}
+global proc string[] AriMirror_matagariFaceList(string $faceList[],float $pivPos,int $jikuXYZ,float $gosa){
+	string $matagariFace[];
+	int $i=0;
+	for($face in $faceList){
+		string $facesToVers[] = `polyListComponentConversion -tv $face`;
+		$facesToVers = `filterExpand -selectionMask 31 $facesToVers`;
+		int $j=0;
+		float  $faceVecter_Pos[];
+		string $faceVecter_Name[];
+		clear $faceVecter_Pos;
+		clear $faceVecter_Name;
+		for($ver in $facesToVers){
+			float $pos[]=`pointPosition -l $ver`;
+			$faceVecter_Pos[$j] = $pos[$jikuXYZ-1]-$pivPos;
+			$faceVecter_Name[$j]= $ver;
+			$j++;
+		}
+		int $matagariTrue=false;
+		int $plusMinus=0;
+		for($j=0; $j<size($faceVecter_Name) ; $j++){
+			float $pos = $faceVecter_Pos[$j];
+			if($pos > $gosa){
+				if($plusMinus==2){
+					$matagariTrue=true;
+					$matagariFace[$i]=$face;
+					$i++;
+					break;
+				}
+				$plusMinus=1;
+			}
+			if($pos < -1*$gosa){
+				if($plusMinus==1){
+					$matagariTrue=true;
+					$matagariFace[$i]=$face;
+					$i++;
+					break;
+				}
+				$plusMinus=2;
+			}
+		}
+	}
+	return $matagariFace;
+}
+global proc string[] AriMirror_matagariVertexList(string $faceList[],float $pivPos,int $jikuXYZ,float $gosa){
+	string $vertexList[];
+	clear $vertexList;
+	int $plusMinus[];
+	int $k=0;
+	for($face in $faceList){
+		string $facesToVers[] = `polyListComponentConversion -tv $face`;
+		$facesToVers = `filterExpand -selectionMask 31 $facesToVers`;
+		int $j=0;
+		float  $faceVer_Pos[];
+		string $faceVer_Name[];
+		clear $faceVer_Pos;
+		clear $faceVer_Name;
+		for($ver in $facesToVers){
+			float $pos[]=`pointPosition -l $ver`;
+			$faceVer_Pos[$j] = $pos[$jikuXYZ-1]-$pivPos;
+			$faceVer_Name[$j]= $ver;
+			$j++;
+		}
+		int $plusCount=0;
+		int $minusCount=0;
+		int $zeroCount=0;
+		int $zeroPlusMinus[];
+		float $minPos=0;
+		int $minArray=-1;
+		clear $zeroPlusMinus;
+		for($j=0; $j<size($faceVer_Name) ; $j++){
+			float $pos = $faceVer_Pos[$j];
+			if($pos<=$gosa && $pos>=-1*$gosa){
+				$zeroPlusMinus[$j]=0;
+				continue;
+			}
+			if($pos>0){
+				$plusCount++;
+				$zeroPlusMinus[$j]=1;
+			}
+			if($pos<0){
+				$minusCount++;
+				$zeroPlusMinus[$j]=2;
+			}
+		}
+		if($plusCount!=$minusCount){
+			if($plusCount==1){
+				for($j=0; $j<size($faceVer_Name) ; $j++){
+					if($zeroPlusMinus[$j]==1){
+					$vertexList[$k]=$faceVer_Name[$j];
+					$k++;
+					}
+				}
+			}
+			if($minusCount==1){
+				for($j=0; $j<size($faceVer_Name) ; $j++){
+					if($zeroPlusMinus[$j]==2){
+					$vertexList[$k]=$faceVer_Name[$j];
+					$k++;
+					}
+				}
+			}
+		}
+		/*
+		else{
+			int $minusTrue=false;
+			float $minPos=0;
+			for($j=0; $j<size($faceVer_Name) ; $j++){
+				float $pos = $faceVer_Pos[$j];
+				$posWork=$pos;
+				if($zeroPlusMinus[$j]==0)continue;
+				if($posWork<0){
+					$posWork = $posWork * -1;
+				}
+				if($minPos==0 || $minPos>$posWork){
+					print "\n";
+					$minPos=$posWork;	
+					$minArray=$j;		
+				}
+			}
+			print "\nmin----\n";
+			print ($minPos+"\n");
+			print $minArray;
+			$vertexList[$k]=$faceVer_Name[$minArray];
+			$k++;
+		}
+		*/
+	}
+	return $vertexList;
+}
+global proc AriMirror_over(int $mode){
+	global string $AriMirrorUI_radioXYZUV[6];
+	global string $AriMirror_floatTolerance;
+	int $jikuXYZ=0;
+	if(`radioButton -q -select $AriMirrorUI_radioXYZUV[0]`)$jikuXYZ = 1;
+	if(`radioButton -q -select $AriMirrorUI_radioXYZUV[1]`)$jikuXYZ = 2;
+	if(`radioButton -q -select $AriMirrorUI_radioXYZUV[2]`)$jikuXYZ = 3;
+	float $gosa  = `floatField -q -v $AriMirror_floatTolerance`;
+	string $objectList[]=AriMirror_getObjectList();
+	select -cl;
+	for ($obj in $objectList){
+		float $scalePiv[]=`getAttr ($obj+".scalePivot")`;
+		float $pivPos = $scalePiv[$jikuXYZ-1];
+		string $faceList[] = `polyListComponentConversion -tf $obj`;
+		$faceList = `filterExpand -selectionMask 34 $faceList`;
+		string $matagariFace[];
+		string $matagariVer[]; 
+		if($mode==1){
+			$matagariFace = AriMirror_matagariFaceList($faceList,$pivPos,$jikuXYZ,$gosa);
+			if(size($matagariFace))	select -add $matagariFace;
+			else 					select -add $obj;
+		}
+		if($mode==2){
+			AriMirror_matagariVertexMove($faceList,$pivPos,$jikuXYZ,$gosa);
+		}
+	}
+}
+global proc AriMirror_checkBoxChange(){
+	global string $AriMirrorUI_objCheckBox[12];
+	global string $AriMirror_floatTolerance;
+	global string $AriMirrorUI_radioXYZUV[6];
+	global string $AriMirrorUI_button[8];
+	global string $AriMirrorUI_UVcolumn;
+	global string $AriMirrorUI_UVCenterFF;
+	int $radioButTrueList[15];
+	clear $radioButTrueList;
+	float $col1=0.8;
+	float $col2=0.4;
+	float $rgb[3];
+	if(`radioButton -q -select $AriMirrorUI_radioXYZUV[0]`){
+		$radioButTrueList[0] = true;
+		$rgb[0] = $col1;
+		$rgb[1] = $col2;
+		$rgb[2] = $col2;
+	}
+	if(`radioButton -q -select $AriMirrorUI_radioXYZUV[1]`){
+		$radioButTrueList[1] = true;
+		$rgb[0] = $col2;
+		$rgb[1] = $col1;
+		$rgb[2] = $col2;
+	}
+	if(`radioButton -q -select $AriMirrorUI_radioXYZUV[2]`){
+		$radioButTrueList[2] = true;
+		$rgb[0] = $col2;
+		$rgb[1] = $col2;
+		$rgb[2] = $col1;
+	}
+	button -e -bgc $rgb[0] $rgb[1] $rgb[2] $AriMirrorUI_button[1];
+	button -e -bgc $rgb[0] $rgb[1] $rgb[2] $AriMirrorUI_button[2];
+	button -e -bgc $rgb[0] $rgb[1] $rgb[2] $AriMirrorUI_button[0];
+	float $mergeTolerance = `floatField -q -v $AriMirror_floatTolerance`;
+	if(`checkBox -q -v $AriMirrorUI_objCheckBox[0]`){
+		checkBox -e -ed true $AriMirrorUI_objCheckBox[1];
+		checkBox -e -ed true $AriMirrorUI_objCheckBox[2];
+		if(`checkBox -q -v $AriMirrorUI_objCheckBox[1]`){
+			checkBox -e -ed true $AriMirrorUI_objCheckBox[2];
+		}
+		else{
+			checkBox -e -ed false $AriMirrorUI_objCheckBox[2];
+		}
+	}
+	else{
+		checkBox -e -ed false $AriMirrorUI_objCheckBox[1];
+		checkBox -e -ed false $AriMirrorUI_objCheckBox[2];
+	}
+	int $chackBoxTrueList[];
+	for($i=0; $i<10 ;$i++){
+		if($i==3 || $i==6 || $i==10)continue;
+		$chackBoxTrueList[$i] = `checkBox -q -v $AriMirrorUI_objCheckBox[$i]`;
+	}
+	$chackBoxTrueList[10] = `menuItem -q -cb $AriMirrorUI_objCheckBox[10]`;
+	if(`checkBox -q -v $AriMirrorUI_objCheckBox[4]`)	checkBox -e -bgc 0.7 0.7 0.7 $AriMirrorUI_objCheckBox[4];
+	else												checkBox -e -bgc 0.2 0.2 0.2 $AriMirrorUI_objCheckBox[4];
+	if(`radioButton -q -sl $AriMirrorUI_radioXYZUV[3]`){ 
+		$radioButTrueList[3] = true;
+	}
+	if(`radioButton -q -sl $AriMirrorUI_radioXYZUV[4]`){ 
+		$radioButTrueList[4] = true;
+	}
+	if(`radioButton -q -sl $AriMirrorUI_radioXYZUV[5]`){ 
+		$radioButTrueList[5] = true;
+	}
+	else{
+	}
+	float $uvCenter = `floatField -q -v $AriMirrorUI_UVCenterFF`;
+	int $chackBoxTrueInt = AriNumber2to10($chackBoxTrueList);
+	int $radioButTrueInt = AriNumber2to10($radioButTrueList);
+	optionVar -intValue   "AriMirror_checkBoxList"   $chackBoxTrueInt;
+	optionVar -intValue   "AriMirror_radioButList"   $radioButTrueInt;
+	optionVar -floatValue "AriMirror_mergeTolerance" $mergeTolerance;
+	optionVar -floatValue "AriMirror_uvCenter"       $uvCenter;
+	int $uvMirrorTrue = `checkBox -q -v $AriMirrorUI_objCheckBox[8]`;
+	columnLayout -e -en $uvMirrorTrue $AriMirrorUI_UVcolumn;
+}
+global proc AriMirror_setWindowSize(){
+	window -e -h 100  AriMirror;
+	int $frameCloseList[];
+	$frameCloseList[0]=`frameLayout -q -cl AriMirror_frameLayout1`;
+	$frameCloseList[1]=`frameLayout -q -cl AriMirror_frameLayout2`;
+	$frameCloseList[2]=`frameLayout -q -cl AriMirror_frameLayout3`;
+	int $frameCloseInt=AriNumber2to10($frameCloseList);
+	optionVar -intValue "AriMirror_frameCloseList" $frameCloseInt;
+}
+global proc AriMirror(){
+	global string $AriMirrorUI_objCheckBox[12];
+	global string $AriMirror_floatTolerance;
+	global string $AriMirrorUI_radioXYZUV[8];
+	global string $AriMirrorUI_button[8];
+	global string $AriMirrorUI_UVcolumn;
+	global string $AriMirrorUI_UVCenterFF;
+	global string $AriMirrorUI_UVCenterRB[];
+	global string $AriMirrorUI_UVCenterOptMenu;
+	float $col1 = 0.5;
+	float $col2 = 0.2;
+	int $colSize = 36;
+	string $JPTrue;
+	if(`about -uil`=="ja_JP")$JPTrue = true;
+	else $JPTrue = false;
+	string $label_Object     = "Object";
+	string $label_Combine    = "Combine";
+	string $label_Merge      = "Merge";
+	string $label_Tolerance  = "Tolerance";
+	string $label_SoftenEdge = "Soften Edge";
+	string $label_parentMirror = "Mirror From Parent";
+	string $label_AxisAuto = "Axis Auto          ";
+	string $label_Non      = "Non ";
+	string $label_CenterPos   = "Center Pos";
+	string $label_CenterMerge = "Center Merge";
+	string $label_AllUVSet    = "All UVSet    ";
+	string $label_CenterOver  = "Center Over";
+	string $label_Select      = "Select";
+	string $label_MoveVertex  = "Move Ver";
+	string $label_DeleteAlert = "Delete Alert";
+	string $label_DeleteAnn   = "Right click to select";
+	if($JPTrue){
+		$label_Object       = "オブジェクト";
+		$label_Combine      = "結合";
+		$label_Merge        = "頂点マージ";
+		$label_SoftenEdge   = "ソフトエッジ";
+		$label_Tolerance    = "許容値";
+		$label_parentMirror = "親座標を基準にミラー";
+		$label_AxisAuto    = "軸自動           ";
+		$label_Non         = "なし";
+		$label_CenterPos   = "中心座標";
+		$label_CenterMerge = "中心マージ";
+		$label_AllUVSet    = "全UVSet     ";
+		$label_CenterOver  = "センターオーバー";
+		$label_Select      = "選択";
+		$label_MoveVertex  = "頂点移動";
+		$label_DeleteAlert = "消去時警告";
+		$label_DeleteAnn   = "右クリックで選択";
+	}
+	int $frameCloseInt;
+	if(`optionVar -exists "AriMirror_frameCloseList"`) $frameCloseInt = `optionVar -q "AriMirror_frameCloseList"`;
+	else $frameCloseInt=4;
+	int $frameClose[]=AriNumber10to2($frameCloseInt);
+	int $checkBoxInt;
+	if(`optionVar -exists "AriMirror_checkBoxList"`) $checkBoxInt = `optionVar -q "AriMirror_checkBoxList"`;
+	else $checkBoxInt = 1303;
+	int $checkBosValue[] = AriNumber10to2($checkBoxInt);
+	int $radioButInt;
+	if(`optionVar -exists "AriMirror_radioButList"`) $radioButInt = `optionVar -q "AriMirror_radioButList"`;
+	else $radioButInt=137;
+	int $radioButList[15] = AriNumber10to2($radioButInt);
+	float $mergeTolerance = 0.001;
+	if(`optionVar -exists "AriMirror_mergeTolerance"`) $mergeTolerance = `optionVar -q "AriMirror_mergeTolerance"`;
+	float $uvCenter =0.5;
+	if(`optionVar -exists "AriMirror_uvCenter"`) $uvCenter = `optionVar -q "AriMirror_uvCenter"`;
+	if((`window -ex  AriMirror`)==true)deleteUI AriMirror;
+	window -title "AriMirror" -w 170 -h 170 -tlb true AriMirror;
+	$form = `formLayout`;
+		$column=`columnLayout -adj true`;
+			frameLayout  -cl ($frameClose[0]) -cll true -l $label_Object -cc "AriMirror_setWindowSize()" -ec "AriMirror_setWindowSize()" AriMirror_frameLayout1;
+			columnLayout -adj true;;
+			string $formButton;
+			$formButton =`formLayout`;
+				radioCollection;
+				$AriMirrorUI_radioXYZUV[0] = `radioButton -w $colSize -label "X  " -onc "AriMirror_checkBoxChange()" -bgc $col1 $col2 $col2 -sl`;
+    			$AriMirrorUI_radioXYZUV[1] = `radioButton -w $colSize -label "Y  " -onc "AriMirror_checkBoxChange()" -bgc $col2 $col1 $col2`;
+				$AriMirrorUI_radioXYZUV[2] = `radioButton -w $colSize -label "Z  " -onc "AriMirror_checkBoxChange()" -bgc $col2 $col2 $col1`;
+			setParent..;
+			formLayout -edit
+			-af $AriMirrorUI_radioXYZUV[0] "left"  0
+			-ap $AriMirrorUI_radioXYZUV[0] "right" 0 33
+			-ac $AriMirrorUI_radioXYZUV[1] "left"  0 $AriMirrorUI_radioXYZUV[0]
+			-ap $AriMirrorUI_radioXYZUV[1] "right" 0 67
+			-ac $AriMirrorUI_radioXYZUV[2] "left"  0 $AriMirrorUI_radioXYZUV[1]
+			-af $AriMirrorUI_radioXYZUV[2] "right" 0 
+			$formButton;
+			$formButton = `formLayout` ;
+			string $textGosa =`text -l ($label_Tolerance +": ")`;
+				$AriMirror_floatTolerance = `floatField -w 60 -v $mergeTolerance -pre 5 -cc "AriMirror_checkBoxChange()"`;
+			setParent..;
+			formLayout -e 
+				-af $textGosa "top" 3
+				-af $textGosa "left" 0
+				-ac $AriMirror_floatTolerance "left" 4 $textGosa
+				-af $AriMirror_floatTolerance "right" 0
+			$formButton;
+			rowLayout -nc 3 ;
+			$AriMirrorUI_objCheckBox[0] = `checkBox -cc "AriMirror_checkBoxChange()"       -label $label_Combine   -value $checkBosValue[0] `;
+			$AriMirrorUI_objCheckBox[1] = `checkBox -cc "AriMirror_checkBoxChange()"       -label $label_Merge     -value $checkBosValue[1] `;
+			setParent..;
+			$AriMirrorUI_objCheckBox[2] = `checkBox -cc "AriMirror_checkBoxChange()"       -label $label_SoftenEdge -value $checkBosValue[2] `;
+			setParent..;
+			setParent..;
+			frameLayout  -cl ($frameClose[1]) -cll true -l "UV" -cc "AriMirror_setWindowSize()" -ec "AriMirror_setWindowSize()" AriMirror_frameLayout2;
+			columnLayout -adj true;
+			$AriMirrorUI_objCheckBox[8] = `checkBox -label "UV Mirror      " -value $checkBosValue[8]  -cc "AriMirror_checkBoxChange()"`;
+			separator -st "in";
+			$AriMirrorUI_UVcolumn = `columnLayout -adj true`;
+			$AriMirrorUI_objCheckBox[4] = `checkBox -bgc 0.7 0.7 0.7 -label $label_AxisAuto -value $checkBosValue[4]  -cc "AriMirror_checkBoxChange()"`;
+			$formButton =`formLayout`;
+				radioCollection;
+				$AriMirrorUI_radioXYZUV[3] = `radioButton -w $colSize -onc "AriMirror_checkBoxChange()" -label "U " -bgc $col1 $col2 $col2 -sl`;
+    			$AriMirrorUI_radioXYZUV[4] = `radioButton -w $colSize -onc "AriMirror_checkBoxChange()" -label "V " -bgc $col2 $col1 $col2 `;
+				$AriMirrorUI_radioXYZUV[5] = `radioButton -w $colSize -onc "AriMirror_checkBoxChange()" -label $label_Non`;
+			setParent..;
+			formLayout -edit
+			-af $AriMirrorUI_radioXYZUV[3] "left"  0
+			-ap $AriMirrorUI_radioXYZUV[3] "right" 0 33
+			-ac $AriMirrorUI_radioXYZUV[4] "left"  0 $AriMirrorUI_radioXYZUV[3]
+			-ap $AriMirrorUI_radioXYZUV[4] "right" 0 67
+			-ac $AriMirrorUI_radioXYZUV[5] "left"  0 $AriMirrorUI_radioXYZUV[4]
+			-af $AriMirrorUI_radioXYZUV[5] "right" 0 
+			$formButton;
+			rowLayout -nc 2 -adj 2;
+			radioCollection; 
+			text -l $label_CenterPos;
+			$AriMirrorUI_UVCenterFF    = `floatField -pre 4 -v $uvCenter -cc "AriMirror_checkBoxChange()"`;
+			setParent..;
+			rowLayout -nc 2 -adj 2 -vis 0;
+			$AriMirrorUI_UVCenterRB[1] = `radioButton -l "UV0-1" `;
+				$AriMirrorUI_UVCenterOptMenu = `optionMenu -w 60 -h 24 -label "" -changeCommand ""`;
+				menuItem -label "0.5";
+				menuItem -label "0.25";
+				menuItem -label "0.125";
+			setParent..;
+			$AriMirrorUI_objCheckBox[5]  = `checkBox -label $label_CenterMerge -value $checkBosValue[5] -cc "AriMirror_checkBoxChange()"`;
+			$AriMirrorUI_objCheckBox[9]  = `checkBox -label $label_AllUVSet     -value $checkBosValue[9]  -cc "AriMirror_checkBoxChange()"`;
+			setParent..;
+			setParent..;
+			setParent..;
+			frameLayout  -cl ($frameClose[2]) -cll true -l $label_CenterOver -cc "AriMirror_setWindowSize()" -ec "AriMirror_setWindowSize()" AriMirror_frameLayout3;
+			columnLayout -adj true;
+			$formButton = `formLayout`;
+			string $button1 = `button -w 50 -l $label_Select      -c "AriMirror_over(1)"`;
+			string $button2 = `button -w 50 -l $label_MoveVertex  -c "AriMirror_over(2)"`;
+			setParent..;
+			formLayout -edit
+			-af $button1 "left"  0
+			-ap $button1 "right" 0 50
+			-ac $button2 "left"  0 $button1
+			-af $button2 "right" 0 
+			$formButton;
+			$AriMirrorUI_objCheckBox[7] = `checkBox -l $label_DeleteAlert-v $checkBosValue[7] -cc "AriMirror_checkBoxChange()"`;
+			setParent..;
+			setParent..;
+		setParent..;
+		string $separator = `separator -st "in" -h 4`;
+		$AriMirrorUI_button[1]  = `button  -l "- Delete" -ann $label_DeleteAnn -bgc 0.2 0.2 0.5 -c "AriMirror_DeleteMinusMesh(0)"`;
+		popupMenu -button 3;
+		menuItem -l "Select" -c "AriMirror_DeleteMinusMesh(2)";
+		$AriMirrorUI_button[2]  = `button  -l "+ Delete" -ann $label_DeleteAnn -bgc 0.2 0.2 0.5 -c "AriMirror_DeleteMinusMesh(1)"`;
+		popupMenu -button 3;
+		menuItem -l "Select" -c "AriMirror_DeleteMinusMesh(3)";
+		$AriMirrorUI_button[0]  = `button  -h 36 -l "Mirror" -c "AriMirror_GO(0)"`;
+			popupMenu -button 3;
+			menuItem -l $label_parentMirror -c "AriMirror_ParentMirror()";
+			$AriMirrorUI_objCheckBox[10]  = `menuItem -l "ScaleReFreeze" -cb $checkBosValue[10] -c "AriMirror_checkBoxChange()"`;
+	setParent..;
+	formLayout -e 
+	-af $column	"top" 0  
+	-af $column	"left" 0
+	-af $column	"right" 0
+	-ac $separator	"top" 0 $column
+	-af $separator	"left" 0
+	-af $separator	"right" 0
+	-af $AriMirrorUI_button[1]	"left" 0
+	-ap $AriMirrorUI_button[1]	"right" 0 50
+	-ac $AriMirrorUI_button[1]	"top" 0 $separator
+	-ap $AriMirrorUI_button[2]	"left" 0 50
+	-af $AriMirrorUI_button[2]	"right" 0
+	-ac $AriMirrorUI_button[2]	"top" 0 $separator
+	-af $AriMirrorUI_button[0]	"left" 0
+	-af $AriMirrorUI_button[0]	"right" 0
+	-af $AriMirrorUI_button[0]	"bottom" 0
+	-ac $AriMirrorUI_button[0]	"top" 0 $AriMirrorUI_button[2]
+	$form;
+	if($radioButList[0]) radioButton -e -sl $AriMirrorUI_radioXYZUV[0];
+	if($radioButList[1]) radioButton -e -sl $AriMirrorUI_radioXYZUV[1];	
+	if($radioButList[2]) radioButton -e -sl $AriMirrorUI_radioXYZUV[2];
+	if($radioButList[3]) radioButton -e -sl $AriMirrorUI_radioXYZUV[3];
+	if($radioButList[4]) radioButton -e -sl $AriMirrorUI_radioXYZUV[4];
+	if($radioButList[5]) radioButton -e -sl $AriMirrorUI_radioXYZUV[5];
+	int $UVpivSel=1;
+	if($radioButList[6]) $UVpivSel=1;
+	if($radioButList[7]) $UVpivSel=2;
+	if($radioButList[8]) $UVpivSel=3;
+	showWindow;
+	AriMirror_checkBoxChange();
+	AriMirror_setWindowSize();
+}

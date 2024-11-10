@@ -1,0 +1,144 @@
+//--------------------------------------------------------------------------
+//
+// ScriptName : AriEdgeSmooth
+// Contents   : 頂点を円状(正多角形)に整列します。
+// Author     : Ari
+// URL        : http://cgjishu.net/
+// Since      : 2024/02
+// Help       : http://cgjishu.net/blog-entry-400.html
+// LastUpdate : 2024/07/21 オプション化 バグ修正
+//
+//--------------------------------------------------------------------------
+
+
+proc AriEdgeSmoothWindow_Load(){
+	global string $AriEdgeSmooth_UI_edgeFF;
+	global string $AriEdgeSmooth_UI_loopFF;
+	global string $AriEdgeSmooth_UI_EqualCB;
+	int $edge = 4;
+	int $loop = 1;
+	int $unif = true;
+	if(`optionVar -exists "AriEdgeSmooth_edge"`)	$edge = `optionVar -q "AriEdgeSmooth_edge"`;
+	if(`optionVar -exists "AriEdgeSmooth_loop"`)	$loop = `optionVar -q "AriEdgeSmooth_loop"`;
+	if(`optionVar -exists "AriEdgeSmooth_unif"`)	$unif = `optionVar -q "AriEdgeSmooth_unif"`;
+	intSliderGrp -e -v $edge $AriEdgeSmooth_UI_edgeFF;
+	intSliderGrp -e -v $loop $AriEdgeSmooth_UI_loopFF;
+	checkBox     -e -v $unif $AriEdgeSmooth_UI_EqualCB;
+}
+global proc AriEdgeSmoothWindow_Save(int $closeTrue){
+	global string $AriEdgeSmooth_UI_edgeFF;
+	global string $AriEdgeSmooth_UI_loopFF;
+	global string $AriEdgeSmooth_UI_EqualCB;
+	int $edge = `intSliderGrp -q -v $AriEdgeSmooth_UI_edgeFF`;
+	int $loop = `intSliderGrp -q -v $AriEdgeSmooth_UI_loopFF`;
+	int $unif = `checkBox -q -v $AriEdgeSmooth_UI_EqualCB`;
+	optionVar -intValue "AriEdgeSmooth_edge" $edge;
+	optionVar -intValue "AriEdgeSmooth_loop" $loop;
+	optionVar -intValue "AriEdgeSmooth_unif" $unif;
+	if($closeTrue){
+		if((`window -ex  AriEdgeSmoothWindow`)==true)deleteUI AriEdgeSmoothWindow;
+	}
+}
+global proc AriEdgeSmoothWindow_Reset(){
+	global string $AriEdgeSmooth_UI_edgeFF;
+	global string $AriEdgeSmooth_UI_loopFF;
+	global string $AriEdgeSmooth_UI_EqualCB;
+	int $edge = 4;
+	int $loop = 1;
+	int $unif = true;
+	intSliderGrp -e -v $edge $AriEdgeSmooth_UI_edgeFF;
+	intSliderGrp -e -v $loop $AriEdgeSmooth_UI_loopFF;
+	checkBox     -e -v $unif $AriEdgeSmooth_UI_EqualCB;
+	AriEdgeSmoothWindow_Save(0);
+}
+global proc AriEdgeSmooth_Ring(int $mode){
+	global string $AriEdgeSmooth_UI_MessageF;
+	textField -e -text "" -bgc 0.2 0.2 0.2 $AriEdgeSmooth_UI_MessageF;
+	if($mode==0){
+		SelectEdgeRingSp;
+	}
+	if($mode==1){
+		SelectContiguousEdges;
+	}
+}
+global proc AriEdgeSmoothOptions(){
+	global string $AriEdgeSmooth_UI_edgeFF;
+	global string $AriEdgeSmooth_UI_loopFF;
+	global string $AriEdgeSmooth_UI_EqualCB;
+	global string $AriEdgeSmooth_UI_MessageF;
+	int $JPTrue = false;
+	if(`about -uil`=="ja_JP")$JPTrue = true;
+	string $label_Ring          = "Ring";
+	string $label_Contiguous    = "Contiguous";
+	string $label_Uniform       = "Uniform";
+	if($JPTrue==true){
+		$label_Ring          = "リング選択";
+		$label_Contiguous    = "隣接選択";
+		$label_Uniform       = "均等";
+	}
+	if((`window -ex  AriEdgeSmoothWindow`)==true)deleteUI AriEdgeSmoothWindow;
+	window -tlb 1 -title "AriEdgeSmoothOptions"  -w 200 -h 120  AriEdgeSmoothWindow;
+	string $formMain = `formLayout`;
+	string $column = `columnLayout -adj true`;
+	rowLayout -nc 3 -adj 2;
+	text -al "right" -w 50 -l "Power:";
+	$AriEdgeSmooth_UI_edgeFF = `intSliderGrp -cw 1 34 -cw 2 30 -field true -v 4 -min 3 -max 10 -fmn 3 -fmx 100 `;
+	setParent..;
+	rowLayout -nc 3 -adj 2;
+	text -al "right" -w 50 -l "Repeat:";
+	$AriEdgeSmooth_UI_loopFF = `intSliderGrp -cw 1 34 -cw 2 30 -field true -v 1 -min 1 -max 10 -fmn 1 -fmx 100 `;
+	setParent..;
+	rowLayout -nc 3 -adj 2;
+	$AriEdgeSmooth_UI_EqualCB = `checkBox -v true -l $label_Uniform `;
+	text -l"";
+	button -l "Reset" -h 20 -c "AriEdgeSmoothWindow_Reset()";
+	setParent..;
+	string $formRingButton = `formLayout`;
+	string $ContiBT    = `button        -l $label_Contiguous -c "AriEdgeSmooth_Ring(1)"`;
+	string $RingBT  = `button        -l $label_Ring            -c "AriEdgeSmooth_Ring(0)"`;
+	setParent..;
+	formLayout -e
+	-af $ContiBT "right"  0
+	-ap $ContiBT "left"   0 50
+	-af $RingBT "left"   0
+	-ac $RingBT "right"  0 $ContiBT
+	$formRingButton;
+	separator;
+	setParent..;
+	string $messageF = `textField -ed false`;
+	$AriEdgeSmooth_UI_MessageF = $messageF;
+	string $formSaveButton = `formLayout`;
+	string $SaveBT      = `button -l "Save" -c "AriEdgeSmoothWindow_Save(0)"`;
+	string $SaveCloseBT = `button -l "SaveClose" -c "AriEdgeSmoothWindow_Save(1)"`;
+	string $applyBT = `button  -h 50 -l "Apply" -bgc 0.5 0.5 1 -c "AriEdgeSmooth()"`;
+	setParent..;
+	formLayout -e
+	-af $applyBT "top"    0
+	-af $applyBT "bottom" 0
+	-af $applyBT "right"  0
+	-ap $applyBT "left"   0 40
+	-af $SaveBT "top"    0
+	-af $SaveBT "left"   0
+	-ap $SaveBT "bottom" 0 50
+	-ac $SaveBT "right"  0 $applyBT
+	-ac $SaveCloseBT "top"    0 $SaveBT
+	-af $SaveCloseBT "left"   0
+	-af $SaveCloseBT "bottom" 0
+	-ac $SaveCloseBT "right"  0 $applyBT
+	$formSaveButton;
+	setParent..;
+	formLayout -e
+	-af $column "top"   0
+	-af $column "right" 0
+	-af $column "left"  0
+	-af $messageF "bottom" 0
+	-af $messageF "right"  0
+	-af $messageF "left"   0
+	-af $formSaveButton "right"  0
+	-af $formSaveButton "left"   0
+	-ac $formSaveButton "bottom" 0 $messageF
+	-ac $formSaveButton "top"    0 $column
+	$formMain;
+	showWindow;
+	AriEdgeSmoothWindow_Load();
+}

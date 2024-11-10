@@ -1,0 +1,87 @@
+//--------------------------------------------------------------------------
+//
+// ScriptName : AriSelectEdgeRingOptions
+// Contents   : AriSelectEdgeRingのオプション
+// Author     : Ari
+// URL        : http://cgjishu.net/
+// Since      : 2016/10
+// LastUpdate : 2018/10/28 選択無実行でオプション起動機能追加 
+//
+//--------------------------------------------------------------------------
+
+
+global proc AriSelectEdgeRingOptions_Save(){
+	
+	int $loop = 1;
+	int $jump = 0;
+	int $reversal = false;
+	
+	
+	$loop = `intField -q -v AriSelectEdgeRing_LoopIF`;
+	$jump = `intField -q -v AriSelectEdgeRing_JumpIF`;
+	$reversal = `checkBox -q -v AriSelectEdgeRing_ReversalCB`;
+	optionVar -intValue   "AriSelectEdgeRing_loop" $loop;
+	optionVar -intValue   "AriSelectEdgeRing_jump" $jump;
+	optionVar -intValue   "AriSelectEdgeRing_rev"  $reversal;
+}
+global proc AriSelectEdgeRingOptions_GO(){
+	AriSelectEdgeRingOptions_Save();
+	AriSelectEdgeRing();
+}
+global proc AriSelectEdgeRingOptions(){
+	int $loop = 1;
+	int $jump = 0;
+	int $reversal = false;
+	if(`optionVar -exists "AriSelectEdgeRing_loop"`)	$loop = `optionVar -q "AriSelectEdgeRing_loop"`;
+	if(`optionVar -exists "AriSelectEdgeRing_jump"`)	$jump = `optionVar -q "AriSelectEdgeRing_jump"`;
+	if(`optionVar -exists "AriSelectEdgeRing_rev"`)		$reversal = `optionVar -q "AriSelectEdgeRing_rev"`;
+	if((`window -ex  AriSelectEdgeRingOptions`)==true)deleteUI AriSelectEdgeRingOptions;
+	window -title "AriSelectEdgeRingOptions" -tlb true -w 200 -h 50 AriSelectEdgeRingOptions;
+	string $form = `formLayout`;
+	string $column = `columnLayout -adj true`;
+	rowLayout -nc 2;
+	text -w 60 -l "Loop:";
+	intField -w 60 -v $loop AriSelectEdgeRing_LoopIF;
+	setParent..;
+	rowLayout -nc 2;
+	text -w 60 -l "Jump:";
+	intField -w 60 -v $jump AriSelectEdgeRing_JumpIF;
+	setParent..;
+	rowLayout -nc 2;
+	text -w 60 -l "Reversal:";
+	checkBox -l "" -v $reversal AriSelectEdgeRing_ReversalCB;
+	setParent..;	
+	separator -h 8 -st "in";
+	setParent..;
+	string $buttonform = `formLayout`;
+	string $buttonSave       = `button       -l "Save"       -c "AriSelectEdgeRingOptions_Save();"`;
+	string $buttonSaveClose  = `button       -l "Save Close" -c "AriSelectEdgeRingOptions_Save(); deleteUI AriSelectEdgeRingOptions;"`;
+	string $buttonApply;
+	$buttonApply = `button -h 38 -l "Apply"      -c "AriSelectEdgeRingOptions_GO();" -bgc 0.5 0.5 1`;
+	setParent..;
+	formLayout -e 
+	-af $buttonApply "bottom" 0  
+	-ap $buttonApply "left"   0 50
+	-af $buttonApply "right"  0
+	-af $buttonApply "top"    0 
+	-af $buttonSave	"top"    0
+	-ap $buttonSave	"bottom" 0 50
+	-af $buttonSave	"left"   0 
+	-ac $buttonSave	"right"  0 $buttonApply
+	-ac $buttonSaveClose	"top"    0 $buttonSave
+	-af $buttonSaveClose	"bottom" 0
+	-af $buttonSaveClose	"left"   0
+	-ac $buttonSaveClose	"right"  0 $buttonApply
+	$buttonform;
+	setParent..;
+	formLayout -e 
+	-af $column "top"    0
+	-af $column "left"   0
+	-af $column "right"  0
+	-ac $buttonform "top"    0 $column
+	-af $buttonform "bottom" 0
+	-af $buttonform "left"   0
+	-af $buttonform "right"  0
+	$form;
+	showWindow;
+}

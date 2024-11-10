@@ -1,0 +1,90 @@
+//--------------------------------------------------------------------------
+// ScriptName : AriUVGriddingOptions
+// Contents   : AriUVGriddingのオプション
+// Since      : 2017/08/20 オプション新規作成
+// LastUpdate : 2018/10/28 選択無実行でオプション起動機能追加
+//--------------------------------------------------------------------------
+
+
+global proc AriUVGriddingOptions_Save(){
+	
+	global string $AriUVGriddingOptions_radioBT[4];
+	
+	int $mode;
+	
+	if(`radioButton -q -sl $AriUVGriddingOptions_radioBT[0]`) $mode = 0;
+	if(`radioButton -q -sl $AriUVGriddingOptions_radioBT[1]`) $mode = 1;
+	if(`radioButton -q -sl $AriUVGriddingOptions_radioBT[2]`) $mode = 2;
+	
+	optionVar -intValue "AriUVGridding_ratio" $mode;
+	
+}
+global proc AriUVGriddingOptions_GO(){
+	AriUVGriddingOptions_Save();
+	AriUVGridding;
+}
+global proc AriUVGriddingOptions(){
+	global string $AriUVGriddingOptions_radioBT[4];
+	int $jpTrue;
+	if(`about -uil`=="ja_JP")$jpTrue = true;
+	else $jpTrue = false;
+	string $label[2];
+	string $label_JP[2];
+	string $label_US[2];
+	$label_US[0] = "U  V";
+	$label_US[1] = "U+V";
+	$label_US[2] = "Rectangle";
+	$label[0] =  "U  V";
+	$label[1] =  "U+V";
+	$label[2] =  "矩形";
+	if($jpTrue==false){
+		$label[0] = $label_US[0];
+		$label[1] = $label_US[1];
+		$label[2] = $label_US[2];
+	}
+	int $mode = 0;
+	if(`optionVar -exists "AriUVGridding_ratio"`)	$mode = `optionVar -q "AriUVGridding_ratio"`;
+	if((`window -ex  AriUVGriddingOptions`)==true)deleteUI AriUVGriddingOptions;
+	window -title "AriUVGriddingOptions" -tlb true -w 200 -h 50 AriUVGriddingOptions;
+	string $form = `formLayout`;
+	string $column = `columnLayout -adj true`;
+	rowLayout -nc 3 -cw3 60 60 60;
+		radioCollection;
+		$AriUVGriddingOptions_radioBT[0] = `radioButton -label $label[0]`;
+		$AriUVGriddingOptions_radioBT[1] = `radioButton -label $label[1]`;
+		$AriUVGriddingOptions_radioBT[2] = `radioButton -label $label[2]`;
+	setParent..;
+	separator -h 8 -st "in";
+	setParent..;
+	string $buttonform = `formLayout`;
+	string $buttonSave       = `button       -l "Save"       -c "AriUVGriddingOptions_Save();"`;
+	string $buttonSaveClose  = `button       -l "Save Close" -c "AriUVGriddingOptions_Save(); deleteUI AriUVGriddingOptions;"`;
+	string $buttonApply      = `button -h 38 -l "Apply"      -c "AriUVGriddingOptions_GO();" -bgc 0.5 0.5 1`;
+	setParent..;
+	formLayout -e 
+	-af $buttonApply "bottom" 0  
+	-ap $buttonApply "left"   0 50
+	-af $buttonApply "right"  0
+	-af $buttonApply "top"    0 
+	-af $buttonSave	"top"    0
+	-ap $buttonSave	"bottom" 0 50
+	-af $buttonSave	"left"   0 
+	-ac $buttonSave	"right"  0 $buttonApply
+	-ac $buttonSaveClose	"top"    0 $buttonSave
+	-af $buttonSaveClose	"bottom" 0
+	-af $buttonSaveClose	"left"   0
+	-ac $buttonSaveClose	"right"  0 $buttonApply
+	$buttonform;
+	setParent..; 
+	formLayout -e 
+	-af $column "top"    0
+	-af $column "left"   0
+	-af $column "right"  0
+	-ac $buttonform "top"    0 $column
+	-af $buttonform "bottom" 0
+	-af $buttonform "left"   0
+	-af $buttonform "right"  0
+	$form;
+	radioButton -e -sl $AriUVGriddingOptions_radioBT[$mode];
+	showWindow;
+}

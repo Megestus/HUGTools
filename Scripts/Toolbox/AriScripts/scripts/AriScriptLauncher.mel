@@ -1,0 +1,472 @@
+//
+// ScriptName : AriScriptLauncher
+// Contents   : ローカルスクリプトフォルダにあるAriスクリプトを一覧します。
+// Author     : Ari
+// URL        : http://cgjishu.net/
+// Since      : 2019/01/06
+// LastUpdate : 2019/12/08 UI変更 検索機能等追加
+// Note       : 
+// Help       : http://cgjishu.net/blog-entry-263.html
+//
+//--------------------------------------------------------------------------
+
+
+
+proc string urlcheck(string $command){
+	
+	string $url;
+	string $getPath = `whatIs $command`;
+	int $subInt = 20;
+	if(startsWith($getPath,"Mel"))   $subInt=24;
+	if(startsWith($getPath,"Script"))$subInt=17;
+	string $path = endString($getPath,size($getPath)-$subInt);
+	if(!`filetest -f $path`)return "null";
+	string $getText[] = freadAllLines($path);
+	string $urlText ="";
+	for($text in $getText){
+		if(startsWith($text,"// Help")){
+			$urlText = $text;
+			break;
+		}
+	}
+	string $sepa[];
+	tokenize $urlText " " $sepa;
+	$url = $sepa[3];
+	if(!startsWith($url,"http:"))$url="null";
+	return $url;
+}
+proc getHelpListFromMel(string $getMelList[]){
+	global string $AriScriptLauncher_AriMel_NameList[];
+	global string $AriScriptLauncher_AriMel_UrlList[];
+	clear $AriScriptLauncher_AriMel_NameList;
+	clear $AriScriptLauncher_AriMel_UrlList;
+	$AriScriptLauncher_AriMel_NameList = {
+		"AriMirror",
+		"AriIconViewer",
+		"AriSymmetryChecker",
+		"AriCombineExtract",
+		"AriReversedFaceSelector",
+		"AriAllCloseWindow",
+		"AriPolygonCounter",
+		"AriSceneOpener",
+		"AriVertexColorEditor",
+		"AriSortOutliner",
+		"AriShowHideChange",
+		"AriRenamer",
+		"AriStraightVertex",
+		"AriHotkeyList",
+		"AriUVRatio",
+		"AriUVGridding",
+		"AriTextureReload",
+		"AriCompactToolSettings",
+		"AriUVScaleChecker",
+		"AriReFreezeTranslate",
+		"AriUnparentOne",
+		"AriDirectoryOpener",
+		"AriReFreezeRotate",
+		"AriReFreezeScale",
+		"AriMergeBorderVertex",
+		"AriSetPivot",
+		"AriRoundOffPosition",
+		"AriKeepUnusedNodes",
+		"AriBoundingBoxScaling",
+		"AriProjectSetter",
+		"AriSelectMaterialAndObject",
+		"AriSelectUVLoop",
+		"AriResetAnimationPosition",
+		"AriWindowPositionReset",
+		"AriCompactToolSettings",
+		"AriUVAdsorption",
+		"AriSelectHardEdgeInside",
+		"AriUVAdsorptionMove",
+		"AriStopwatch",
+		"AriUVDisplayImageChanger",
+		"AriAssetChanger",
+		"AriFaceMaterialChecker",
+		"AriSelectEdgeRing",
+		"AriResetAnimation",
+		"AriViewWindow",
+		"AriUVFit",
+		"AriLayerSwitch",
+		"AriTransferPosition",
+		"AriUVExtract",
+		"AriUVReversSelector",
+		"AriAniKeySmooth",
+		"AriAniSetPlaybackRange",
+		"AriCircleVertex",
+		"AriAnimationCopy",
+		"AriQuadrangulateRing",
+		"AriUVSetList",
+		"AriJointBendOrient",
+		"AriJointStraight",
+		"AriUVPixelScale",
+		"AriAniKeyScale",
+		"AriAniFractionSelect",
+		"AriAniFractionSideKey",
+		"AriDeleteEdgePreserveBorder",
+		"AriSplitPolygon",
+		"AriScriptLauncher"
+	};
+	$AriScriptLauncher_AriMel_UrlList = {
+		"http://cgjishu.net/blog-entry-3.html",   
+		"http://cgjishu.net/blog-entry-5.html",   
+		"http://cgjishu.net/blog-entry-6.html",   
+		"http://cgjishu.net/blog-entry-7.html",   
+		"http://cgjishu.net/blog-entry-9.html",   
+		"http://cgjishu.net/blog-entry-10.html",  
+		"http://cgjishu.net/blog-entry-13.html",  
+		"http://cgjishu.net/blog-entry-16.html",  
+		"http://cgjishu.net/blog-entry-19.html",  
+		"http://cgjishu.net/blog-entry-37.html",  
+		"http://cgjishu.net/blog-entry-41.html",  
+		"http://cgjishu.net/blog-entry-42.html",  
+		"http://cgjishu.net/blog-entry-44.html",  
+		"http://cgjishu.net/blog-entry-46.html",  
+		"http://cgjishu.net/blog-entry-51.html",  
+		"http://cgjishu.net/blog-entry-58.html",  
+		"http://cgjishu.net/blog-entry-63.html",  
+		"http://cgjishu.net/blog-entry-65.html",  
+		"http://cgjishu.net/blog-entry-69.html",  
+		"http://cgjishu.net/blog-entry-73.html",  
+		"http://cgjishu.net/blog-entry-74.html",  
+		"http://cgjishu.net/blog-entry-77.html",  
+		"http://cgjishu.net/blog-entry-79.html",  
+		"http://cgjishu.net/blog-entry-81.html",  
+		"http://cgjishu.net/blog-entry-87.html",  
+		"http://cgjishu.net/blog-entry-88.html",  
+		"http://cgjishu.net/blog-entry-95.html",  
+		"http://cgjishu.net/blog-entry-99.html",  
+		"http://cgjishu.net/blog-entry-110.html", 
+		"http://cgjishu.net/blog-entry-115.html", 
+		"http://cgjishu.net/blog-entry-117.html", 
+		"http://cgjishu.net/blog-entry-118.html", 
+		"http://cgjishu.net/blog-entry-127.html", 
+		"http://cgjishu.net/blog-entry-134.html", 
+		"http://cgjishu.net/blog-entry-136.html", 
+		"http://cgjishu.net/blog-entry-140.html", 
+		"http://cgjishu.net/blog-entry-150.html", 
+		"http://cgjishu.net/blog-entry-152.html", 
+		"http://cgjishu.net/blog-entry-153.html", 
+		"http://cgjishu.net/blog-entry-154.html", 
+		"http://cgjishu.net/blog-entry-164.html", 
+		"http://cgjishu.net/blog-entry-171.html", 
+		"http://cgjishu.net/blog-entry-172.html", 
+		"http://cgjishu.net/blog-entry-174.html", 
+		"http://cgjishu.net/blog-entry-176.html", 
+		"http://cgjishu.net/blog-entry-184.html", 
+		"http://cgjishu.net/blog-entry-189.html", 
+		"http://cgjishu.net/blog-entry-196.html", 
+		"http://cgjishu.net/blog-entry-201.html", 
+		"http://cgjishu.net/blog-entry-204.html", 
+		"http://cgjishu.net/blog-entry-206.html", 
+		"http://cgjishu.net/blog-entry-207.html", 
+		"http://cgjishu.net/blog-entry-216.html", 
+		"http://cgjishu.net/blog-entry-225.html", 
+		"http://cgjishu.net/blog-entry-229.html", 
+		"http://cgjishu.net/blog-entry-234.html", 
+		"http://cgjishu.net/blog-entry-244.html", 
+		"http://cgjishu.net/blog-entry-245.html", 
+		"http://cgjishu.net/blog-entry-248.html", 
+		"http://cgjishu.net/blog-entry-251.html", 
+		"http://cgjishu.net/blog-entry-252.html", 
+		"http://cgjishu.net/blog-entry-252.html", 
+		"http://cgjishu.net/blog-entry-254.html", 
+		"http://cgjishu.net/blog-entry-258.html", 
+		"http://cgjishu.net/blog-entry-263.html"
+	};
+	for($melName in $getMelList){
+		string $url = urlcheck($melName);
+		if($url == "null")continue;
+		int $changeTrue = false;
+		for($ii=0; $ii<size($AriScriptLauncher_AriMel_NameList); $ii++){
+			if($AriScriptLauncher_AriMel_NameList[$ii] == $melName){
+				$AriScriptLauncher_AriMel_UrlList[$ii] =  $url;
+				$changeTrue = true;
+				break;
+			}
+		}
+		if($changeTrue==false){
+			$AriScriptLauncher_AriMel_NameList[size($AriScriptLauncher_AriMel_NameList)] = $melName;
+			$AriScriptLauncher_AriMel_UrlList[size($AriScriptLauncher_AriMel_UrlList)]   = $url;
+		}
+	}
+}
+proc string getAriMelList(string $command){
+	global string $AriScriptLauncher_AriMel_NameList[];
+	global string $AriScriptLauncher_AriMel_UrlList[];
+	string $url = "null";
+	for($ii=0; $ii<size($AriScriptLauncher_AriMel_NameList); $ii++){
+		if($AriScriptLauncher_AriMel_NameList[$ii] == $command){
+			$url = $AriScriptLauncher_AriMel_UrlList[$ii];
+		}
+	}
+	return $url;
+}
+global proc AriScriptLauncher_AddShell(string $command, string $iconImage, int $optionTrue, string $url){
+	string $shelfLayout = "ShelfLayout";
+	string $active = `shelfTabLayout -q -selectTab $shelfLayout`;
+	if(!`filetest -f $iconImage`){
+		$iconImage = "commandButton.png";
+	}
+	string $shelfBut = `shelfButton 
+		-rpt true 
+		-i   $iconImage 
+		-l   $command 
+		-ann $command
+		-c   $command
+		-p   $active `;
+	if($url != "null"){
+		popupMenu -parent $shelfBut -button 3;
+		menuItem  -l "Help Web" -stp "mel" -c ("launch -web \""+$url+"\"");
+	}
+	if($optionTrue){
+		shelfButton -e -dcc ($command+"Options") $shelfBut;
+	}
+}
+proc string[] AriScriptLauncher_GetMELList(){
+	global string $AriScriptLauncher_AriMelList[];
+	global string $AriScriptLauncher_UI_direTextF;
+	string $melDire  = `textField -q -text $AriScriptLauncher_UI_direTextF`;
+	string $list[] = `getFileList -fld $melDire  -fs "*.mel"`;
+	string $shelfLayout="ShelfLayout";
+	string $active = `shelfTabLayout -q -selectTab $shelfLayout`;
+	string $melList[];
+	int $i=0;
+	for($mel in $list){
+		if(startsWith($mel,"Ari")){
+			string $sepa[];
+			tokenize $mel "." $sepa;
+			string $command = $sepa[0];
+			$melList[$i] = $command;
+			$i++;
+		}
+	}
+	clear $AriScriptLauncher_AriMelList;
+	$AriScriptLauncher_AriMelList = $melList;
+	return $melList;
+}
+global proc AriScriptLauncher_DirectoryOpen(string $command){
+	string $whatDire = `whatIs $command`;
+	string $sepa[];
+	tokenize $whatDire " " $sepa;
+	string $directory = $sepa[size($sepa)-1];
+	print $directory;
+	if(`filetest -f $directory`){
+		$directory = substituteAllString($directory, "/", "\\");
+		system ("explorer.exe /select,"+$directory);
+	}
+}
+proc string AriScriptLauncher_IconExtension(string $command){
+	global string $AriScriptLauncher_UI_iconTextF;
+	string $iconDire  = `textField -q -text $AriScriptLauncher_UI_iconTextF`;
+	string $icon;
+	string $iconPath = $iconDire + $command + ".png";
+	if(`filetest -f $iconPath`){
+		$icon = $iconPath;
+	}
+	else{
+		$icon = "commandButton.png";
+	}
+	return $icon;
+}
+global proc AriScriptLauncher_urlOpen(string $command, int $checkTrue){
+	if($checkTrue==false){
+		launch -web $command;
+	}
+	else{
+		string $url = urlcheck($command);
+		if($url!="null")launch -web $url;
+	}
+}
+global proc AriScriptLauncher_melList_Reload(int $mode){
+	global string $AriScriptLauncher_AriMelList[];
+	global string $AriScriptLauncher_UI_direSL;
+	global string $AriScriptLauncher_UI_direCL;
+	global string $AriScriptLauncher_UI_searchTextF;
+	global string $AriScriptLauncher_UI_direTextF;
+	string $melDire  = `textField -q -text $AriScriptLauncher_UI_direTextF`;
+	if($mode==1){
+		AriScriptLauncher_GetMELList();
+		getHelpListFromMel($AriScriptLauncher_AriMelList);
+	}
+	string $melList[]  = $AriScriptLauncher_AriMelList;
+	string $melListIconTrue[];
+	string $melListIconTrue_Icon[];
+	string $melListIconFalse[];
+	string $melListIconFalse_Icon[];
+	string $searchText = `textField -q -text $AriScriptLauncher_UI_searchTextF`;
+	string $tolowerSearchText = `tolower $searchText`;
+	int $j=0;
+	int $k=0;
+	for($i=0; $i<size($melList); $i++){
+		string $command = $melList[$i];
+		if(endsWith($command,"Options"))continue;
+		string $icon = AriScriptLauncher_IconExtension($command);
+		if($icon != "commandButton.png"){
+			$melListIconTrue[$j] = $melList[$i];
+			$melListIconTrue_Icon[$j] = $icon;
+			$j++;
+		}
+		else{
+			$melListIconFalse[$k] = $melList[$i];
+			$melListIconFalse_Icon[$k] = $icon;
+			$k++;
+		}
+	}
+	string $melListSort[]      = stringArrayCatenate($melListIconTrue, $melListIconFalse);
+	string $melListSort_Icon[] = stringArrayCatenate($melListIconTrue_Icon, $melListIconFalse_Icon);
+	deleteUI $AriScriptLauncher_UI_direCL;
+	$AriScriptLauncher_UI_direCL = `columnLayout -p $AriScriptLauncher_UI_direSL -adj true`;
+	for($i=0; $i<size($melListSort); $i++){
+		string $command = $melListSort[$i];
+		string $executionCommand = $command;
+		string $icon    = $melListSort_Icon[$i];
+		int $optionTrue = false;
+		string $options = $command+"Options";
+		if(stringArrayContains ($options, $melList)){
+			$optionTrue = true;
+		}
+		string $url="null";
+		$url = getAriMelList($command);
+		if($command == "AriScriptLauncher"){
+			$executionCommand="";
+		}
+		if($command == "AriAllCloseWindow"){
+			$executionCommand="";
+		}
+		string $tolowerCommand = `tolower $command`;
+		if(!`gmatch $tolowerCommand ("*"+$tolowerSearchText+"*")`){
+			continue;
+		}
+		int $webTrue = true;
+		if($url == "null")$webTrue = false;
+		rowLayout -nc 3 -adj 2;
+		iconTextButton -c $command -image1 $icon;
+		popupMenu -button 3;
+		if($optionTrue){
+			menuItem  -l "Options" -stp "" -c $options -i "hsNothing.png";
+			menuItem -divider true;
+		}
+		menuItem 	-l "Add Shelf     (Ctrl+Shift+Click)" 
+					-c ("AriScriptLauncher_AddShell(\""+$command+"\",\""+$icon+"\","+$optionTrue+",\""+$url+"\")")
+					-i "SE_FavoriteStar.png";
+		if($webTrue){
+			menuItem 	-l "Help Web"
+						-c ("AriScriptLauncher_urlOpen(\""+$url+"\",false)")
+						-i "SP_FileIcon.png"
+						-ann $url;
+		}
+		menuItem -divider true;
+		string $soruceCommand = ("source "+"\""+$melDire +""+ $command +"\";");
+		if($optionTrue){
+			$soruceCommand = ($soruceCommand +" source "+"\""+$melDire +""+ $options + "\";");
+		}
+		menuItem	-l "Source"
+					-i "refresh.png"
+					-c $soruceCommand;
+		menuItem	-l "Open Directory"
+					-i "SP_DirOpenIcon.png"
+					-c ("AriScriptLauncher_DirectoryOpen(\""+ $command +"\")");
+		popupMenu -button 1 -ctl true -sh true -pmc ("AriScriptLauncher_AddShell(\""+$command+"\",\""+$icon+"\","+$optionTrue+",\""+$url+"\")");
+		menuItem -l "Added to shelf";
+		columnLayout -adj true;
+		rowLayout -nc 3 -adj 1;
+		textField -w 100 -ed false -text $command;
+		popupMenu -button 1 -pmc $executionCommand;
+		if($optionTrue)	iconTextButton -c $options -image1 "hsNothing.png" ;
+		if($webTrue)	iconTextButton -c ("AriScriptLauncher_urlOpen(\""+$url+"\",false)") -image1 "SP_FileIcon.png" -ann $url;
+		setParent..;
+		rowLayout -nc 2;
+		setParent..;
+		setParent..;
+		setParent..;
+		separator;
+	}
+	setParent..;
+}
+global proc AriScriptLauncher_DireOpen(int $mode){
+	global string $AriScriptLauncher_UI_direTextF;
+	global string $AriScriptLauncher_UI_iconTextF;
+	string $path;
+	if($mode == 1) $path = `textField -q -text $AriScriptLauncher_UI_direTextF`;
+	if($mode == 2) $path = `textField -q -text $AriScriptLauncher_UI_iconTextF`;
+	if(`filetest -d $path`){
+		 system ("load " + $path);
+	}
+}
+global proc AriScriptLauncher_DireDialog(int $mode){
+	global string $AriScriptLauncher_UI_direTextF;
+	global string $AriScriptLauncher_UI_iconTextF;
+	string $path;
+	if($mode == 1) $path = `textField -q -text $AriScriptLauncher_UI_direTextF`;
+	if($mode == 2) $path = `textField -q -text $AriScriptLauncher_UI_iconTextF`;
+	string $getPath[] = `fileDialog2 -dir $path -fm 3 -okc "OK"`;
+	$getPath[0] = ($getPath[0]+"/");
+	if($getPath[0]=="/") $getPath[0] = $path;
+	if($mode == 1) textField -e -text $getPath[0] $AriScriptLauncher_UI_direTextF;
+	if($mode == 2) textField -e -text $getPath[0] $AriScriptLauncher_UI_iconTextF;
+	AriScriptLauncher_melList_Reload(1);
+}
+proc string UI_direList(){
+	global string $AriScriptLauncher_UI_direTextF;
+	global string $AriScriptLauncher_UI_iconTextF;
+	global string $AriScriptLauncher_UI_searchTextF;
+	string $melDire  = `internalVar -userScriptDir`;
+	string $iconDire = `internalVar -userBitmapsDir`;
+	string $frameLay = `frameLayout -cll true -cl true -l "Directory"`;
+	columnLayout -adj true ;
+	rowLayout -nc 4 -adj 2;
+	text -w 40 -l "Script";
+	$AriScriptLauncher_UI_direTextF = `textField -ed false -text $melDire`;
+	button -w 28 -h 20 -l ".." -c "AriScriptLauncher_DireDialog(1)";
+	iconTextButton -w 28 -c "AriScriptLauncher_DireOpen(1)" -image1 "SP_DirOpenIcon.png";
+	setParent..;
+	rowLayout -nc 4 -adj 2;
+	text -w 40 -l "Icon";
+	$AriScriptLauncher_UI_iconTextF = `textField -ed false -text $iconDire`;
+	button -w 28 -h 20 -l ".." -c "AriScriptLauncher_DireDialog(2)";
+	iconTextButton -w 28 -c "AriScriptLauncher_DireOpen(2)" -image1 "SP_DirOpenIcon.png";
+	setParent..;
+	setParent..;
+	setParent..;
+	return $frameLay;
+}
+proc string UI_melListView(){
+	global string $AriScriptLauncher_UI_direSL;
+	global string $AriScriptLauncher_UI_direCL;
+	$AriScriptLauncher_UI_direSL = `scrollLayout -cr true`;
+	$AriScriptLauncher_UI_direCL = `columnLayout -adj true`;
+	setParent..;
+	setParent..;
+	return $AriScriptLauncher_UI_direSL;
+}
+global proc AriScriptLauncher(){
+	global string $AriScriptLauncher_UI_searchTextF;
+	if((`window -ex  AriScriptLauncher`)==true)deleteUI AriScriptLauncher;
+	window -tlb 1 -title "AriScriptLauncher"  -w 240 -h 400  AriScriptLauncher;
+	string $form =`formLayout`;
+	string $dire    = UI_direList();
+	string $melList = UI_melListView();
+	string $reloadButton = `button  -l "Reload" -c "AriScriptLauncher_melList_Reload(1)"`;
+	$AriScriptLauncher_UI_searchTextF = `textField  -searchField -aie true -h 24
+		-ec  "AriScriptLauncher_melList_Reload(0); setFocus $AriScriptLauncher_UI_searchTextF"
+		-tcc "AriScriptLauncher_melList_Reload(0); "`;
+	setParent..;
+	formLayout -e
+	-af $reloadButton "left"   0
+	-af $reloadButton "right"  0
+	-af $reloadButton "bottom" 0
+	-af $dire "top" 0
+	-af $dire "left" 0
+	-af $dire "right" 0
+	-ac $AriScriptLauncher_UI_searchTextF "top"   0 $dire
+	-af $AriScriptLauncher_UI_searchTextF "left"  0
+	-af $AriScriptLauncher_UI_searchTextF "right" 0
+	-af $melList "left" 0
+	-af $melList "right" 0
+	-ac $melList "top"    0 $AriScriptLauncher_UI_searchTextF
+	-ac $melList "bottom" 0 $reloadButton
+	$form;
+	AriScriptLauncher_melList_Reload(1);
+	showWindow;
+}

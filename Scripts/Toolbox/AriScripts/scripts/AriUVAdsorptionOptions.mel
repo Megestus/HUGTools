@@ -1,0 +1,104 @@
+//--------------------------------------------------------------------------
+// ScriptName : AriUVAdsorptionOptions
+// Contents   : AriUVAdsorptionのオプション
+// LastUpdate : 2018/10/28 選択無実行でオプション起動機能追加
+//--------------------------------------------------------------------------
+
+
+global proc AriUVAdsorptionOptions_Save(){
+	
+	int $margeTrue = true;
+	int $selectFixTrue = true;
+	float $offset[2] = {0,0};
+	
+	
+	$margeTrue = `checkBox       -q -v AriUVAdsorptionOp_offsetCb`;
+	$selectFixTrue = `checkBox   -q -v AriUVAdsorptionOp_selectFixCb`;
+	$offset[0] = `floatField -q -v AriUVAdsorptionOp_offsetU`;
+	$offset[1] = `floatField -q -v AriUVAdsorptionOp_offsetV`;
+	
+	
+	optionVar -intValue   "AriUVAdsorption_marge"      $margeTrue;
+	optionVar -intValue   "AriUVAdsorption_selectFix"  $selectFixTrue;
+	optionVar -floatValue "AriUVAdsorption_offsetU"    $offset[0];
+	optionVar -floatValue "AriUVAdsorption_offsetV"    $offset[1];
+}
+global proc AriUVAdsorptionOptions_GO(){
+	AriUVAdsorptionOptions_Save();
+	AriUVAdsorption;
+}
+global proc AriUVAdsorptionOptions_setVal(int $mode,int $val){
+	if($mode==0)floatField -e -v $val AriUVAdsorptionOp_offsetU;
+	else		floatField -e -v $val AriUVAdsorptionOp_offsetV;
+}
+global proc AriUVAdsorptionOptions(){
+	int $margeTrue = true;
+	int $selectFixTrue = true;
+	float $offset[2] = {0,0};
+	if(`optionVar -exists "AriUVAdsorption_marge"`)		$margeTrue     = `optionVar -q "AriUVAdsorption_marge"`;
+	if(`optionVar -exists "AriUVAdsorption_selectFix"`) $selectFixTrue = `optionVar -q "AriUVAdsorption_selectFix"`;
+	if(`optionVar -exists "AriUVAdsorption_offsetU"`)	$offset[0] = `optionVar -q "AriUVAdsorption_offsetU"`;
+	if(`optionVar -exists "AriUVAdsorption_offsetV"`)	$offset[1] = `optionVar -q "AriUVAdsorption_offsetV"`;	
+	if((`window -ex  AriUVAdsorptionOptions`)==true)deleteUI AriUVAdsorptionOptions;
+	window -title "AriUVAdsorptionOptions"  -w 200 -h 50 -tlb true AriUVAdsorptionOptions;
+	string $form = `formLayout`;
+	string $column = `columnLayout -adj true`;
+	rowLayout -nc 2;
+	checkBox -l "Marge"     -v $margeTrue     AriUVAdsorptionOp_offsetCb;
+	checkBox -l "SelectFix" -v $selectFixTrue AriUVAdsorptionOp_selectFixCb;
+	setParent..;
+	rowLayout -nc 3;
+	columnLayout;
+	text -w 50 -h 20 -l "Offset";
+	button -w 50 -l "0,0" -c "AriUVAdsorptionOptions_setVal(0,0); AriUVAdsorptionOptions_setVal(1,0);";
+	setParent..;
+	columnLayout;
+	floatField -w 65 -h 20 -v $offset[0] AriUVAdsorptionOp_offsetU;
+	rowLayout -nc 3;
+	button -w 20 -l "-1"  -c "AriUVAdsorptionOptions_setVal(0,-1)";
+	button -w 20 -l "0"   -c "AriUVAdsorptionOptions_setVal(0,0)";
+	button -w 20 -l "1"   -c "AriUVAdsorptionOptions_setVal(0,1)";
+	setParent..;
+	setParent..;
+	columnLayout;
+	floatField -w 65 -h 20 -v $offset[1] AriUVAdsorptionOp_offsetV;
+	rowLayout -nc 3;
+	button -w 20 -l "-1" -c "AriUVAdsorptionOptions_setVal(1,-1)";
+	button -w 20 -l "0"  -c "AriUVAdsorptionOptions_setVal(1,0)";
+	button -w 20 -l "1"  -c "AriUVAdsorptionOptions_setVal(1,1)";
+	setParent..;
+	setParent..;
+	setParent..;
+	separator -h 8 -st "in";
+	setParent..;
+	string $buttonform = `formLayout`;
+	string $buttonSave       = `button       -l "Save"       -c "AriUVAdsorptionOptions_Save();"`;
+	string $buttonSaveClose  = `button       -l "Save Close" -c "AriUVAdsorptionOptions_Save(); deleteUI AriUVAdsorptionOptions;"`;
+	string $buttonApply      = `button -h 38 -l "Apply"      -c "AriUVAdsorptionOptions_GO();" -bgc 0.5 0.5 1`;
+	setParent..;
+	formLayout -e 
+	-af $buttonApply "bottom" 0  
+	-ap $buttonApply "left"   0 50
+	-af $buttonApply "right"  0
+	-af $buttonApply "top"    0 
+	-af $buttonSave	"top"    0
+	-ap $buttonSave	"bottom" 0 50
+	-af $buttonSave	"left"   0 
+	-ac $buttonSave	"right"  0 $buttonApply
+	-ac $buttonSaveClose	"top"    0 $buttonSave
+	-af $buttonSaveClose	"bottom" 0
+	-af $buttonSaveClose	"left"   0
+	-ac $buttonSaveClose	"right"  0 $buttonApply
+	$buttonform;
+	setParent..;
+	formLayout -e 
+	-af $column "top"    0
+	-af $column "left"   0
+	-af $column "right"  0
+	-ac $buttonform "top"    0 $column
+	-af $buttonform "bottom" 0
+	-af $buttonform "left"   0
+	-af $buttonform "right"  0
+	$form;
+	showWindow;
+}

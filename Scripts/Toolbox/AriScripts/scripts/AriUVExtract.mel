@@ -1,0 +1,36 @@
+//--------------------------------------------------------------------------
+//
+// ScriptName : AriUVExtract
+// Contents   : フェース選択したUVを切り離します。
+// Author     : Ari
+// URL        : http://cgjishu.net/
+// Since      : 2017/05
+// Update     : 
+//
+//--------------------------------------------------------------------------
+
+
+
+global proc AriUVExtract()
+{
+	
+	string $selectList[] = `ls -sl`;
+	
+	if(size($selectList)<=0)return;
+	
+	ConvertSelectionToEdgePerimeter;
+	polyMapCut;
+	
+	changeSelectMode -component;
+	setComponentPickMask "Facet" true;
+	selectType -ocm -alc false;
+	selectType -ocm -facet true;
+	selectType -sf false -se false -suv false -cv false;
+	updateObjectSelectionMasks;
+	
+	
+	select -cl;
+	select $selectList;
+	
+}
+

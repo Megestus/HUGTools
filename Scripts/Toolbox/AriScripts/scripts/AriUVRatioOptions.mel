@@ -1,0 +1,65 @@
+//--------------------------------------------------------------------------
+// ScriptName : AriUVRatioOptions
+// Contents   : AriUVRatioのオプション
+// Since      : 2016/08/07 オプション新規作成
+// LastUpdate : 2018/10/28 選択無実行でオプション起動機能追加
+//--------------------------------------------------------------------------
+
+
+
+global proc AriUVRatioOptions_Save(){
+	
+	int $straightTrue = true;
+	
+	$straightTrue = `checkBox -q -v AriUVRatioOp_offsetCb`;
+	
+	optionVar -intValue   "AriUVRatio_straight" $straightTrue;
+	
+}
+
+
+global proc AriUVRatioOptions_GO(){
+	AriUVRatioOptions_Save();
+	AriUVRatio;
+}
+global proc AriUVRatioOptions(){
+	int $straightTrue = true;
+	if(`optionVar -exists "AriUVRatio_straight"`)	$straightTrue = `optionVar -q "AriUVRatio_straight"`;
+	if((`window -ex  AriUVRatioOptions`)==true)deleteUI AriUVRatioOptions;
+	window -title "AriUVRatioOptions" -tlb true -w 200 -h 50 AriUVRatioOptions;
+	string $form = `formLayout`;
+	string $column = `columnLayout -adj true`;
+	checkBox -l "Straight" -v $straightTrue AriUVRatioOp_offsetCb;
+	separator -h 8 -st "in";
+	setParent..;
+	string $buttonform = `formLayout`;
+	string $buttonSave       = `button       -l "Save"       -c "AriUVRatioOptions_Save();"`;
+	string $buttonSaveClose  = `button       -l "Save Close" -c "AriUVRatioOptions_Save(); deleteUI AriUVRatioOptions;"`;
+	string $buttonApply      = `button -h 38 -l "Apply"      -c "AriUVRatioOptions_GO();" -bgc 0.5 0.5 1`;
+	setParent..;
+	formLayout -e 
+	-af $buttonApply "bottom" 0  
+	-ap $buttonApply "left"   0 50
+	-af $buttonApply "right"  0
+	-af $buttonApply "top"    0 
+	-af $buttonSave	"top"    0
+	-ap $buttonSave	"bottom" 0 50
+	-af $buttonSave	"left"   0 
+	-ac $buttonSave	"right"  0 $buttonApply
+	-ac $buttonSaveClose	"top"    0 $buttonSave
+	-af $buttonSaveClose	"bottom" 0
+	-af $buttonSaveClose	"left"   0
+	-ac $buttonSaveClose	"right"  0 $buttonApply
+	$buttonform;
+	setParent..;
+	formLayout -e 
+	-af $column "top"    0
+	-af $column "left"   0
+	-af $column "right"  0
+	-ac $buttonform "top"    0 $column
+	-af $buttonform "bottom" 0
+	-af $buttonform "left"   0
+	-af $buttonform "right"  0
+	$form;
+	showWindow;
+}

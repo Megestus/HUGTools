@@ -1,0 +1,159 @@
+//--------------------------------------------------------------------------
+//
+// ScriptName : AriWindowPositionReset
+// Contents   : Mayaで使用しているWindowをすべてMayaメインの左上に移動させます。
+// Author     : Ari
+// Since      : 2016/02
+// LastUpdate : 2019/10/14 Maya起動時既に表示されているウィンドウも表示できるようにバグ修正
+//              2019/09/29 UI化
+//                         WorkspaceControlに対応
+//              2016/02/17 AriCompactToolSettingsと同時に使うとエラーを回避
+//                         dockコントロールを一体化する機能追加
+// Help       : http://cgjishu.net/blog-entry-287.html
+//
+//--------------------------------------------------------------------------
+
+
+global proc AriWindowPositionReset_Reset(){
+
+	string $windowList[] = `lsUI -typ "window"`;
+	string $dockControlList[] =`lsUI -typ "dockControl"`;
+	
+	print("\ndock--------------------\n\n");
+	for($dock in $dockControlList){
+		if(!`dockControl -ex $dock`){
+			continue;
+		}
+		dockControl -e -fl false $dock;
+	}
+	int $xy[2];
+	for($win in $windowList){
+		if($win == "MayaWindow"){
+			$xy = `window -q -tlc $win`;
+			break;
+		}
+	}
+	for($win in $windowList){
+		if(!`window -ex $win`){
+			continue;
+		}
+		if($win != "MayaWindow" && $win != "learningMoviesLaunchWnd" && $win != "ColorEditor"
+			&& $win != "CommandWindow" && $win != "gozwin" && $win != "nexFloatWindow" && $win != "AriCompactToolSettingsWindow" ){
+				window -e -tlc $xy[0] $xy[1] $win;
+		}
+		else{
+		}
+	}
+}
+global proc AriWindowPositionReset_ResetGO(string $ui){
+	print ($ui+"\n");
+	int $winPos[] = `window -q -tlc AriWindowPositionReset`;
+	int $winWidth = `window -q -w   AriWindowPositionReset`;
+	int $movePos[];
+	$movePos[0] = ($winPos[0]);
+	$movePos[1] = ($winPos[1] + $winWidth  + 10);
+	if(`exists("workspaceControl")`){
+		if(`workspaceControlState -ex $ui`){
+			if(`workspaceControl -ex $ui`){
+				workspaceControlState -e -tlc ($movePos[0]+30) $movePos[1] $ui;
+				workspaceControl  -e -fl true $ui;
+				return;
+			}
+		}
+	}
+	if(`window -ex $ui`){
+		window -e -tlc $movePos[0] $movePos[1] $ui;
+	}
+}
+proc AriWindowPositionReset_row(string $ui){
+	string $label = $ui;
+	if(`window -ex $ui`){
+		$label = `window -q -title $ui`;
+	}
+	if(`dockControl -ex $ui`){
+		$label = `dockControl -q -l $ui`;
+	}
+	if(`exists("workspaceControl")`){
+		if(`workspaceControl -ex $ui`){
+			$label = `workspaceControl -q -label $ui`;
+		}
+	}
+	string $row = `rowLayout -nc 2 -adj 1`;
+	textField -text $label -ed false;
+	button -l "Reset" -c ("AriWindowPositionReset_ResetGO(\""+ $ui +"\")");
+	setParent..;
+}
+global proc AriWindowPositionReset_Reload(){
+	global string $AriWindowPositionResetW_SL;
+	global string $AriWindowPositionResetW_CL;
+	string $processedUI[];
+	int $processCount = 0;
+	string $windowList[] =`lsUI -typ "window"`;
+	string $dockControlList[] =`lsUI -typ "dockControl"`;
+	string $dumpWidgetsList[] =`lsUI -dw`;
+	deleteUI $AriWindowPositionResetW_CL;
+	$AriWindowPositionResetW_CL = `columnLayout -adj true -p $AriWindowPositionResetW_SL`;
+	if(`exists("workspaceControl")`){
+		for($dumpWidgets in $dumpWidgetsList){
+			if(`workspaceControl -ex $dumpWidgets`){
+				if(`workspaceControl -q -fl $dumpWidgets`){
+					AriWindowPositionReset_row($dumpWidgets);
+					$processedUI[$processCount] = $dumpWidgets;
+					$processCount++;
+				}
+			}	
+		}
+	}
+	separator;
+	for($window in $windowList){
+		if(stringArrayContains($window,$processedUI))continue;
+		if(`window -ex $window`){
+			if($window != "MayaWindow" && $window != "AriWindowPositionReset"){
+				AriWindowPositionReset_row($window);
+				$processedUI[$processCount] = $window;
+				$processCount++;
+			}
+		}
+	}
+	separator;
+	for($dockControl in $dockControlList){
+		if(`dockControl -ex $dockControl`){
+			if(`dockControl -q -fl $dockControl`){
+				AriWindowPositionReset_row($dockControl);
+			}
+		}
+	}
+	setParent..;
+}
+global proc AriWindowPositionReset(){
+	global string $AriWindowPositionResetW_SL;
+	global string $AriWindowPositionResetW_CL;
+	int $xy[2] = {0, 0};
+	if(`window -ex "MayaWindow"`){
+		int $getXY[] = `window -q -tlc MayaWindow`;
+		$xy[0] = $getXY[0]+10;
+		$xy[1] = $getXY[1]+10;
+	}
+	print ("MayaWindow "+$xy[0]+","+$xy[1]+ "\n\n");
+    if((`window -ex  AriWindowPositionReset`)==true)deleteUI AriWindowPositionReset;
+	window -tlb true -title "AriWindowPositionReset"  -w 300 -h 400  AriWindowPositionReset;
+	string $form = `formLayout`;
+	$AriWindowPositionResetW_SL = `scrollLayout -cr true`;
+	$AriWindowPositionResetW_CL = `columnLayout`;
+	setParent..;
+	setParent..;
+	string $button = `button -l "Reload" -c "AriWindowPositionReset_Reload()"`;
+	formLayout -e
+	-af $button "left" 0
+	-af $button "right" 0
+	-af $button "bottom" 0 
+	-ac $AriWindowPositionResetW_SL "bottom" 0 $button 
+	-af $AriWindowPositionResetW_SL "top" 0 
+	-af $AriWindowPositionResetW_SL "left" 0 
+	-af $AriWindowPositionResetW_SL "right" 0 
+	$form;
+	showWindow;
+	window -e -tlc $xy[0] $xy[1]  AriWindowPositionReset;
+	AriWindowPositionReset_Reload();
+}
+//AriWindowPositionReset
