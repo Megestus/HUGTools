@@ -82,7 +82,7 @@ class Quick_Rename_Module_UI(QtWidgets.QWidget):
             RoundedButton("Lb_mesh"),
             RoundedButton("Hires"),
             RoundedButton("Retopo"),
-            RoundedButton("temp_mesh"),
+            RoundedButton("Temp_mesh"),
             RoundedButton("Concept")
         ]
 
