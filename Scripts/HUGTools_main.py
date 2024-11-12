@@ -442,7 +442,7 @@ class HUGToolsWindow(QtWidgets.QDialog):
         self.toggle_softEdge_btn.clicked.connect(self.toggle_softEdge_display)
         self.toggle_hardedge_btn.clicked.connect(self.toggle_hardedge_display)
         self.toggle_crease_edge_btn.clicked.connect(self.toggle_crease_edge_display)
-        self.select_uvborder_btn.clicked.connect(self.SelectUVBorderEdge)
+        self.select_uvborder_btn.clicked.connect(self.SelectUVBorderEdge2)
         self.select_hardedges_btn.clicked.connect(self.select_hard_edges)
         self.uvlayout_hardedges_btn.clicked.connect(self.UVLayout_By_hardEdges)
         self.planar_projection_btn.clicked.connect(self.apply_planar_projection)
@@ -588,6 +588,25 @@ class HUGToolsWindow(QtWidgets.QDialog):
         cmds.selectType(edge=True)
         cmds.inViewMessage(amg='<span style="color:#FFA500;">UV Border Edges</span>', pos='botRight', fade=True, fst=10, fad=1)
         cmds.polySelectConstraint(sm=0)
+
+
+    def SelectUVBorderEdge2(*args):
+        """
+        Ues MEL Select UV border edges
+    
+        """
+        mel.eval('''
+            // 选择当前选择的对象的UV边界
+            expandPolyGroupSelection;
+            // 根据需要调整UV边界的硬边属性
+            polyUVBorderHard;
+            // 选择UV边界组件
+            selectUVBorderComponents {} "" 1 ;
+        ''')
+        cmds.inViewMessage(amg='<span style="color:#FFA500;">UV Border Edges</span>', pos='botRight', fade=True, fst=10, fad=1)
+
+
+    
 
 
     def select_hard_edges(*args):
