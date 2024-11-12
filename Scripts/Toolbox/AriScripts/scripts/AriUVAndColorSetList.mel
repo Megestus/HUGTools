@@ -1,0 +1,982 @@
+//--------------------------------------------------------------------------
+//
+// ScriptName : AriUVAndColorSetList
+// Contents   : UVVertexColorSetXgAUVSet܂ނ̂IB
+// Author     : Ari
+// URL        : http://cgjishu.net/
+// Since      : 2024/06
+// Update     : 
+// Help       : http://cgjishu.net/blog-entry-407.html
+//
+//
+//--------------------------------------------------------------------------
+
+
+proc AriUVAndColorSetList_PaneSave(){
+	
+	global string $AriUVAndColorSetList_UI_MainPane;
+	
+	int $paneIntList[] = `paneLayout -q -ps $AriUVAndColorSetList_UI_MainPane`;
+	optionVar -intValue "AriUVAndColorSetList_paneWidth" $paneIntList[0];
+	
+}
+
+
+
+proc AriUVAndColorSetList_SizeSave(){
+	
+	global int $AriUVAndColorSetList_objWidth;
+	global int $AriUVAndColorSetList_uvWidth;
+	
+	int $objWidth = $AriUVAndColorSetList_objWidth;
+	int $uvWidth  = $AriUVAndColorSetList_uvWidth;
+	optionVar -intValue "AriUVAndColorSetList_objWidth" $objWidth;
+	optionVar -intValue "AriUVAndColorSetList_uvWidth"  $uvWidth;
+}
+proc AriUVAndColorSetList_SizeLoad(){
+	global int $AriUVAndColorSetList_objWidth;
+	global int $AriUVAndColorSetList_uvWidth;
+	int $objWidth = 100;
+	if(`optionVar -exists "AriUVAndColorSetList_objWidth"`) $objWidth = `optionVar -q "AriUVAndColorSetList_objWidth"`;
+	int $uvWidth = 60;
+	if(`optionVar -exists "AriUVAndColorSetList_uvWidth"`)  $uvWidth  = `optionVar -q "AriUVAndColorSetList_uvWidth"`;
+	$AriUVAndColorSetList_objWidth = $objWidth;
+	$AriUVAndColorSetList_uvWidth  = $uvWidth;
+	AriUVAndColorSetList_UISize(0);
+}
+proc string[] getSelectObjList(){
+	string $selects[] = `ls -sl`;
+	string $objects[] = `polyListComponentConversion $selects`;	
+	string $objectList[];
+	int $i=0;
+	for($obj in $objects){
+		if(`objectType $obj` == "mesh"){
+			string $objTr[] = `listRelatives -p -pa -type "transform" $obj`;
+			$objectList[$i] = $objTr[0];
+			$i++;
+		}
+		if(`objectType $obj` == "transform"){
+			$objectList[$i] = $obj;
+			$i++;
+		}
+	}
+	return $objectList;
+}
+proc tableSetColor_SelectObj(){
+	global string $AriUVAndColorSetList_UI_textScroll[];
+	global string $AriUVAndColorSetList_UI_ObjList_TF[];
+	string $objList[] = `textScrollList -q -selectItem $AriUVAndColorSetList_UI_textScroll[1]`;
+	string $nonList[] = `textScrollList -q -selectItem $AriUVAndColorSetList_UI_textScroll[2]`;
+	$objList = stringArrayCatenate($objList, $nonList);
+	for($TFList in $AriUVAndColorSetList_UI_ObjList_TF){
+		string $text = `textField -q -text $TFList`;
+		if(stringArrayContains($text,$objList)){
+			textField -e -bgc 1 0.5 0 $TFList;
+		}
+		else{
+			textField -e -bgc 0 0 0 $TFList;
+		}
+	}
+}
+proc tableSetColor_SelectUVSet(){
+	global string $AriUVAndColorSetList_UI_textScroll[];
+	global string $AriUVAndColorSetList_UI_UVSetList_TF[];
+	global string $AriUVAndColorSetList_UI_Table_Row[];
+	global string $AriUVAndColorSetList_UI_ObjList_TF[];
+	global string $AriUVAndColorSetList_UI_UVSetList_Button[];
+	global int $AriUVAndColorSetList_VertexColorMode;
+	global string $AriUVAndColorSetList_UI_TableHeadButton[];
+	int $UVSize  = size($AriUVAndColorSetList_UI_UVSetList_TF);
+	int $ObjSize = size($AriUVAndColorSetList_UI_ObjList_TF);
+	if($ObjSize > 0){
+		int $UVOneSize = $UVSize / $ObjSize;
+		for($ii=0; $ii<size($AriUVAndColorSetList_UI_ObjList_TF); $ii++){
+			string $TFList = $AriUVAndColorSetList_UI_ObjList_TF[$ii];
+			string $obj = `textField -q -text $TFList`;
+			string $currentUVs[];
+			if($AriUVAndColorSetList_VertexColorMode)	$currentUVs = `polyColorSet -q -currentColorSet $obj`;
+			else										$currentUVs = `polyUVSet    -q -currentUVSet    $obj`;
+			string $CurrentUV = $currentUVs[0];
+			for($jj=($UVOneSize*$ii) ; $jj<($UVOneSize*($ii+1)); $jj++){
+				string $text = `textField -q -text $AriUVAndColorSetList_UI_UVSetList_TF[$jj]`;
+				if($text == $CurrentUV && "" != $CurrentUV)	textField -e -bgc 0.4 0.4 0.4 -font "boldLabelFont"      $AriUVAndColorSetList_UI_UVSetList_TF[$jj];
+				else					textField -e -bgc 0.2 0.2 0.2 -font "smallPlainLabelFont" $AriUVAndColorSetList_UI_UVSetList_TF[$jj];
+			}
+		}
+	}
+	string $UVSelList[] = `textScrollList -q -selectItem $AriUVAndColorSetList_UI_textScroll[0]`;
+	for($TFList in $AriUVAndColorSetList_UI_UVSetList_TF){
+		string $text = `textField -q -text $TFList`;
+		if(stringArrayContains($text,$UVSelList)){
+			vector $color = `textField -q -bgc $TFList`;
+			if($AriUVAndColorSetList_VertexColorMode){
+				if(($color.x) >= 0.4 )	textField -e -bgc 0.7 0.9 1 $TFList;
+				else					textField -e -bgc 0.3 0.7 0.7 $TFList;
+			}
+			else{
+				if(($color.x) >= 0.4 )	textField -e -bgc 0 1 0 $TFList;
+				else					textField -e -bgc 0.2 0.6 0.2 $TFList;
+			}
+		}
+		else{
+		}
+	}
+	for($button in $AriUVAndColorSetList_UI_TableHeadButton){
+		string $text = `button -q -l $button`;
+		string $sepa[];
+		tokenize $text "[" $sepa;
+		$text = $sepa[0];
+		if(stringArrayContains($text,$UVSelList)){	
+			if($AriUVAndColorSetList_VertexColorMode)	button -e -bgc 0.3 0.7 1.0 $button;
+			else										button -e -bgc 0.3 1.0 0.3 $button;
+		}
+		else{										
+			if($AriUVAndColorSetList_VertexColorMode)	button -e -bgc 0.0 0.0 0.5  $button;
+			else										button -e -bgc 0.0 0.5 0.0  $button;
+		}
+	}
+	string $trueList[] = `textScrollList -q -allItems $AriUVAndColorSetList_UI_textScroll[1]`;
+	int $numList[];
+	for($ii=0; $ii<size($AriUVAndColorSetList_UI_ObjList_TF);$ii++){
+		$TFList = $AriUVAndColorSetList_UI_ObjList_TF[$ii];
+		string $text = `textField -q -text $TFList`;
+		if(stringArrayContains($text, $trueList)){
+			$numList[$ii] = true;
+		}
+		else{
+			$numList[$ii] = false;
+		}
+	}
+	for($ii=0; $ii<size($AriUVAndColorSetList_UI_UVSetList_Button); $ii++){
+		if($numList[$ii]==true){
+			button    -e -bgc 0.1 0.1 0.4 $AriUVAndColorSetList_UI_UVSetList_Button[$ii];
+			rowLayout -e -bgc 0.1 0.4 0.4 $AriUVAndColorSetList_UI_Table_Row[$ii];
+		}
+		else{
+			button -e -bgc 0.1 0.1 0.1 $AriUVAndColorSetList_UI_UVSetList_Button[$ii];
+			rowLayout -e -bgc 0.3 0.3 0.3 $AriUVAndColorSetList_UI_Table_Row[$ii];
+		}
+	}
+}
+proc string[] ObjListExists(string $objList[]){
+	string $newObjList[];
+	for($obj in $objList){
+		if(`objExists $obj`){
+			$newObjList[size($newObjList)] = $obj;
+		}		
+	}
+	return $newObjList;
+}
+global proc AriUVAndColorSetList_SelectFromTotal(int $total,int $mode){
+	global int $AriUVAndColorSetList_VertexColorMode;
+	global string $AriUVAndColorSetList_GetObjectList[];
+	string $objList[];
+	for($obj in $AriUVAndColorSetList_GetObjectList){
+		string $uvSet[];
+		if($AriUVAndColorSetList_VertexColorMode)	$uvSet = `polyColorSet -q -acs $obj`;
+		else								$uvSet = `polyUVSet    -q -allUVSets $obj`;
+		if($mode==0 || $mode==2 || $mode==3){
+			if(size($uvSet)==$total){
+				$objList[size($objList)] = $obj;
+			}
+		}
+		if($mode==1){
+			if(size($uvSet)!=$total){
+				$objList[size($objList)] = $obj;
+			}
+		}
+	}
+	if($mode==0 || $mode==1)select $objList;
+	if($mode==2)select -add $objList;
+	if($mode==3)select -d $objList;
+}
+global proc AriUVAndColorSetList_CtrlClickUVSet(string $UVSet,int $mode){
+	global string $AriUVAndColorSetList_UI_textScroll[4];
+	string $selectList[] = `textScrollList -q -selectItem $AriUVAndColorSetList_UI_textScroll[0]`;
+	if($UVSet != ""){
+		if(stringArrayContains($UVSet,$selectList)){
+			textScrollList -e -deselectItem $UVSet $AriUVAndColorSetList_UI_textScroll[0];
+		}
+		else{
+			textScrollList -e -selectItem $UVSet $AriUVAndColorSetList_UI_textScroll[0];
+		}
+	}
+	AriUVAndColorSetList_GetObjfromUV();
+}
+global proc AriUVAndColorSetList_UVSetPush(string $uvSet){
+	global int $AriUVAndColorSetList_VertexColorMode;
+	global string $AriUVAndColorSetList_GetObjectList[];
+	if($uvSet == "")return;
+	string $objList[] = getSelectObjList();
+	if(size($objList)==0) $objList = $AriUVAndColorSetList_GetObjectList;
+	for($object in $objList){
+		if($AriUVAndColorSetList_VertexColorMode == true){
+			string $allUVSet[] = `polyColorSet -q -acs $object`;
+			if(stringArrayContains($uvSet,$allUVSet)) polyColorSet -e -currentColorSet -colorSet $uvSet $object;
+		}
+		else{
+			string $allUVSet[] = `polyUVSet -q -allUVSets $object`;
+			if(stringArrayContains($uvSet,$allUVSet)) polyUVSet -e -currentUVSet -uvSet $uvSet $object;
+		}
+	}
+	tableSetColor_SelectUVSet();
+	AriUVAndColorSetList_GetSetList();
+}
+proc TableWhite(string $AllUVSetList[], int $listCount[]){
+	global int $AriUVAndColorSetList_VertexColorMode;
+	global string $AriUVAndColorSetList_GetObjectList[];
+	global string $AriUVAndColorSetList_UI_TableColumn;
+	global string $AriUVAndColorSetList_UI_TableScroll;
+	global string $AriUVAndColorSetList_UI_Table_Row[];
+	global string $AriUVAndColorSetList_UI_ObjList_TF[];
+	global string $AriUVAndColorSetList_UI_UVSetList_TF[];
+	global string $AriUVAndColorSetList_UI_UVSetList_Button[];
+	global string $AriUVAndColorSetList_UI_PageIS;
+	global string $AriUVAndColorSetList_UI_MaxIF;
+	global string $AriUVAndColorSetList_UI_TableHeadColumn;
+	global string $AriUVAndColorSetList_UI_TableHeadListRow;
+	global string $AriUVAndColorSetList_UI_TableSpace;
+	global string $AriUVAndColorSetList_UI_TableHeadButRow[];
+	global string $AriUVAndColorSetList_UI_TableHeadButton[];
+	int $nowPage = `intSliderGrp -q -v $AriUVAndColorSetList_UI_PageIS`;
+	int $maxVal  = `intField -q -v $AriUVAndColorSetList_UI_MaxIF`;
+	int $setTotal = size($AllUVSetList);
+	clear $AriUVAndColorSetList_UI_TableHeadButRow;
+	clear $AriUVAndColorSetList_UI_TableHeadButton;
+	deleteUI $AriUVAndColorSetList_UI_TableHeadListRow;
+	$AriUVAndColorSetList_UI_TableHeadListRow = `rowLayout -p $AriUVAndColorSetList_UI_TableHeadColumn -nc ($setTotal+3)`;
+	$AriUVAndColorSetList_UI_TableSpace = `rowLayout -nc 4`;
+		text   -l "" -w 20;
+		button -h 20 -l "Select" -c "AriUVAndColorSetList_Reload(1)";
+		button -h 20 -l "Clear"  -c "select -cl";
+	setParent..;
+	for($ii=0; $ii<size($AllUVSetList);$ii++){
+		$uvSet = $AllUVSetList[$ii];
+		$AriUVAndColorSetList_UI_TableHeadButRow[size($AriUVAndColorSetList_UI_TableHeadButRow)] = `columnLayout -adj true`;
+		$AriUVAndColorSetList_UI_TableHeadButton[size($AriUVAndColorSetList_UI_TableHeadButton)] = `button -h 18 -l ($uvSet+"["+ $listCount[$ii] +"]") -c ("AriUVAndColorSetList_CtrlClickUVSet(\""+ $uvSet +"\",0)" )`;
+		setParent..;
+	}
+	setParent..;
+	deleteUI $AriUVAndColorSetList_UI_TableColumn;	
+	$AriUVAndColorSetList_UI_TableColumn = `columnLayout -p $AriUVAndColorSetList_UI_TableScroll -adj true`;
+	int $startNum = 0;
+	int $endNum = $maxVal * $nowPage;
+	int $objTotal = size($AriUVAndColorSetList_GetObjectList);
+	int $pageMax = ($objTotal/$maxVal);
+	if($objTotal%$maxVal != 0){
+		$pageMax++;
+	}
+	intSliderGrp -e -max $pageMax $AriUVAndColorSetList_UI_PageIS;
+	if($objTotal<$maxVal){
+		intSliderGrp -e -v 1 $AriUVAndColorSetList_UI_PageIS;
+		intSliderGrp -e -en false $AriUVAndColorSetList_UI_PageIS;
+		$nowPage = 1;
+	}
+	else{
+		intSliderGrp -e -en true $AriUVAndColorSetList_UI_PageIS;
+	}
+	$startNum = $maxVal * ($nowPage-1);
+	if($objTotal < $endNum){
+		$endNum = $objTotal;
+	}
+	string $UVListText[];
+	string $rowList[];
+	string $objListText[];
+	string $buttonList[];
+	int $setTotalList[];
+	for($ii = $startNum; $ii<$endNum; $ii++){
+		string $obj = $AriUVAndColorSetList_GetObjectList[$ii];
+		string $uvSet[];
+		if($AriUVAndColorSetList_VertexColorMode)	$uvSet = `polyColorSet -q -acs       $obj`;
+		else										$uvSet = `polyUVSet    -q -allUVSets $obj`;
+		$rowList[size($rowList)] = `rowLayout -nc ($setTotal+3)`;
+		text -w 20 -l ($ii+1);
+		$objListText[size($objListText)] = `textField -ed false -bgc 0 0 0 -text $obj`;
+		popupMenu -b 1 -pmc ("select -tgl "+ $obj );
+		popupMenu -b 1 -pmc ("select -tgl "+ $obj ) -ctl true;
+		int $total = size($uvSet);
+		$buttonList[size($buttonList)] = `button -h 20 -w 30 -l ($total)`;
+		popupMenu -pmc ("AriUVAndColorSetList_SelectFromTotal( "+ $total +",0)" ) -b 1;
+		popupMenu -pmc ("AriUVAndColorSetList_SelectFromTotal( "+ $total +",1)" ) -b 3;
+		popupMenu -pmc ("AriUVAndColorSetList_SelectFromTotal( "+ $total +",2)" ) -b 1 -ctl true;
+		popupMenu -pmc ("AriUVAndColorSetList_SelectFromTotal( "+ $total +",3)" ) -b 3 -ctl true;
+		for($jj=0; $jj<size($AllUVSetList); $jj++){
+			string $AllUVSet = $AllUVSetList[$jj];
+			string $uvText = $AllUVSet;
+			if(stringArrayContains($AllUVSet,$uvSet)){
+			}
+			else{
+				$uvText = "";
+			}
+			$UVListText[size($UVListText)] = `textField -ed false -text $uvText -w 60`;
+			popupMenu -b 1 -ctl true -pmc ("AriUVAndColorSetList_CtrlClickUVSet(\""+ $uvText +"\",0)" );
+			popupMenu -b 1           -pmc ("AriUVAndColorSetList_UVSetPush(\""+ $uvText +"\")" );
+		}
+		setParent..;
+	}
+	clear $AriUVAndColorSetList_UI_UVSetList_TF;
+	clear $AriUVAndColorSetList_UI_Table_Row;
+	clear $AriUVAndColorSetList_UI_ObjList_TF;
+	clear $AriUVAndColorSetList_UI_UVSetList_Button;
+	$AriUVAndColorSetList_UI_UVSetList_TF  = $UVListText;
+	$AriUVAndColorSetList_UI_Table_Row     = $rowList;
+	$AriUVAndColorSetList_UI_ObjList_TF    = $objListText;
+	$AriUVAndColorSetList_UI_UVSetList_Button = $buttonList;
+	setParent..;
+	AriUVAndColorSetList_SizeLoad();
+}
+proc TextScrollWrite(string $textList[],string $textScroll){
+	if(size($textList)==0)return;
+	string $evalString = "textScrollList -e";
+	for($text in $textList){
+		$evalString = $evalString +" -a \""+$text+ "\"";
+	}
+	$evalString = $evalString + $textScroll;
+	eval $evalString;
+}
+global proc AriUVAndColorSetList_CopyUVSet(string $targetUVSet){
+	print $targetUVSet;
+	string $objectList[] = getSelectObjList();
+	for($obj in $objectList){
+		print ($obj+" ------ ");
+		string $AllUVSet[] = `polyUVSet -q -allUVSets $obj`;
+		if(size($AllUVSet)<=0){	
+			print ("Non UVSet --- Skip\n");
+			continue;
+		}
+		if(!stringArrayContains($targetUVSet,$AllUVSet)){	
+			print ("Non "+$targetUVSet+" --- Skip\n");
+			continue;
+		}
+		string $currentUVs[] = `polyUVSet -q -currentUVSet $obj`;
+		string $CurrentUV = $currentUVs[0];
+		if($CurrentUV == $targetUVSet){
+			print ($CurrentUV + " >>> " + $targetUVSet +" --- Skip\n");
+			continue;
+		}
+		print ($CurrentUV + " >>> " + $targetUVSet +"\n");
+		polyCopyUV -uvSetNameInput $CurrentUV -uvSetName $targetUVSet $obj;
+	}
+	select $objectList;
+}
+global proc AriUVAndColorSetList_GetSetList(){
+	global int $AriUVAndColorSetList_VertexColorMode;
+	global string $AriUVAndColorSetList_UVSetListTSL;
+	global string $AriUVAndColorSetList_UI_Popup;
+	global string $AriUVAndColorSetList_UI_copyButton;
+	global string $AriUVEditor_thisObject;
+	string $selects[] = `ls -sl`;
+	string $objects[] = `polyListComponentConversion $selects`;	
+	string $objectList[];
+	int $i=0;
+	for($obj in $objects){
+		if(`objectType $obj` == "mesh"){
+			string $objTr[] = `listRelatives -p -pa -type "transform" $obj`;
+			$objectList[$i] = $objTr[0];
+			$i++;
+		}
+		if(`objectType $obj` == "transform"){
+			$objectList[$i] = $obj;
+			$i++;
+		}
+	}
+	textScrollList -e -ra $AriUVAndColorSetList_UVSetListTSL;
+	$AriUVEditor_thisObject = $objectList[0];
+	int $uvSetSize[];
+	$uvSetSize[0] = 0;
+	$i=1;
+	string $AllUVSetList[];
+	string $AllCurrentUVSetList[];
+	for($obj in $objectList){
+		string $uvSet[];
+		if($AriUVAndColorSetList_VertexColorMode)	$uvSet = `polyColorSet -q -acs $obj`;
+		else										$uvSet = `polyUVSet    -q -allUVSets $obj`;
+		$uvSetSize[$i] = size($uvSet);
+		if(size($uvSet)){
+			string $currentUVs[];
+			if($AriUVAndColorSetList_VertexColorMode)	$currentUVs = `polyColorSet -q -currentColorSet $obj`;
+			else								$currentUVs = `polyUVSet    -q -currentUVSet    $obj`;
+			string $CurrentUV = $currentUVs[0];
+			string $evalString = "textScrollList -e";
+			for($uv in $uvSet){
+				$uvName = $obj+" | "+ $uv;
+				$evalString = $evalString +" -a \""+ $uvName + "\"";
+				if(!stringArrayContains($uv,$AllUVSetList)){
+					$AllUVSetList[size($AllUVSetList)] = $uv;
+				}
+			}
+			$evalString = $evalString +" -a \"---------------------------------------------\"";
+			$evalString = $evalString + $AriUVAndColorSetList_UVSetListTSL;
+			eval $evalString;
+			$objCurrentUV = $obj+" | "+$CurrentUV;
+			textScrollList -e -selectItem $objCurrentUV $AriUVAndColorSetList_UVSetListTSL;
+			if(!stringArrayContains($CurrentUV,$AllCurrentUVSetList)){
+				$AllCurrentUVSetList[size($AllCurrentUVSetList)] = $CurrentUV;
+			}
+		}
+		$i++;
+	}
+	deleteUI $AriUVAndColorSetList_UI_Popup;
+	$AriUVAndColorSetList_UI_Popup = `popupMenu -p $AriUVAndColorSetList_UVSetListTSL -button 3`;
+	if($AriUVAndColorSetList_VertexColorMode == false){
+	menuItem -p $AriUVAndColorSetList_UI_Popup -subMenu true -l ("Copy ");
+	for($uvSet in $AllUVSetList){
+		menuItem -l $uvSet -c ("AriUVAndColorSetList_CopyUVSet(\""+$uvSet+"\")");
+	}
+	}
+}
+global proc AriUVAndColorSetList_ClickUVSetGO(){
+	global int $AriUVAndColorSetList_VertexColorMode;
+	global string $AriUVAndColorSetList_UVSetListTSL;
+	global string $AriUVAndColorSetList_UI_Popup;
+	global string $AriUVEditor_thisObject;
+	string $selects[] = `ls -sl`;
+	string $get[] = `textScrollList -q -si $AriUVAndColorSetList_UVSetListTSL`;
+	if($get[0] != "---------------------------------------------"){
+		string $sepa[];
+		tokenize $get[0] " |" $sepa;
+		string $uvSet;
+		string $object;
+		if(size($sepa)>=2){
+			$uvSet = $sepa[size($sepa)-1];
+			$object = $sepa[0];
+			for($i=1;$i<size($sepa)-1;$i++){
+				$object = $object + "|" + $sepa[$i];
+			}
+		}
+		else{	
+			$uvSet = $get[0];
+			$object = $AriUVEditor_thisObject;
+		}
+		if($AriUVAndColorSetList_VertexColorMode == true)	polyColorSet -e -currentColorSet -colorSet $uvSet $object;
+		else										polyUVSet    -e -currentUVSet -uvSet $uvSet $object;
+		if(size($sepa)>=2){
+			string $allList[] = `textScrollList -q -allItems $AriUVAndColorSetList_UVSetListTSL`;
+			for($list in $allList){
+				string $sepa[];
+				tokenize $list " |" $sepa;
+				string $otherUVSet =  $sepa[size($sepa)-1];
+				string $otherObject = $sepa[0];
+				for($i=1;$i<size($sepa)-1;$i++){
+					$otherObject = $otherObject + "|" + $sepa[$i];
+				}
+				if($otherUVSet==$uvSet){
+					if($AriUVAndColorSetList_VertexColorMode == true)	polyColorSet -e -currentColorSet -colorSet $otherUVSet $otherObject;
+					else										polyUVSet    -e -currentUVSet    -uvSet    $otherUVSet $otherObject;
+				}
+			}
+		}
+		select $selects;
+	}
+	AriUVAndColorSetList_GetSetList();
+	tableSetColor_SelectUVSet();
+}
+global proc AriUVAndColorSetList_GetObjfromUV(){
+	global int $AriUVAndColorSetList_VertexColorMode;
+	global string $AriUVAndColorSetList_GetObjectList[];
+	global string $AriUVAndColorSetList_UI_textScroll[3];
+	global string $AriUVAndColorSetList_OrAndRB[2];
+	global string $AriUVAndColorSetList_UVSetListTSL;
+	global string $AriUVAndColorSetList_UI_EqualNotTotal[3];
+	textScrollList -e -ra $AriUVAndColorSetList_UI_textScroll[1];
+	textScrollList -e -ra $AriUVAndColorSetList_UI_textScroll[2];
+	textScrollList -e -ra $AriUVAndColorSetList_UVSetListTSL;
+	string $findUVList[] = `textScrollList -q -selectItem $AriUVAndColorSetList_UI_textScroll[0]`;
+	int $orTrue  = false;
+	$orTrue = `radioButton -q -sl $AriUVAndColorSetList_OrAndRB[1]`;
+	string $trueObjList[];
+	string $falseObjList[];
+	clear $trueObjList;
+	clear $falseObjList;
+	int $i=0;
+	int $j=0;
+	for($obj in $AriUVAndColorSetList_GetObjectList){
+		string $uvSet[];
+		if($AriUVAndColorSetList_VertexColorMode == true)	$uvSet = `polyColorSet -q -acs $obj`;
+		else										$uvSet = `polyUVSet -q -allUVSets $obj`;
+		if($orTrue == 1){
+			for($uv in $uvSet){
+				if(stringArrayContains($uv,$findUVList)){
+					if(!stringArrayContains($obj,$trueObjList)){
+						$trueObjList[$i] = $obj;
+						$i++;
+					}
+				}
+			}
+		}
+		else{
+			int $uvTrue = true;
+			for($uv in $findUVList){
+				if(!stringArrayContains($uv,$uvSet)){
+					$uvTrue = false;
+				}
+			}
+			if($uvTrue){
+				if(!stringArrayContains($obj,$trueObjList)){
+					$trueObjList[$i] = $obj;
+					$i++;
+				}
+			}
+		}
+	}
+	$i=0;
+	for($obj in $AriUVAndColorSetList_GetObjectList){
+		if(!stringArrayContains($obj,$trueObjList)){
+			$falseObjList[$i] = $obj;
+			$i++;
+		}
+	}
+	if(size($findUVList) == 0){	
+		$falseObjList = $trueObjList;
+		clear $trueObjList;
+	}
+	TextScrollWrite($trueObjList, $AriUVAndColorSetList_UI_textScroll[1]);
+	TextScrollWrite($falseObjList,$AriUVAndColorSetList_UI_textScroll[2]);
+	textField -e -text (size($trueObjList))  $AriUVAndColorSetList_UI_EqualNotTotal[1];
+	textField -e -text (size($falseObjList)) $AriUVAndColorSetList_UI_EqualNotTotal[2];
+	int $total = `textScrollList -q -ni $AriUVAndColorSetList_UI_textScroll[1]`;
+	for($i=1; $i<=$total; $i++){
+		textScrollList -e -sii $i $AriUVAndColorSetList_UI_textScroll[1];
+	}
+	AriUVAndColorSetList_SelectsObj(1);
+	tableSetColor_SelectUVSet();
+	AriUVAndColorSetList_PaneSave();
+}
+global proc AriUVAndColorSetList_SelectsObj(int $mode){
+	global string $AriUVAndColorSetList_UI_textScroll[3];
+	int $unSelect=1;
+	if($mode==1)$unSelect=2;
+	textScrollList -e -da $AriUVAndColorSetList_UI_textScroll[$unSelect];
+	string $selectList[] = `textScrollList -q -selectItem $AriUVAndColorSetList_UI_textScroll[$mode]`;
+	select $selectList;
+	AriUVAndColorSetList_GetSetList();
+	tableSetColor_SelectObj();
+}
+global proc AriUVAndColorSetList_GetMain(int $mode){
+	global int $AriUVAndColorSetList_VertexColorMode;
+	global string $AriUVAndColorSetList_GetObjectList[];
+	global string $AriUVAndColorSetList_UI_textScroll[3];
+	global string $AriUVAndColorSetList_UI_GetInfoTF;
+	string $objectList[];
+	if($mode==0)	$objectList = getSelectObjList();
+	if($mode==1){
+		$objectList = ObjListExists($AriUVAndColorSetList_GetObjectList);
+	}
+	textScrollList -e -ra $AriUVAndColorSetList_UI_textScroll[0];
+	textScrollList -e -ra $AriUVAndColorSetList_UI_textScroll[1];
+	textScrollList -e -ra $AriUVAndColorSetList_UI_textScroll[2];
+	$AriUVEditor_thisObject = $objectList[0];
+	int $uvSetSize[];
+	$uvSetSize[0]=0;
+	int $i=1;
+	$AriUVAndColorSetList_GetObjectList = $objectList;
+	int $objSize = size($objectList);
+	textField -e -text ($objSize)  $AriUVAndColorSetList_UI_GetInfoTF;
+	string $uvList[];
+	int    $listCount[];
+	if(size($objectList)==0){
+		TableWhite($uvList, $listCount);
+		return;
+	}
+	int $j=0;
+	for($obj in $objectList){
+		string $uvSet[];
+		if($AriUVAndColorSetList_VertexColorMode)	$uvSet = `polyColorSet -q -acs $obj`;
+		else										$uvSet = `polyUVSet -q -allUVSets $obj`;
+		$uvSetSize[$i] = size($uvSet);
+		if(size($uvSet)){
+			for($uv in $uvSet){
+				int $containTrue = false;
+				for($kk=0; $kk<size($uvList); $kk++){
+					if($uv == $uvList[$kk]){
+						$listCount[$kk] = $listCount[$kk]+1;
+						$containTrue = true;
+					}
+				}
+				if($containTrue==false){
+					$listCount[size($uvList)] = 1;
+					$uvList[size($uvList)] = $uv;
+				}
+				/*
+				if(!stringArrayContains($uv,$uvList)){
+					$uvList[$j] = $uv;
+					$j++;
+				}
+				*/
+			}
+		}
+	}
+	if(size($uvList)==0){
+		TableWhite($uvList, $listCount);
+		return;
+	}
+	TextScrollWrite($uvList,$AriUVAndColorSetList_UI_textScroll[0]);
+	TableWhite($uvList, $listCount);
+	AriUVAndColorSetList_GetObjfromUV();
+	tableSetColor_SelectUVSet();
+}
+global proc AriUVAndColorSetList_Reload(int $mode){
+	global string $AriUVAndColorSetList_GetObjectList[];
+	global string $AriUVAndColorSetList_UI_textScroll[4];
+	global string $AriUVAndColorSetList_UI_PageIS;
+	if($mode == 1){
+		string $newObjList[] = ObjListExists($AriUVAndColorSetList_GetObjectList);
+		$AriUVAndColorSetList_GetObjectList = $newObjList;
+		select $AriUVAndColorSetList_GetObjectList; 
+		return;
+	}
+	if($mode == 2){
+		intSliderGrp -e -v 1 $AriUVAndColorSetList_UI_PageIS;
+	}
+	if($mode == 0 || $mode == 2){
+		string $selects[] = `ls -sl`;
+		string $beforeUVSelects[] = `textScrollList -q -selectItem $AriUVAndColorSetList_UI_textScroll[0]`;
+		AriUVAndColorSetList_GetMain(1);
+		for($UVSet in $beforeUVSelects){
+			textScrollList -e -selectItem $UVSet $AriUVAndColorSetList_UI_textScroll[0];
+		}
+		AriUVAndColorSetList_GetObjfromUV();
+		select $selects;
+	}
+}
+global proc AriUVAndColorSetList_PageNext(int $mode){
+	global string $AriUVAndColorSetList_UI_PageIS;
+	int $nowPage = `intSliderGrp -q -v $AriUVAndColorSetList_UI_PageIS`;
+	int $newPage;
+	if($mode == 0)$newPage = $nowPage-1;
+	if($mode == 1)$newPage = $nowPage+1;
+	intSliderGrp -e -v $newPage $AriUVAndColorSetList_UI_PageIS;
+	AriUVAndColorSetList_Reload(0);
+}
+proc AriUVAndColorSetList_ListSelect(int $mode){
+	global string $AriUVAndColorSetList_UI_textScroll[3];
+	string $selects[] = `ls -sl`;
+	string $allList_A[] = `textScrollList -q -allItems  $AriUVAndColorSetList_UI_textScroll[$mode]`;
+	string $defList[]    = stringArrayRemove($allList_A, $selects);
+	string $commonList[] = stringArrayRemove($defList, $selects);
+	textScrollList -e -da $AriUVAndColorSetList_UI_textScroll[$mode];
+	for($com in $commonList){
+		textScrollList -e -selectItem $com $AriUVAndColorSetList_UI_textScroll[$mode];
+	}
+}
+global proc AriUVAndColorSetList_UISize(int $mode){
+	global string $AriUVAndColorSetList_UI_ObjList_TF[];
+	global string $AriUVAndColorSetList_UI_UVSetList_TF[];
+	global int $AriUVAndColorSetList_objWidth;
+	global int $AriUVAndColorSetList_uvWidth;
+	global string $AriUVAndColorSetList_UI_TableSpace;
+	global string $AriUVAndColorSetList_UI_TableHeadButRow[];
+	global string $AriUVAndColorSetList_UI_TableHeadButton[];	
+	if($mode==1)$AriUVAndColorSetList_objWidth = $AriUVAndColorSetList_objWidth - 20;
+	if($mode==2)$AriUVAndColorSetList_objWidth = $AriUVAndColorSetList_objWidth + 20;
+	if($AriUVAndColorSetList_objWidth < 40)$AriUVAndColorSetList_objWidth = 40;
+	rowLayout -e -w ($AriUVAndColorSetList_objWidth + 52) $AriUVAndColorSetList_UI_TableSpace;
+	for($objTF in $AriUVAndColorSetList_UI_ObjList_TF){
+		textField -e -w $AriUVAndColorSetList_objWidth $objTF;
+	}
+	if($mode==3)$AriUVAndColorSetList_uvWidth = $AriUVAndColorSetList_uvWidth - 20;
+	if($mode==4)$AriUVAndColorSetList_uvWidth = $AriUVAndColorSetList_uvWidth + 20;
+	if($AriUVAndColorSetList_uvWidth < 40)$AriUVAndColorSetList_uvWidth = 40;
+	for($headButton in $AriUVAndColorSetList_UI_TableHeadButRow){
+		columnLayout -e -w $AriUVAndColorSetList_uvWidth $headButton;
+	}
+	for($uvSetTF in $AriUVAndColorSetList_UI_UVSetList_TF){
+		textField -e -w $AriUVAndColorSetList_uvWidth $uvSetTF;
+	}
+	AriUVAndColorSetList_SizeSave();
+}
+global proc AriUVAndColorSetList_Job(){
+	AriUVAndColorSetList_ListSelect(1);
+	AriUVAndColorSetList_ListSelect(2);
+	AriUVAndColorSetList_GetSetList();
+	tableSetColor_SelectObj();
+}
+proc AllUVSetListTSL_UI(){
+	global string $AriUVAndColorSetList_GetObjectList[];
+	global string $AriUVAndColorSetList_UI_textScroll[4];
+	global string $AriUVAndColorSetList_UI_GetInfoTF;
+	global string $AriUVAndColorSetList_OrAndRB[2];
+	string $form=`formLayout`;
+	$AriUVAndColorSetList_UI_textScroll[0] = `textScrollList -ams true -sc "AriUVAndColorSetList_GetObjfromUV()"`;
+	string $buttonColumn = `columnLayout -adj true`;
+	rowLayout -nc 6 -adj 1;
+	text -l "";
+	text -l "Total:";
+	$AriUVAndColorSetList_UI_GetInfoTF = `textField -ed false -w 40`;
+	button -h 20 -l "Select" -c "AriUVAndColorSetList_Reload(1)";
+	setParent..;
+	button -h 20                -l "Reload" -c "AriUVAndColorSetList_Reload(0)";
+	button -h 28 -bgc 0.5 1 0.5 -l "Get"    -c "AriUVAndColorSetList_GetMain(0)";
+	text -l "" -h 3;
+	setParent..;
+	setParent..;
+	formLayout -e
+	-af $buttonColumn "left"   0
+	-af $buttonColumn "right"  0
+	-af $buttonColumn "bottom" 0
+	-af $AriUVAndColorSetList_UI_textScroll[0] "right"  0
+	-af $AriUVAndColorSetList_UI_textScroll[0] "left"   0
+	-af $AriUVAndColorSetList_UI_textScroll[0] "top"    0
+	-ac $AriUVAndColorSetList_UI_textScroll[0] "bottom" 0 $buttonColumn
+	$form;
+}
+global proc AriUVAndColorSetList_SelectEqual(int $mode){
+	global string $AriUVAndColorSetList_UI_textScroll[4];
+	string $allItem[] = `textScrollList -q -ai $AriUVAndColorSetList_UI_textScroll[$mode]`;
+	select $allItem;
+}
+proc objectListTSL_true(){
+	global string $AriUVAndColorSetList_UI_textScroll[4];
+	global string $AriUVAndColorSetList_UI_EqualNotTotal[3];
+	$form = `formLayout`;
+	$label = `rowLayout -nc 3 -adj 2`;
+	button -w 60 -h 20 -l "Equal" -bgc 0.3 0.3 0.3 -c "AriUVAndColorSetList_SelectEqual(1)";
+	text -l "";
+	$AriUVAndColorSetList_UI_EqualNotTotal[1] = `textField -w 40 -text "0" -ed false`;
+	setParent..;
+	$AriUVAndColorSetList_UI_textScroll[1] = `textScrollList -ams true -h 20 -sc "AriUVAndColorSetList_SelectsObj(1)"`;
+	setParent..;
+	formLayout -edit
+		-af $label "top" 0
+		-af $label "left" 0
+		-af $label "right" 0
+		-ac $AriUVAndColorSetList_UI_textScroll[1] "top" 0 $label
+		-af $AriUVAndColorSetList_UI_textScroll[1] "left"   0
+		-af $AriUVAndColorSetList_UI_textScroll[1] "bottom" 0
+		-af $AriUVAndColorSetList_UI_textScroll[1] "right"  0
+	$form;
+}
+proc objectListTSL_false(){
+	global string $AriUVAndColorSetList_UI_textScroll[4];
+	global string $AriUVAndColorSetList_UI_EqualNotTotal[3];
+	$form = `formLayout`;
+	$label = `rowLayout -nc 3 -adj 2`;
+	button -w 60 -h 20 -l "Not" -bgc 0.3 0.3 0.3 -c "AriUVAndColorSetList_SelectEqual(2)";
+	text -l "";
+	$AriUVAndColorSetList_UI_EqualNotTotal[2] = `textField -w 40 -text "0" -ed false`;
+	setParent..;
+	$AriUVAndColorSetList_UI_textScroll[2] = `textScrollList -ams true -sc "AriUVAndColorSetList_SelectsObj(2)"`;
+	setParent..;
+	formLayout -edit
+		-af $label "top" 0
+		-af $label "left" 0
+		-af $label "right" 0
+		-ac $AriUVAndColorSetList_UI_textScroll[2] "top" 0 $label
+		-af $AriUVAndColorSetList_UI_textScroll[2] "left"   0
+		-af $AriUVAndColorSetList_UI_textScroll[2] "bottom" 0
+		-af $AriUVAndColorSetList_UI_textScroll[2] "right"  0
+	$form;
+}
+proc CurrentUVSetList_UI(){
+	global string $AriUVAndColorSetList_UVSetListTSL;
+	global string $AriUVAndColorSetList_UI_Popup;
+	global string $AriUVAndColorSetList_UI_copyButton;
+	string $form = `formLayout`;
+	$AriUVAndColorSetList_UVSetListTSL = `textScrollList -ams true -sc "AriUVAndColorSetList_ClickUVSetGO()"`;
+	$AriUVAndColorSetList_UI_Popup     = `popupMenu -p $AriUVAndColorSetList_UVSetListTSL -button 3`;
+	string $row = `rowLayout -h 1 -nc 2 -adj 1`;
+	setParent..;
+	setParent..;
+	formLayout -e
+	-af $row "left"   0
+	-af $row "right"  0
+	-af $row "bottom" 0
+	-af $AriUVAndColorSetList_UVSetListTSL "left"   0
+	-af $AriUVAndColorSetList_UVSetListTSL "right"  0
+	-af $AriUVAndColorSetList_UVSetListTSL "top"    0
+	-ac $AriUVAndColorSetList_UVSetListTSL "bottom" 0 $row
+	$form;
+}
+proc objectListTSL_TrueNot(){
+	global string $AriUVAndColorSetList_OrAndRB[2];
+	global string $AriUVAndColorSetList_UI_Button;
+	string $form = `formLayout -bgc 0.2 0.2 0.2`;
+	string $column = `columnLayout -adj true`;
+	separator;
+	string $row = `rowLayout -nc 4 -adj 3`;
+	radioCollection;
+	$AriUVAndColorSetList_OrAndRB[0] = `radioButton -sl -label "AND " -onc "AriUVAndColorSetList_GetObjfromUV()"` ;
+	$AriUVAndColorSetList_OrAndRB[1] = `radioButton     -label "OR  " -onc "AriUVAndColorSetList_GetObjfromUV()"` ;
+	text -l "";
+	setParent..;
+	separator;
+	setParent..;
+	string $pane = `paneLayout -configuration "vertical2"`;
+	objectListTSL_true();
+	objectListTSL_false();
+	setParent..;
+	setParent..;
+	formLayout -e
+	-af $column "top"   0
+	-af $column "left"  0
+	-af $column "right" 0
+	-af $pane "bottom" 0
+	-af $pane "left"   0
+	-af $pane "right"  0
+	-ac $pane "top"    0 $column
+	$form;
+}
+global proc AriUVAndColorSetList_ModeChange(){
+	global int $AriUVAndColorSetList_VertexColorMode;
+	global string $UVorVerColor_UI_Radio[2];
+	global string $AriUVAndColorSetList_UI_Button;
+	if(`radioButton -q -sl $UVorVerColor_UI_Radio[0]`){
+		$AriUVAndColorSetList_VertexColorMode = false;
+		iconTextButton -e -i "polyUVSetEditor" -c "UVSetEditor" $AriUVAndColorSetList_UI_Button;
+	}
+	else{
+		$AriUVAndColorSetList_VertexColorMode = true;
+		iconTextButton -e -i "polyColorSetEditor" -c "OpenColorSetEditor" $AriUVAndColorSetList_UI_Button;
+	}
+	AriUVAndColorSetList_Reload(0);
+}
+proc Main_UI(){
+	global int $AriUVAndColorSetList_VertexColorMode;
+	global string $UVorVerColor_UI_Radio[2];
+	global string $AriUVAndColorSetList_UI_Button;
+	string $form = `formLayout`;
+	string $column = `columnLayout -adj true`;
+	rowLayout -nc 4;
+	$AriUVAndColorSetList_UI_Button = `iconTextButton -w 32 -h 32 -i "textureEditor" -c "UVSetEditor"`;
+	radioCollection;
+	$UVorVerColor_UI_Radio[0] = `radioButton -label "UVSet  "  -bgc 0.6 1.0 0.6 -onc "AriUVAndColorSetList_ModeChange()"`;
+	$UVorVerColor_UI_Radio[1] = `radioButton -label "VtxColorSet" -bgc 0.6 0.6 1.0 -onc "AriUVAndColorSetList_ModeChange()"`;
+	
+	// 添加帮助按钮
+	iconTextButton -w 32 -h 32 
+		-i "help.png" 
+		-ann "instructions"
+		-c "AriUVAndColorSetList_ShowHelp()"
+		-style "iconOnly";
+	setParent..;
+	
+	setParent..;
+	string $paneMain = `paneLayout -configuration "horizontal2"`;
+	frameLayout -l "GetSetList" ;
+	string $paneGet = `paneLayout -configuration "horizontal2"`;
+	AllUVSetListTSL_UI();
+	objectListTSL_TrueNot();
+	setParent..;
+	setParent..;
+	frameLayout -l "SelectSetList";
+	CurrentUVSetList_UI();
+	setParent..;
+	setParent..;
+	setParent..;
+	formLayout -edit
+		-af $column "top"    0
+		-af $column "left"   0
+		-af $column "right"  0
+		-ac $paneMain "top"    0 $column
+		-af $paneMain "left"   0
+		-af $paneMain "bottom" 0
+		-af $paneMain "right"  0
+	$form;
+	if($AriUVAndColorSetList_VertexColorMode)	radioButton -e -sl $UVorVerColor_UI_Radio[1];
+	else										radioButton -e -sl $UVorVerColor_UI_Radio[0];
+}
+proc Table_UI(){
+	global string $AriUVAndColorSetList_UI_TableHeadColumn;
+	global string $AriUVAndColorSetList_UI_TableHeadListRow;
+	global string $AriUVAndColorSetList_UI_TableColumn;
+	global string $AriUVAndColorSetList_UI_TableScroll;
+	global string $AriUVAndColorSetList_UI_ObjList_TF[];
+	global string $AriUVAndColorSetList_UI_UVSetList_TF[];
+	global string $AriUVAndColorSetList_UI_UVSetList_Button[];
+	global string $AriUVAndColorSetList_UI_PageIS;
+	global string $AriUVAndColorSetList_UI_MaxIF;
+	clear $AriUVAndColorSetList_UI_ObjList_TF;
+	clear $AriUVAndColorSetList_UI_UVSetList_TF;
+	clear $AriUVAndColorSetList_UI_UVSetList_Button;
+	string $form = `formLayout`;
+	string $upColum = `columnLayout -adj true`;
+	rowLayout -nc 5 -adj 3;
+	button -h 18 -w 30 -l "<" -c "AriUVAndColorSetList_UISize(1)";
+	button -h 18 -w 30 -l ">" -c "AriUVAndColorSetList_UISize(2)";
+	text -h 18 -w 10 -l "";
+	button -h 18 -w 30 -l "<" -c "AriUVAndColorSetList_UISize(3)";
+	button -h 18 -w 30 -l ">" -c "AriUVAndColorSetList_UISize(4)";
+	setParent..;
+	separator;
+	$AriUVAndColorSetList_UI_TableHeadColumn  = `columnLayout -adj true`;
+	$AriUVAndColorSetList_UI_TableHeadListRow = `rowLayout`;
+	setParent..;
+	setParent..;
+	setParent..;
+	$AriUVAndColorSetList_UI_TableScroll = `scrollLayout -cr true`;
+	$AriUVAndColorSetList_UI_TableColumn = `columnLayout -adj true`;
+	setParent..;
+	setParent..;
+	string $downColum = `columnLayout -adj true`;
+	separator;
+	rowLayout -nc 6 -adj 3;
+	button -l "<" -w 28 -c "AriUVAndColorSetList_PageNext(0)";
+	button -l ">" -w 28 -c "AriUVAndColorSetList_PageNext(1)";
+	$AriUVAndColorSetList_UI_PageIS = `intSliderGrp -field true -cw 1 32 -v 1 -min 1 -max 1 -cc "AriUVAndColorSetList_Reload(0)"`;
+	text -l "Max:";
+	$AriUVAndColorSetList_UI_MaxIF = `intField -w 60 -v 100 -min 1 -cc "AriUVAndColorSetList_Reload(2)" -ec "AriUVAndColorSetList_Reload(2)" `;
+	setParent..;
+	setParent..;
+	formLayout -e
+	-af $upColum "top"   0
+	-af $upColum "left"  0
+	-af $upColum "right" 0
+	-af $downColum "bottom" 0
+	-af $downColum "left"   0
+	-af $downColum "right"  0	
+	-af $AriUVAndColorSetList_UI_TableScroll "left"   0
+	-af $AriUVAndColorSetList_UI_TableScroll "right"  0
+	-ac $AriUVAndColorSetList_UI_TableScroll "bottom" 0 $downColum
+	-ac $AriUVAndColorSetList_UI_TableScroll "top"    0 $upColum
+	$form;
+}
+global proc AriUVAndColorSetList(){
+	global int $AriUVAndColorSetList_VertexColorMode;
+	global string $AriUVAndColorSetList_UI_MainPane;
+	int $paneWidth = 30;
+	if(`optionVar -exists "AriUVAndColorSetList_paneWidth"`) $paneWidth = `optionVar -q "AriUVAndColorSetList_paneWidth"`;
+	if((`window -ex  AriUVAndColorSetList`)==true)deleteUI AriUVAndColorSetList;
+	window -title "AriUVAndColorSetList" -mxb false -mnb false -w 300 -h 400 AriUVAndColorSetList;
+	$AriUVAndColorSetList_UI_MainPane = `paneLayout -cn "vertical2" -w 30 -ps 1 $paneWidth 10`;
+	Main_UI();
+	Table_UI();
+	setParent..;
+	showWindow;
+	scriptJob -p "AriUVAndColorSetList" -event "SelectionChanged" "AriUVAndColorSetList_Job()";
+	AriUVAndColorSetList_GetMain(0);
+	AriUVAndColorSetList_GetObjfromUV();
+	AriUVAndColorSetList_ModeChange();
+}
+
+global proc AriUVAndColorSetList_ShowHelp(){
+	string $helpTitle = "UV and vertex color set manager instructions";
+	string $helpText = 
+		"1. Basic Functions:\n"
+		+ "   - Switch between UV set and vertex color set modes\n"
+		+ "   - List all UV sets and vertex color sets\n"
+		+ "   - Display the list of sets contained in each object\n\n"
+		+ "2. Interface Description:\n"
+		+ "   - Switch UV set and vertex color set modes in the upper left\n"
+		+ "   - Left side displays all available sets\n"
+		+ "   - Right side shows objects with/without selected sets\n"
+		+ "   - Table view displays detailed information\n\n"
+		+ "3. Operation Methods:\n"
+		+ "   - Click on set names to select them\n"
+		+ "   - Right-click to copy UV sets\n"
+		+ "   - Use AND/OR to switch multiple selection modes\n"
+		+ "   - Double-click to quickly switch current set\n\n"
+		+ "4. Quick Functions:\n"
+		+ "   - Equal/Not buttons to quickly select objects\n"
+		+ "   - Support filtering objects by quantity\n"
+		+ "   - Adjustable interface layout size\n\n"
+		+ "For more detailed instructions, please visit:\n"
+		+ "http://cgjishu.net/blog-entry-407.html";
+	
+	confirmDialog -title $helpTitle 
+		-message $helpText
+		-button "OK"
+		-defaultButton "OK"
+		-cancelButton "OK"
+		-dismissString "OK"
+		-bgc 0.2 0.2 0.2;
+}

@@ -11,6 +11,12 @@
     },
 
     "工具配置": {
+        "AriUVAndColorSetList": {
+            "提示名称": "UV和顶点色集管理器",
+            "中文描述": "用于管理UV集和顶点色集的工具。可以列出所有UV集和顶点色集,切换当前集,选择包含特定集的物体。支持UV集的复制功能。",
+            "英文描述": "A tool for managing UV sets and vertex color sets. List all UV/color sets, switch current set, select objects with specific sets. Supports UV set copying.",
+            "URL": "http://cgjishu.net/blog-entry-407.html"
+        },
         "AriEdgeSmooth": {
             "提示名称": "边缘平滑工具",
             "中文描述": "边平滑-选择要在循环形状中平滑的边缘，然后执行 AriEdgeSmooth 来平滑它。",
@@ -25,84 +31,105 @@
         },
         "AriPolygonCounter": {
             "提示名称": "多边形计数工具",
-            "中文描述": "多边计数器",
-            "英文描述": "Polygon Counter",
+            "中文描述": "快速统计场景中选中物体的顶点数、边数、面数等信息。支持多物体同时统计,可显示总计数据。",
+            "英文描述": "Quickly count vertices, edges, faces of selected objects. Supports multiple objects and shows total counts.",
             "URL": "http://cgjishu.net/blog-entry-13.html"
         },
         "AriRenamer": {
-            "中文描述": "重命名工具",
-            "英文描述": "Rename Tool",
+            "提示名称": "批量重命名工具",
+            "中文描述": "强大的重命名工具,支持前缀、后缀、查找替换、编号等功能。可以同时处理多个对象,支持预览重命名结果。",
+            "英文描述": "Powerful renaming tool with prefix, suffix, search/replace, and numbering. Process multiple objects with preview.",
             "URL": "http://cgjishu.net/blog-entry-42.html"
         },
         "AriSceneOpener": {
-            "中文描述": "场景打开工具",
-            "英文描述": "Scene Open Tool",
+            "提示名称": "场景快速打开器",
+            "中文描述": "快速打开最近使用的Maya场景文件。可以显示场景缩略图预览,支持收藏夹功能。",
+            "英文描述": "Quickly open recent Maya scenes. Shows scene thumbnails and supports favorites.",
             "URL": "http://cgjishu.net/blog-entry-16.html"
         },
         "AriSelectEdgeRing": {
-            "中文描述": "边环选择工具",
-            "英文描述": "Edge Ring Selection Tool",
+            "提示名称": "边环选择增强工具",
+            "中文描述": "增强的边环选择工具,可以智能选择连续的边环。支持跳过某些边,更灵活地控制选择范围。",
+            "英文描述": "Enhanced edge ring selection tool. Intelligently select continuous edge rings with skip options.",
             "URL": "http://cgjishu.net/blog-entry-172.html"
         },
         "AriSelectMaterialAndObject": {
-            "中文描述": "材质和物体选择工具",
-            "英文描述": "Material and Object Selection Tool",
+            "提示名称": "材质物体关联选择器",
+            "中文描述": "通过材质快速选择物体,或通过物体选择相关材质。支持选择共享相同材质的所有物体。",
+            "英文描述": "Quickly select objects by material or vice versa. Select all objects sharing the same material.",
             "URL": "http://cgjishu.net/blog-entry-117.html"
         },
         "AriSymmetryChecker": {
-            "中文描述": "对称性检查工具",
-            "英文描述": "Symmetry Check Tool",
+            "提示名称": "模型对称性检查器",
+            "中文描述": "检查3D模型的对称性,可以高亮显示不对称的顶点。支持设置容差值,帮助找出对称问题。",
+            "英文描述": "Check 3D model symmetry and highlight asymmetric vertices. Adjustable tolerance settings.",
             "URL": "http://cgjishu.net/blog-entry-6.html"
         },
         "AriUVAdsorption": {
-            "中文描述": "UV吸附工具",
-            "英文描述": "UV Adsorption Tool",
+            "提示名称": "UV吸附工具",
+            "中文描述": "智能UV吸附工具,可以将UV点自动吸附到目标位置。支持网格线吸附和其他UV点吸附。",
+            "英文描述": "Smart UV snapping tool. Auto-snap UV points to target positions, grid lines, or other UV points.",
             "URL": "http://cgjishu.net/blog-entry-140.html"
         },
         "AriUVAdsorptionMove": {
-            "中文描述": "UV吸附移动工具",
-            "英文描述": "UV Adsorption Move Tool",
+            "提示名称": "UV吸附移动工具",
+            "中文描述": "在移动UV时提供实时吸附功能。可以吸附到网格线、其他UV点或自定义参考点。",
+            "英文描述": "Real-time UV snapping while moving. Snap to grid lines, other UV points, or custom reference points.",
             "URL": "http://cgjishu.net/blog-entry-152.html"
         },
         "AriUVExtract": {
-            "中文描述": "UV提取工具",
-            "英文描述": "UV Extract Tool",
+            "提示名称": "UV提取工具",
+            "中文描述": "快速提取和分离选中面的UV。支持保持UV比例,适用于需要单独编辑某些UV的情况。",
+            "英文描述": "Quickly extract and separate UVs of selected faces. Maintains UV proportions for isolated editing.",
             "URL": "http://cgjishu.net/blog-entry-204.html"
         },
         "AriUVGridding": {
-            "中文描述": "UV网格化工具",
-            "英文描述": "UV Gridding Tool",
+            "提示名称": "UV网格对齐工具",
+            "中文描述": "将UV点对齐到网格。支持自定义网格大小,可以快速整理凌乱的UV布局。",
+            "英文描述": "Align UV points to grid. Customize grid size for quick UV layout organization.",
             "URL": "http://cgjishu.net/blog-entry-58.html"
         },
         "AriUVPixelScale": {
-            "中文描述": "UV像素缩放工具",
-            "英文描述": "UV Pixel Scale Tool",
+            "提示名称": "UV像素精确缩放",
+            "中文描述": "基于纹理分辨率精确缩放UV。确保UV与实际像素对应,提高贴图精度。",
+            "英文描述": "Precise UV scaling based on texture resolution. Ensure UV-to-pixel accuracy for better texturing.",
             "URL": "http://cgjishu.net/blog-entry-244.html"
         },
         "AriUVRatio": {
-            "中文描述": "UV比例工具",
-            "英文描述": "UV Ratio Tool",
+            "提示名称": "UV比例检查工具",
+            "中文描述": "检查和调整UV的缩放比例。帮助保持正确的纹理比例,避免贴图变形。",
+            "英文描述": "Check and adjust UV scale ratios. Maintain correct texture proportions and prevent distortion.",
             "URL": "http://cgjishu.net/blog-entry-51.html"
         },
         "AriUVReversSelector": {
-            "中文描述": "UV反向选择工具",
-            "英文描述": "UV Reverse Selection Tool",
+            "提示名称": "UV反向选择工具",
+            "中文描述": "智能反向选择UV。可以快速选择未选中的UV点、边或面,提高UV编辑效率。",
+            "英文描述": "Smart UV inverse selection. Quickly select unselected UV points, edges, or faces for efficient editing.",
             "URL": "http://cgjishu.net/blog-entry-206.html"
         },
         "AriUVScaleChecker": {
-            "中文描述": "UV缩放检查器",
-            "英文描述": "UV Scale Checker",
+            "提示名称": "UV缩放检查器",
+            "中文描述": "检查UV缩放是否均匀。可视化显示UV变形区域,帮助找出问题UV。",
+            "英文描述": "Check UV scaling uniformity. Visualize distorted UV areas to identify problematic UVs.",
             "URL": "http://cgjishu.net/blog-entry-69.html"
         },
         "AriWindowAllClose": {
-            "中文描述": "关闭所有窗口",
-            "英文描述": "Close All Windows",
+            "提示名称": "一键关闭窗口",
+            "中文描述": "一键关闭所有Maya浮动窗口。快速整理工作界面,提高工作效率。",
+            "英文描述": "Close all Maya floating windows with one click. Quickly organize workspace for better efficiency.",
             "URL": "http://cgjishu.net/blog-entry-10.html"
         },
         "AriWindowPositionReset": {
-            "中文描述": "重置窗口位置",
-            "英文描述": "Reset Window Position",
+            "提示名称": "窗口位置重置",
+            "中文描述": "重置所有Maya窗口到默认位置。解决窗口位置错乱或消失在屏幕外的问题。",
+            "英文描述": "Reset all Maya windows to default positions. Fix window placement issues or off-screen windows.",
             "URL": "http://cgjishu.net/blog-entry-134.html"
+        },
+        "AriUVFit": {
+            "提示名称": "UV重叠对齐工具",
+            "中文描述": "可以将UV精确重叠对齐到指定位置。支持注册多个UV矩形位置,一键将选中UV重叠到目标位置。支持U/V单向对齐和均等缩放。",
+            "英文描述": "Precisely align and overlap UVs to registered positions. Support multiple UV rectangle positions, one-click UV overlapping, U/V direction alignment and uniform scaling.",
+            "URL": "http://cgjishu.net/blog-entry-294.html"
         }
     }
 } 

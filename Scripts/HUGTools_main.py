@@ -90,9 +90,9 @@ LANG = {
         "Edge Display Control": "Edge Display Control",
         "Soft": "Soft",
         "Hard": "Hard",
-        "MapBorders":"MapBorders",
+        "MapBorders": "UV Borders",
         "Select Hard Edges": "Hard Edges",
-        "Select UV Border Edge": "UV Border",
+        "Select UV Border Edge": "S/H by UvB",
         "Planar Projection": "Planar UV",
         "UV Layout by Hard Edges": "UV Layout",
         "Editor": "Editor",
@@ -131,6 +131,8 @@ LANG = {
         "Please select edges": "Please select edges",
         "Please select edges to measure": "Please select edges to measure",
         "Length": "Length",
+        "Map Borders On": "UV Borders On",
+        "Map Borders Off": "UV Borders Off",
     },
     'zh_CN': {
         "Display Control": "显示控制",
@@ -140,11 +142,11 @@ LANG = {
         "Edge Display Control": "边显示控制",
         "Soft": "软边",
         "Hard": "硬边",
-        "MapBorders":"UV边界",
+        "MapBorders": "UV边界",
         "Select Hard Edges": "选择硬边",
-        "Select UV Border Edge": "选择UV边界边",
+        "Select UV Border Edge": "UV边界软硬边",
         "Planar Projection": "平面投影",
-        "UV Layout by Hard Edges": "基于硬边UV布局",
+        "UV Layout by Hard Edges": "硬边UV布局",
         "Editor": "编辑器",
         "Crease Editor": "折痕编辑器",
         "Create Crease Set by Name": "按名称创建折痕集",
@@ -181,7 +183,8 @@ LANG = {
         "Please select edges": "请选择边",
         "Please select edges to measure": "请选择要测量的边",
         "Length": "长度",
-
+        "Map Borders On": "UV边界显示开启",
+        "Map Borders Off": "UV边界显示关闭",
     }
 }
 
@@ -269,16 +272,16 @@ class HUGToolsWindow(QtWidgets.QDialog):
         self.toggle_crease_edge_btn = RoundedButton(LANG[CURRENT_LANG]["Crease"], icon=QtGui.QIcon(":polyCrease.png"))
         self.toggle_crease_edge_btn.setMinimumSize(80, 40)
         self.toggle_crease_edge_btn.setToolTip(LANG[CURRENT_LANG]["Crease_tip"])
-        self.toggle_set_display_map_borders_btn = RoundedButton(LANG[CURRENT_LANG]["MapBorders"], icon=QtGui.QIcon(":UVEditorTextureBorder.png"))    ## not truee
+        self.toggle_set_display_map_borders_btn = RoundedButton(LANG[CURRENT_LANG]["MapBorders"], icon=QtGui.QIcon(":UVEditorTextureBorder.png"))  
         self.toggle_set_display_map_borders_btn.setMinimumSize(80, 40)
-        self.toggle_softEdge_btn.setToolTip("Toggle MapBorders edge display")
+        self.toggle_set_display_map_borders_btn.setToolTip(LANG[CURRENT_LANG]["MapBorders"])
 
         # select module
         self.select_group = QtWidgets.QGroupBox("Select Control")
         self.select_hardedges_btn = RoundedButton(LANG[CURRENT_LANG]["Select Hard Edges"], icon=QtGui.QIcon(":UVTkEdge.png"))
         self.select_hardedges_btn.setToolTip("Select all hard edges on the mesh")
         self.select_uvborder_btn = RoundedButton(LANG[CURRENT_LANG]["Select UV Border Edge"], icon=QtGui.QIcon(":selectTextureBorders.png"))
-        self.select_uvborder_btn.setToolTip("Select UV border edges")
+        self.select_uvborder_btn.setToolTip("Soft/Hard Edges Set by UV Border")
         self.planar_projection_btn = RoundedButton(LANG[CURRENT_LANG]["Planar Projection"], icon=QtGui.QIcon(":polyCameraUVs.png"))
         self.planar_projection_btn.setToolTip("Apply planar UV projection")
         self.uvlayout_hardedges_btn = RoundedButton(LANG[CURRENT_LANG]["UV Layout by Hard Edges"], icon=QtGui.QIcon(":polyLayoutUV.png"))
@@ -585,23 +588,37 @@ class HUGToolsWindow(QtWidgets.QDialog):
 
 
 
-    #  new add border display
-    #  border_size
-    # def set_display_borders(enable=True, border_size=None,):
-    #     if border_size is not None:
-    #         cmds.polyOptions(displayBorder=enable, sb=border_size)
-    #     else:
-    #         cmds.polyOptions(displayBorder=enable)
 
-    # def toggle_adjust_border_size(value):
-    #     """Adjusts the border size based on slider value."""
-    #     set_display_borders(True, border_size=value)
 
-    def toggle_set_display_map_borders(*args):
-        current_state = cmds.polyOptions(q=True, displayMapBorder=True,)[0]
-        cmds.polyOptions(displayMapBorder=not current_state)
-        # message = "Map Borders On" if not current_state else "Map Borders Off"
-        # cmds.inViewMessage(amg=f'<span style="color:#FFA500;">{message}</span>', pos='botRight', fade=True, fst=10, fad=1)
+    def toggle_set_display_map_borders(self, *args):
+        """Toggle UV map border display"""
+        # 检查是否有选择的对象
+        selection = cmds.ls(selection=True, type="transform")
+        if not selection:
+            cmds.warning("No object selected!")
+            return
+        
+        try:
+            # 获取当前状态
+            current_state = cmds.polyOptions(selection, q=True, displayMapBorder=True)
+            if current_state is None:
+                current_state = [False]  # 默认状态
+                
+            # 切换状态
+            new_state = not current_state[0]
+            cmds.polyOptions(selection, displayMapBorder=new_state)
+            
+            # 显示消息
+            message = LANG[CURRENT_LANG]["Map Borders On"] if new_state else LANG[CURRENT_LANG]["Map Borders Off"]
+            cmds.inViewMessage(
+                amg=f'<span style="color:#FFA500;">{message}</span>', 
+                pos='botRight',
+                fade=True, 
+                fst=10,
+                fad=1
+            )
+        except Exception as e:
+            cmds.warning(f"Error toggling map borders: {str(e)}")
 
 
 
@@ -623,20 +640,52 @@ class HUGToolsWindow(QtWidgets.QDialog):
         cmds.polySelectConstraint(sm=0)
 
 
-    def SelectUVBorderEdge2(*args):
+    def SelectUVBorderEdge2(self, *args):
         """
-        Ues MEL Select UV border edges
-    
+        Select UV border edges for multiple objects
+        
+        Function:
+        - Works on all selected objects
+        - Selects UV border edges based on UV boundaries
         """
-        mel.eval('''
-            // 选择当前选择的对象的UV边界
-            expandPolyGroupSelection;
-            // 根据需要调整UV边界的硬边属性
-            polyUVBorderHard;
-            // 选择UV边界组件
-            selectUVBorderComponents {} "" 1 ;
-        ''')
-        cmds.inViewMessage(amg='<span style="color:#FFA500;">UV Border Edges</span>', pos='botRight', fade=True, fst=10, fad=1)
+        # 获取当前选择的对象
+        selection = cmds.ls(selection=True, type="transform")
+        if not selection:
+            cmds.warning("No object selected!")
+            return
+            
+        try:
+            # 保存当前选择
+            cmds.select(clear=True)
+            
+            for obj in selection:
+                # 选择当前对象
+                cmds.select(obj, add=True)
+                # 执行MEL命令
+                mel.eval('''
+                    expandPolyGroupSelection;
+                    polyUVBorderHard;
+                    selectUVBorderComponents {} "" 1;
+                    polyOptions -softEdge;
+                ''')
+                
+            # 显示简单的成功消息
+            message = "已根据UV边界设置软硬边" if CURRENT_LANG == 'zh_CN' else "Soft hard Edges Set by UV Border"
+            cmds.inViewMessage(
+                amg=f'<span style="color:#FFA500;">{message}</span>', 
+                pos='botRight', 
+                fade=True, 
+                fst=10, 
+                fad=1
+            )
+                
+        except Exception as e:
+            error_msg = f"选择UV边界时出错: {str(e)}" if CURRENT_LANG == 'zh_CN' else f"Error selecting UV borders: {str(e)}"
+            cmds.warning(error_msg)
+        finally:
+            # 确保处于边选择模式
+            cmds.selectMode(component=True)
+            cmds.selectType(edge=True)
 
 
 
@@ -1157,6 +1206,9 @@ class HUGToolsWindow(QtWidgets.QDialog):
 
         self.open_uv_editor_btn.setText(LANG[CURRENT_LANG]["UV Editor"])
         self.open_uv_editor_btn.setToolTip(LANG[CURRENT_LANG]["UV Editor_tip"])
+
+        self.toggle_set_display_map_borders_btn.setText(LANG[CURRENT_LANG]["MapBorders"])
+        self.toggle_set_display_map_borders_btn.setToolTip(LANG[CURRENT_LANG]["MapBorders"])
 
 
 

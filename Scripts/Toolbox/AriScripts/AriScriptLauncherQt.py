@@ -56,12 +56,13 @@ class CommandButton(QtWidgets.QWidget):
         layout.setContentsMargins(2, 2, 2, 2)
         layout.setSpacing(5)
         
-        # 图标按钮 - 不设置工具提示
+        # 图标按钮 - 添加点击事件连接
         self.icon_button = QtWidgets.QPushButton()
         self.icon_button.setIcon(QtGui.QIcon(icon))
         self.icon_button.setIconSize(QtCore.QSize(32, 32))
         self.icon_button.setFixedSize(32, 32)
         self.icon_button.setToolTip("")  # 清除工具提示
+        self.icon_button.clicked.connect(self.execute_command)  # 添加这行来连接点击事件
         
         # 命令名称标签
         self.name_label = QtWidgets.QLabel(command)  # 显示原始命令名
@@ -128,9 +129,13 @@ class CommandButton(QtWidgets.QWidget):
     def execute_command(self):
         """执行MEL命令"""
         try:
+            print(f"正在执行命令: {self.command}")  # 添加调试信息
             mel.eval(f'{self.command}()')
+            print(f"命令执行成功: {self.command}")  # 添加调试信息
         except Exception as e:
             cmds.warning(f"执行命令失败 [{self.command}]: {str(e)}")
+            import traceback
+            print(traceback.format_exc())  # 添加详细的错误信息
 
     def add_to_shelf(self):
         """添加到工具架"""
@@ -563,7 +568,7 @@ class AriScriptLauncher:
             self.mel_url_list = []
         
     def create_default_config(self, config_path):
-        """创建默认配置文件"""
+        """��建默认配置��件"""
         try:
             # 确保config目录存在
             config_dir = os.path.dirname(config_path)
@@ -572,7 +577,7 @@ class AriScriptLauncher:
             
             # 创建默认配置
             default_config = {
-                "说明": "这是AriScripts工具集的配置文件，用于定义每个工具的描述信息。添加新工具时，请按照示例格式添加相应的配置。",
+                "说明": "这是AriScripts工具集的配���文件，用于定义每个工具的描述信息。添加新工具时，请按照示例格式添加相应的配置。",
                 "示例": {
                     "工具名称": {
                         "中文描述": "在这里填写工具的中文说明",
@@ -631,7 +636,7 @@ class AriScriptLauncher:
             # 分类处理MEL文件
             for mel_file in mel_files:
                 command = os.path.splitext(mel_file)[0]
-                if command == "AriScriptLauncher":  # 跳过启动器自身
+                if command == "AriScriptLauncher":  # 跳过启动器自��
                     continue
                     
                 # 将文件内容加载到Maya中
@@ -730,36 +735,50 @@ class HelpDialog(QtWidgets.QWidget):
             <ol style="color: #D0D0D0;">
                 <li>工具操作：
                     <ul>
-                        <li>左键点击工具图标：直接执行对应功能</li>
-                        <li>右键点击工具：打开上下文菜单
+                        <li>工具操作：
                             <ul>
-                                <li>Add to Shelf：将工具添加到Maya工具架</li>
-                                <li>Help：打开工具的在线帮助文档 有GIF可以看</li>
-                                <li>Open Directory：打开工具所在目录</li>
+                                <li>左键点击工具图标：直接执行对应功能</li>
+                                <li>右键点击工具：打开上下文菜单
+                                    <ul>
+                                        <li>Add to Shelf：将工具添加到Maya工具架</li>
+                                        <li>Help：打开工具的在线帮助文档 有GIF可以看</li>
+                                        <li>Open Directory：打开工具所在目录</li>
+                                    </ul>
+                                </li>
+                                <li>鼠标悬停在工具名称上：显示工具的详细说明</li>
                             </ul>
                         </li>
-                        <li>鼠标悬停在工具名称上：显示工具的详细说明</li>
+                        <li>工具设置：
+                            <ul>
+                                <li>部分工具右侧有设置按钮（齿轮图标）</li>
+                                <li>点击设置按钮可以打开工具的选项窗口</li>
+                                <li>在工具架中双击工具图标也可以打开设置</li>
+                            </ul>
+                        </li>
+                        <li>快速查找：
+                            <ul>
+                                <li>使用顶部的搜索框可以快速筛选工具</li>
+                                <li>支持按工具名称和描述搜索</li>
+                                <li>搜索支持中英文</li>
+                            </ul>
+                        </li>
+                        <li>其他功能：
+                            <ul>
+                                <li>点击Reload按钮可以重新加载所有工具</li>
+                                <li>点击帮助按钮（?）可以查看此帮助窗口</li>
+                                <li>工具列表会记住上次的位置和大小</li>
+                            </ul>
+                        </li>
                     </ul>
                 </li>
-                <li>工具设置：
+                <li>如何添加新工具：
                     <ul>
-                        <li>部分工具右侧有设置按钮（齿轮图标）</li>
-                        <li>点击设置按钮可以打开工具的选项窗口</li>
-                        <li>在工具架中双击工具图标也可以打开设置</li>
-                    </ul>
-                </li>
-                <li>快速查找：
-                    <ul>
-                        <li>使用顶部的搜索框可以快速筛选工具</li>
-                        <li>支持按工具名称和描述搜索</li>
-                        <li>搜索支持中英文</li>
-                    </ul>
-                </li>
-                <li>其他功能：
-                    <ul>
-                        <li>点击Reload按钮可以重新加载所有工具</li>
-                        <li>点击帮助按钮（?）可以查看此帮助窗口</li>
-                        <li>工具列表会记住上次的位置和大小</li>
+                        <li>访问作者博客: <a href="http://cgjishu.net/" style="color: #B87D4B;">http://cgjishu.net/</a></li>
+                        <li>找到并下载需要的插件</li>
+                        <li>将MEL文件放入scripts文件夹</li>
+                        <li>将图标文件放入icons文件夹</li>
+                        <li>点击Reload按钮刷新工具列表</li>
+                        <li>最后还可以在下方编辑工具描述进行编辑名称提示与备注</li>
                     </ul>
                 </li>
             </ol>
