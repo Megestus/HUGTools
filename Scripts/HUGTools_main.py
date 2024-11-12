@@ -90,6 +90,7 @@ LANG = {
         "Edge Display Control": "Edge Display Control",
         "Soft": "Soft",
         "Hard": "Hard",
+        "MapBorders":"MapBorders",
         "Select Hard Edges": "Hard Edges",
         "Select UV Border Edge": "UV Border",
         "Planar Projection": "Planar UV",
@@ -139,6 +140,7 @@ LANG = {
         "Edge Display Control": "边显示控制",
         "Soft": "软边",
         "Hard": "硬边",
+        "MapBorders":"UV边界",
         "Select Hard Edges": "选择硬边",
         "Select UV Border Edge": "选择UV边界边",
         "Planar Projection": "平面投影",
@@ -179,6 +181,7 @@ LANG = {
         "Please select edges": "请选择边",
         "Please select edges to measure": "请选择要测量的边",
         "Length": "长度",
+
     }
 }
 
@@ -266,6 +269,9 @@ class HUGToolsWindow(QtWidgets.QDialog):
         self.toggle_crease_edge_btn = RoundedButton(LANG[CURRENT_LANG]["Crease"], icon=QtGui.QIcon(":polyCrease.png"))
         self.toggle_crease_edge_btn.setMinimumSize(80, 40)
         self.toggle_crease_edge_btn.setToolTip(LANG[CURRENT_LANG]["Crease_tip"])
+        self.toggle_set_display_map_borders_btn = RoundedButton(LANG[CURRENT_LANG]["MapBorders"], icon=QtGui.QIcon(":UVEditorTextureBorder.png"))    ## not truee
+        self.toggle_set_display_map_borders_btn.setMinimumSize(80, 40)
+        self.toggle_softEdge_btn.setToolTip("Toggle MapBorders edge display")
 
         # select module
         self.select_group = QtWidgets.QGroupBox("Select Control")
@@ -355,10 +361,11 @@ class HUGToolsWindow(QtWidgets.QDialog):
         display_layout.addWidget(self.normal_size_slider)
         
         # Edge display controls
-        edge_toggle_layout = QtWidgets.QHBoxLayout()
-        edge_toggle_layout.addWidget(self.toggle_softEdge_btn)
-        edge_toggle_layout.addWidget(self.toggle_hardedge_btn)
-        edge_toggle_layout.addWidget(self.toggle_crease_edge_btn)
+        edge_toggle_layout = QtWidgets.QGridLayout()
+        edge_toggle_layout.addWidget(self.toggle_softEdge_btn, 0, 0)
+        edge_toggle_layout.addWidget(self.toggle_hardedge_btn, 0, 1)
+        edge_toggle_layout.addWidget(self.toggle_crease_edge_btn, 1, 0)
+        edge_toggle_layout.addWidget(self.toggle_set_display_map_borders_btn, 1, 1)
         display_layout.addLayout(edge_toggle_layout)
         
         self.display_group.setLayout(display_layout)
@@ -442,6 +449,9 @@ class HUGToolsWindow(QtWidgets.QDialog):
         self.toggle_softEdge_btn.clicked.connect(self.toggle_softEdge_display)
         self.toggle_hardedge_btn.clicked.connect(self.toggle_hardedge_display)
         self.toggle_crease_edge_btn.clicked.connect(self.toggle_crease_edge_display)
+        self.toggle_set_display_map_borders_btn.clicked.connect(self.toggle_set_display_map_borders)
+
+        # select buttons
         self.select_uvborder_btn.clicked.connect(self.SelectUVBorderEdge2)
         self.select_hardedges_btn.clicked.connect(self.select_hard_edges)
         self.uvlayout_hardedges_btn.clicked.connect(self.UVLayout_By_hardEdges)
@@ -573,6 +583,29 @@ class HUGToolsWindow(QtWidgets.QDialog):
         
         cmds.inViewMessage(amg=f'<span style="color:#FFA500;">{message}</span>', pos='botRight', fade=True, fst=10, fad=1)
 
+
+
+    #  new add border display
+    #  border_size
+    # def set_display_borders(enable=True, border_size=None,):
+    #     if border_size is not None:
+    #         cmds.polyOptions(displayBorder=enable, sb=border_size)
+    #     else:
+    #         cmds.polyOptions(displayBorder=enable)
+
+    # def toggle_adjust_border_size(value):
+    #     """Adjusts the border size based on slider value."""
+    #     set_display_borders(True, border_size=value)
+
+    def toggle_set_display_map_borders(*args):
+        current_state = cmds.polyOptions(q=True, displayMapBorder=True,)[0]
+        cmds.polyOptions(displayMapBorder=not current_state)
+        # message = "Map Borders On" if not current_state else "Map Borders Off"
+        # cmds.inViewMessage(amg=f'<span style="color:#FFA500;">{message}</span>', pos='botRight', fade=True, fst=10, fad=1)
+
+
+
+
     # ======= select module ======= 
 
     def SelectUVBorderEdge(*args):
@@ -605,8 +638,6 @@ class HUGToolsWindow(QtWidgets.QDialog):
         ''')
         cmds.inViewMessage(amg='<span style="color:#FFA500;">UV Border Edges</span>', pos='botRight', fade=True, fst=10, fad=1)
 
-
-    
 
 
     def select_hard_edges(*args):
