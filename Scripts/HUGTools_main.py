@@ -64,6 +64,7 @@ import Module.UVSetEditor_Module as UVSetEditor_Module
 import Module.NormalEdit_Module as NormalEdit_Module
 import Module.More_Tools_Module as More_Tools_Module
 import Module.UnBevel_Module as UnBevel_Module
+import Module.UVSetList_Module as UVSetList_Module
 from Toolbox.QuickExport import QuickExport
 from Toolbox.ViewCapture import screen_shot
 
@@ -288,6 +289,8 @@ class HUGToolsWindow(QtWidgets.QDialog):
         self.uvlayout_hardedges_btn.setToolTip("Perform UV layout based on hard edges")
         self.edge_to_curve_btn = RoundedButton(LANG[CURRENT_LANG]["EdgeToCurve"], icon=QtGui.QIcon(":polyEdgeToCurves.png"))
         self.edge_to_curve_btn.setToolTip(LANG[CURRENT_LANG]["EdgeToCurve_tip"])
+        self.uvset_list_btn = RoundedButton("UV Set List", icon=QtGui.QIcon(":polyUVSet.png"))
+        self.uvset_list_btn.setToolTip("Open UV Set List tool")
 
         # crease module
         self.editor_group = QtWidgets.QGroupBox(LANG[CURRENT_LANG]["Editor"])
@@ -380,6 +383,7 @@ class HUGToolsWindow(QtWidgets.QDialog):
         select_layout.addWidget(self.edge_to_curve_btn, 1, 0)
         select_layout.addWidget(self.planar_projection_btn, 1, 1)
         select_layout.addWidget(self.uvlayout_hardedges_btn, 2, 0)
+        select_layout.addWidget(self.uvset_list_btn, 2, 1)
         self.select_group.setLayout(select_layout)
 
         # crease control group layout
@@ -459,7 +463,8 @@ class HUGToolsWindow(QtWidgets.QDialog):
         self.select_hardedges_btn.clicked.connect(self.select_hard_edges)
         self.uvlayout_hardedges_btn.clicked.connect(self.UVLayout_By_hardEdges)
         self.planar_projection_btn.clicked.connect(self.apply_planar_projection)
-
+        self.uvset_list_btn.clicked.connect(self.UVSetList_view)
+        self.edge_to_curve_btn.clicked.connect(self.convert_edge_to_curve)
 
         self.open_crease_editor_btn.clicked.connect(self.open_crease_set_editor)
         self.open_uv_editor_btn.clicked.connect(self.open_uv_editor)
@@ -484,8 +489,8 @@ class HUGToolsWindow(QtWidgets.QDialog):
         # connect language switch button
         self.lang_btn.clicked.connect(self.toggle_language)
 
-        # connect edge to curve button
-        self.edge_to_curve_btn.clicked.connect(self.convert_edge_to_curve)
+
+
 
 
 
@@ -1040,7 +1045,20 @@ class HUGToolsWindow(QtWidgets.QDialog):
 
 
 
-    #============toolbox function modules===============
+    #============input function modules===============
+
+
+    def UVSetList_view(self):
+        """Launch UV Set List tool"""
+        try:
+            importlib.reload(UVSetList_Module)
+            UVSetList_Module.show()
+            print("UV Set List tool launched successfully")  # 调试信息
+        except Exception as e:
+            error_msg = f"启动UV Set List工具时出错: {str(e)}" if CURRENT_LANG == 'zh_CN' else f"Error launching UV Set List tool: {str(e)}"
+            cmds.warning(error_msg)
+            print(f"Error details: {e}")  # 详细错误信息
+
 
     def quick_rename(self):
         importlib.reload(Quick_Rename_Module)
