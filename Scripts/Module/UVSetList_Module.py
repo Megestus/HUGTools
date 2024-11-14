@@ -94,7 +94,7 @@ UI_TEXTS = {
     },
     'zh_CN': {
         # Window title
-        "window_title": "UV集列表具",
+        "window_title": "UV Set List Tool",
         
         # Button texts
         "btn_get": "获取",
