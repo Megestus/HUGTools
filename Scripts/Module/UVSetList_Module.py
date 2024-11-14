@@ -4,7 +4,209 @@ import maya.mel as mel
 import maya.OpenMayaUI as omui
 from shiboken2 import wrapInstance
 
+# UI text dictionary
+UI_TEXTS = {
+    'en_US': {
+        # Window title
+        "window_title": "UV Set List Tool",
+        
+        # Button texts
+        "btn_get": "Get",
+        "btn_equal": "Equal",
+        "btn_not": "Not",
+        
+        # Label texts
+        "label_total": "Total: {}",
+        "label_and": "AND",
+        "label_or": "OR",
+        "label_help_tooltip": "Show/Hide Mode Description",
+        
+        # Group box titles
+        "group_uv_manager": "UV Set Manager",
+        "group_uv_list": "UV Set List",
+        "group_obj_lists": "Object Lists",
+        "group_uv_details": "UV Set Details",
+        "group_uv_table": "UV Set Table",
+        
+        # Help text
+        "help_text": """
+        <b>AND Mode</b>: Objects must contain all selected UV sets
+        <b>OR Mode</b>: Objects contain any of selected UV sets
+        """,
+        
+        # Table column headers
+        "column_object": "Object",
+        
+        # Right-click menu items
+        "menu_new": "Create New UV Set",
+        "menu_copy": "Copy UV Set",
+        "menu_rename": "Rename UV Set",
+        "menu_delete": "Delete UV Set",
+        
+        # Header right-click menu items
+        "menu_header_rename": "Rename '{}' UV Set for All Objects",
+        "menu_header_delete": "Delete '{}' UV Set from All Objects",
+        
+        # Dialog titles and labels
+        "dialog_new_title": "Create New UV Set",
+        "dialog_new_label": "Enter UV Set Name:",
+        "dialog_copy_title": "Copy UV Set",
+        "dialog_copy_label": "Enter New UV Set Name:",
+        "dialog_rename_title": "Rename UV Set",
+        "dialog_rename_label": "Enter New Name:",
+        
+        # Warning and error messages
+        "warning_rename_failed": "Failed to rename UV set: {}",
+        "warning_delete_failed": "Failed to delete UV set: {}",
+        "warning_create_failed": "Failed to create UV set: {}",
+        "warning_copy_failed": "Failed to copy UV set: {}",
+        "warning_update_failed": "Failed to update table and lists: {}",
+        "warning_rename_success": "Renamed '{}' UV set to '{}' for {} objects",
+        "warning_delete_success": "Deleted '{}' UV set from {} objects",
+        "warning_not_found": "UV set '{}' not found",
+        
+        # Debug messages
+        "debug_current_selection": "Current selection: {}",
+        "debug_object_list": "Processed object list: {}",
+        "debug_all_uv_sets": "All UV sets: {}",
+        "debug_error_get_uv": "Error getting UV sets for object {}: {}",
+        "debug_error_fill_info": "Error filling UV set info for object {}: {}",
+        "debug_error_process": "Error processing object {}: {}",
+        
+        # Header right-click menu format strings
+        "menu_header_rename_format": "Rename '{}' UV Set for All Objects",
+        "menu_header_delete_format": "Delete '{}' UV Set from All Objects",
+        
+        # Dialog texts
+        "dialog_rename_header_label": "Rename '{}' UV Set for All Objects to:",
+        "dialog_batch_rename_label": "Rename all '{}' UV sets to:",
+        
+        # Debug and error messages
+        "debug_method_complete": "get_set_list method completed",
+        "debug_method_failed": "get_set_list method failed: {}",
+        "debug_rename_error": "Error renaming UV set for object {}: {}",
+        "debug_delete_error": "Error deleting UV set {} for object {}: {}",
+        
+        # Default values
+        "default_uvset_name": "uvSet1",
+        "default_copy_name": "{}_copy",
+        "tooltip_language": "Switch Language 切换语言",
+    },
+    'zh_CN': {
+        # Window title
+        "window_title": "UV集列表具",
+        
+        # Button texts
+        "btn_get": "获取",
+        "btn_equal": "相同",
+        "btn_not": "不同",
+        
+        # Label texts
+        "label_total": "总数: {}",
+        "label_and": "与",
+        "label_or": "或",
+        "label_help_tooltip": "显示/隐藏模式说明",
+        
+        # Group box titles
+        "group_uv_manager": "UV集管理器",
+        "group_uv_list": "UV集列表",
+        "group_obj_lists": "物体列表",
+        "group_uv_details": "UV集详情",
+        "group_uv_table": "UV集表格",
+        
+        # Help text
+        "help_text": """
+        <b>与模式</b>: 物体必须包含所有选中的UV集
+        <b>或模式</b>: 物体包含任一选中的UV集
+        """,
+        
+        # Table column headers
+        "column_object": "对象",
+        
+        # Right-click menu items
+        "menu_new": "新建UV集",
+        "menu_copy": "复制UV集",
+        "menu_rename": "重命名UV集",
+        "menu_delete": "删除UV集",
+        
+        # Header right-click menu items
+        "menu_header_rename": "重命名所有物体的 '{}' UV",
+        "menu_header_delete": "删除所有物体的 '{}' UV集",
+        
+        # Dialog titles and labels
+        "dialog_new_title": "新建UV集",
+        "dialog_new_label": "输入UV集名称:",
+        "dialog_copy_title": "复制UV集",
+        "dialog_copy_label": "输入新UV集名称:",
+        "dialog_rename_title": "重命名UV集",
+        "dialog_rename_label": "输入新名称:",
+        
+        # Use English for warning and error messages
+        "warning_rename_failed": "Failed to rename UV set: {}",
+        "warning_delete_failed": "Failed to delete UV set: {}",
+        "warning_create_failed": "Failed to create UV set: {}",
+        "warning_copy_failed": "Failed to copy UV set: {}",
+        "warning_update_failed": "Failed to update table and lists: {}",
+        "warning_rename_success": "Renamed '{}' UV set to '{}' for {} objects",
+        "warning_delete_success": "Deleted '{}' UV set from {} objects",
+        "warning_not_found": "UV set '{}' not found",
+        
+        # Use English for debug messages
+        "debug_current_selection": "Current selection: {}",
+        "debug_object_list": "Processed object list: {}",
+        "debug_all_uv_sets": "All UV sets: {}",
+        "debug_error_get_uv": "Error getting UV sets for object {}: {}",
+        "debug_error_fill_info": "Error filling UV set info for object {}: {}",
+        "debug_error_process": "Error processing object {}: {}",
+        
+        # Header right-click menu format strings
+        "menu_header_rename_format": "重命名所有物体的 '{}' UV集",
+        "menu_header_delete_format": "删除所有物体的 '{}' UV集",
+        
+        # Dialog texts
+        "dialog_rename_header_label": "将所有物体的 '{}' UV集重命名为:",
+        "dialog_batch_rename_label": "将所有名为 '{}' 的UV集重命名为:",
+        
+        # Use English for debug and error messages
+        "debug_method_complete": "get_set_list method completed",
+        "debug_method_failed": "get_set_list method failed: {}",
+        "debug_rename_error": "Error renaming UV set for object {}: {}",
+        "debug_delete_error": "Error deleting UV set {} for object {}: {}",
+        
+        # Default values
+        "default_uvset_name": "uvSet1",
+        "default_copy_name": "{}_copy",
+        "tooltip_language": "切换语言 Switch Language",
+    }
+}
+
 #====== UI Components ======
+
+class RoundedButton(QtWidgets.QPushButton):
+    """Custom rounded button class"""
+    def __init__(self, text="", icon=None):
+        super(RoundedButton, self).__init__(text)
+        if icon:
+            self.setIcon(icon)
+            self.setIconSize(QtCore.QSize(24, 24))
+        self.setStyleSheet(
+            """
+            QPushButton {
+                background-color: #D0D0D0;
+                color: #303030;
+                border-radius: 10px;
+                padding: 5px;
+                font-weight: bold;
+                text-align: center;
+            }
+            QPushButton:hover {
+                background-color: #E0E0E0;
+            }
+            QPushButton:pressed {
+                background-color: #C0C0C0;
+            }
+            """
+        )
 
 class UVSetTableItem(QtWidgets.QTableWidgetItem):
     def __init__(self, text=""):
@@ -16,17 +218,106 @@ class UVSetTableItem(QtWidgets.QTableWidgetItem):
 class UVSetList_Module_UI(QtWidgets.QDialog):
     def __init__(self, parent=None):
         super(UVSetList_Module_UI, self).__init__(parent)
-        self.setWindowTitle("UV集列表工具")
+        self.current_language = "en_US"  # 默认使用英文
+        self.texts = UI_TEXTS[self.current_language]  # 默认使用英文字典
+        self.setWindowTitle(self.texts["window_title"])
         self.setObjectName("UVSetList_Module_UI")
-        self.object_list = []  # 存储对象列表
-        self._updating = False  # 添加标志位防止循环调用
+        self.object_list = []
+        self._updating = False
         self.setup_ui()
         self.create_connections()
 
 #====== UI Layout ======
 
     def setup_ui(self):
-        # 初始化所有UI组件
+        # 创建主布局
+        main_layout = QtWidgets.QVBoxLayout(self)
+        main_layout.setContentsMargins(4, 4, 4, 4)
+        main_layout.setSpacing(4)
+
+        # 创建顶部工具栏
+        toolbar_layout = QtWidgets.QHBoxLayout()
+        toolbar_layout.setSpacing(4)
+        
+        # UV Set Editor按钮
+        self.editor_btn = QtWidgets.QPushButton()
+        self.editor_btn.setIcon(QtGui.QIcon(":polyUVSetEditor.png"))
+        self.editor_btn.setFixedSize(24, 24)
+        self.editor_btn.setToolTip("Open UV Set Editor")
+        self.editor_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #353535;
+                border: 1px solid #555555;
+                border-radius: 12px;
+            }
+            QPushButton:hover {
+                background-color: #404040;
+                border-color: #666666;
+            }
+            QPushButton:pressed {
+                background-color: #303030;
+                border-color: #777777;
+            }
+        """)
+        self.editor_btn.clicked.connect(self.open_editor)
+        
+        # UV Editor按钮
+        self.uv_editor_btn = QtWidgets.QPushButton()
+        self.uv_editor_btn.setIcon(QtGui.QIcon(":textureEditor.png"))
+        self.uv_editor_btn.setFixedSize(24, 24)
+        self.uv_editor_btn.setToolTip("Open UV Editor")
+        self.uv_editor_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #353535;
+                border: 1px solid #555555;
+                border-radius: 12px;
+            }
+            QPushButton:hover {
+                background-color: #404040;
+                border-color: #666666;
+            }
+            QPushButton:pressed {
+                background-color: #303030;
+                border-color: #777777;
+            }
+        """)
+        self.uv_editor_btn.clicked.connect(self.open_uv_editor)
+        
+        # 语言切换按钮
+        self.lang_btn = QtWidgets.QPushButton()
+        self.lang_btn.setFixedSize(24, 24)
+        self.lang_btn.setToolTip(self.texts["tooltip_language"] if "tooltip_language" in self.texts else "Switch Language")
+        self.lang_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #353535;
+                color: #999999;
+                border: 1px solid #555555;
+                border-radius: 12px;
+                font-weight: bold;
+                font-size: 10px;
+            }
+            QPushButton:hover {
+                background-color: #404040;
+                border-color: #666666;
+            }
+            QPushButton:pressed {
+                background-color: #303030;
+                border-color: #777777;
+            }
+        """)
+        self.update_language_button()
+        self.lang_btn.clicked.connect(self.toggle_language)
+        
+        # 添加按钮到工具栏
+        toolbar_layout.addWidget(self.editor_btn)
+        toolbar_layout.addWidget(self.uv_editor_btn)
+        toolbar_layout.addStretch()  # 添加弹性空间
+        toolbar_layout.addWidget(self.lang_btn)  # 语言切换按钮放在最右边
+        
+        # 将工具栏添加到主布局
+        main_layout.addLayout(toolbar_layout)
+        
+        # Initialize all UI components
         self.set_list = QtWidgets.QListWidget()
         self.set_list.setSelectionMode(QtWidgets.QListWidget.ExtendedSelection)
         
@@ -41,26 +332,24 @@ class UVSetList_Module_UI(QtWidgets.QDialog):
         self.object_table.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
         self.object_table.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
         
-        self.and_radio = QtWidgets.QRadioButton("AND")
-        self.or_radio = QtWidgets.QRadioButton("OR")
+        self.and_radio = QtWidgets.QRadioButton(self.texts["label_and"])
+        self.or_radio = QtWidgets.QRadioButton(self.texts["label_or"])
         self.and_radio.setChecked(True)
         
-        self.total_label = QtWidgets.QLabel("Total: 0")
-        self.get_btn = QtWidgets.QPushButton("Get")
+        self.total_label = QtWidgets.QLabel(self.texts["label_total"].format(0))
+        self.get_btn = RoundedButton(self.texts["btn_get"])
         
         self.equal_count = QtWidgets.QLabel("0")
         self.not_count = QtWidgets.QLabel("0")
         
-        # 创建所有布局
-        main_layout = QtWidgets.QVBoxLayout(self)
-        
-        # 创建Equal/Not列表的布局
+        # Create all layouts
         lists_layout = QtWidgets.QHBoxLayout()
         
-        # Equal列表部分
+        # Equal list layout
         equal_layout = QtWidgets.QVBoxLayout()
         equal_header = QtWidgets.QHBoxLayout()
-        equal_btn = QtWidgets.QPushButton("Equal")
+        equal_btn = RoundedButton(self.texts["btn_equal"])
+        equal_btn.setObjectName("equal_btn")
         equal_btn.clicked.connect(lambda: self.select_all_from_list(self.equal_list))
         equal_header.addWidget(equal_btn)
         equal_header.addStretch()
@@ -68,10 +357,11 @@ class UVSetList_Module_UI(QtWidgets.QDialog):
         equal_layout.addLayout(equal_header)
         equal_layout.addWidget(self.equal_list)
         
-        # Not列表部分
+        # Not list layout
         not_layout = QtWidgets.QVBoxLayout()
         not_header = QtWidgets.QHBoxLayout()
-        not_btn = QtWidgets.QPushButton("Not")
+        not_btn = RoundedButton(self.texts["btn_not"])
+        not_btn.setObjectName("not_btn")
         not_btn.clicked.connect(lambda: self.select_all_from_list(self.not_list))
         not_header.addWidget(not_btn)
         not_header.addStretch()
@@ -79,64 +369,68 @@ class UVSetList_Module_UI(QtWidgets.QDialog):
         not_layout.addLayout(not_header)
         not_layout.addWidget(self.not_list)
         
-        # 添加Equal和Not列表到水平布局
+        # Add Equal and Not lists to horizontal layout
         lists_layout.addLayout(equal_layout)
         lists_layout.addLayout(not_layout)
         
-        # 创建Get按钮和计数器布局
+        # Create Get button and counter layout
         bottom_layout = QtWidgets.QHBoxLayout()
-        
-        # 添加UV编辑器按钮
-        self.editor_btn = QtWidgets.QPushButton()
-        self.editor_btn.setIcon(QtGui.QIcon(":polyUVSetEditor.png"))
-        self.editor_btn.setFixedSize(20, 20)  # 修改按钮尺寸
-        self.editor_btn.clicked.connect(self.open_editor)
-        bottom_layout.addWidget(self.editor_btn)
-        
-        # 添加Total标签和Get按钮
         bottom_layout.addWidget(self.total_label)
         bottom_layout.addWidget(self.get_btn)
         
-        # 创建分割窗口
+        # Create splitter window
         splitter = QtWidgets.QSplitter(QtCore.Qt.Horizontal)
         left_splitter = QtWidgets.QSplitter(QtCore.Qt.Vertical)
         
-        # 左侧面板添加组框
-        left_group = QtWidgets.QGroupBox("UV Set Manager")
+        # Add group box to left panel
+        left_group = QtWidgets.QGroupBox()
         left_layout = QtWidgets.QVBoxLayout(left_group)
         
-        # UV集列表组框
-        uv_set_group = QtWidgets.QGroupBox("UV Set List")
+        # UV set list group box
+        uv_set_group = QtWidgets.QGroupBox(self.texts["group_uv_list"])
         top_layout = QtWidgets.QVBoxLayout(uv_set_group)
         top_layout.addWidget(self.set_list)
         top_layout.addLayout(bottom_layout)
         
-        # Equal/Not列表组框
-        list_group = QtWidgets.QGroupBox("Object Lists")
+        # Equal/Not list group box
+        list_group = QtWidgets.QGroupBox(self.texts["group_obj_lists"])
         list_layout = QtWidgets.QVBoxLayout(list_group)
         
-        # 添加模式选择到顶部
+        # Add mode selection
         mode_layout = QtWidgets.QHBoxLayout()
         mode_layout.addWidget(self.and_radio)
         mode_layout.addWidget(self.or_radio)
         
-        # 创建帮助按钮
+        # Create help button
         help_btn = QtWidgets.QPushButton()
-        help_btn.setIcon(QtGui.QIcon(":help.png"))  # 使用Maya内置的帮助图标
-        help_btn.setFixedSize(20, 20)
+        help_btn.setIcon(QtGui.QIcon(":help.png"))
+        help_btn.setFixedSize(24, 24)
+        help_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #353535;
+                border: 1px solid #555555;
+                border-radius: 12px;
+            }
+            QPushButton:hover {
+                background-color: #404040;
+                border-color: #666666;
+            }
+            QPushButton:pressed {
+                background-color: #303030;
+                border-color: #777777;
+            }
+        """)
         help_btn.setCheckable(True)
-        help_btn.setToolTip("显示/隐藏模式说明")  # 添加工具提示
+        help_btn.setToolTip(self.texts["label_help_tooltip"])
         mode_layout.addWidget(help_btn)
         mode_layout.addStretch()
         list_layout.addLayout(mode_layout)
         
-        # 创建说明文本区域
-        help_text = QtWidgets.QLabel("""
-        <b>AND模式</b>: 必须包含所有选中UV集的物体
-        <b>OR模式</b>: 包含任一选中UV集的物体
-        """)
-        help_text.setWordWrap(True)
-        help_text.setStyleSheet("""
+        # Create help text
+        self.help_text = QtWidgets.QLabel(self.texts["help_text"])
+        self.help_text.setObjectName("help_text")
+        self.help_text.setWordWrap(True)
+        self.help_text.setStyleSheet("""
             QLabel {
                 background-color: #2b2b2b;
                 padding: 4px;
@@ -145,57 +439,49 @@ class UVSetList_Module_UI(QtWidgets.QDialog):
                 color: #cccccc;
             }
         """)
-        help_text.hide()  # 初始时隐藏
+        self.help_text.hide()
+        list_layout.addWidget(self.help_text)
+        help_btn.toggled.connect(self.help_text.setVisible)
         
-        # 添加到布局
-        list_layout.addWidget(help_text)
-        
-        # 连接折叠按钮的信号
-        help_btn.toggled.connect(help_text.setVisible)
-        
-        # 添加分隔线
+        # Add separator line
         line = QtWidgets.QFrame()
         line.setFrameShape(QtWidgets.QFrame.HLine)
         line.setFrameShadow(QtWidgets.QFrame.Sunken)
         list_layout.addWidget(line)
         
-        # 添加Equal/Not列表
+        # Add Equal/Not lists
         list_layout.addLayout(lists_layout)
         
-        # 将组框添加到左侧分割器
+        # Add group boxes to left splitter
         left_splitter.addWidget(uv_set_group)
         left_splitter.addWidget(list_group)
         left_layout.addWidget(left_splitter)
         
-        # 右侧面添加组框
-        right_group = QtWidgets.QGroupBox("UV Set Details")
+        # Add group box to right side
+        right_group = QtWidgets.QGroupBox()
         right_layout = QtWidgets.QVBoxLayout(right_group)
         
-        # 表格组框
-        table_group = QtWidgets.QGroupBox("UV Set Table")
+        # Table group box
+        table_group = QtWidgets.QGroupBox(self.texts["group_uv_table"])
         table_layout = QtWidgets.QVBoxLayout(table_group)
         table_layout.addWidget(self.object_table)
         right_layout.addWidget(table_group)
         
-        # 组装主布局
-        main_layout.setContentsMargins(4, 4, 4, 4)  # 设置更紧凑的边距
-        main_layout.setSpacing(4)  # 设置更紧凑的间距
-        
-        # 添加分割窗口
+        # Add splitter window
         splitter.addWidget(left_group)
         splitter.addWidget(right_group)
         main_layout.addWidget(splitter)
         
-        # 设置分割器例
+        # Set splitter factors
         splitter.setStretchFactor(0, 1)
         splitter.setStretchFactor(1, 3)
         left_splitter.setStretchFactor(0, 4)
         left_splitter.setStretchFactor(1, 1)
         
-        # 设置窗口大小
-        self.resize(640, 480)  # 设置窗口大小
+        # Set window size
+        self.resize(640, 480)
         
-        # 设置组框样式，减小边距和标题大小
+        # Set group box style
         style = """
         QGroupBox {
             font-weight: bold;
@@ -212,10 +498,39 @@ class UVSetList_Module_UI(QtWidgets.QDialog):
         }
         """
         
-        # 应用样式到所有组框
+        # Apply style to all group boxes
         for group in [left_group, right_group, uv_set_group, list_group, table_group]:
             group.setStyleSheet(style)
-    
+        
+        # Set table properties
+        self.object_table.setSortingEnabled(False)
+        self.object_table.setAlternatingRowColors(True)
+        self.object_table.setShowGrid(True)
+        self.object_table.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
+        self.object_table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectItems)
+        self.object_table.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+        
+        # Set table style
+        self.object_table.setStyleSheet("""
+            QTableWidget {
+                background-color: #2b2b2b;
+                gridline-color: #444444;
+                color: #cccccc;
+            }
+            QTableWidget::item:selected {
+                background-color: #3a7ca8;
+            }
+            QHeaderView::section {
+                background-color: #353535;
+                color: #cccccc;
+                border: 1px solid #444444;
+                padding: 4px;
+            }
+        """)
+        
+        # Add right-click menu to header
+        self.object_table.horizontalHeader().setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+
 #====== UI and Function Connections ======
 
     def create_connections(self):
@@ -227,26 +542,37 @@ class UVSetList_Module_UI(QtWidgets.QDialog):
         self.object_table.customContextMenuRequested.connect(self.show_context_menu)
         self.and_radio.toggled.connect(self.on_mode_changed)
         self.or_radio.toggled.connect(self.on_mode_changed)
-        # 添加Get按钮连接
+        # Add Get button connection
         self.get_btn.clicked.connect(self.get_set_list)
+        self.object_table.horizontalHeader().customContextMenuRequested.connect(self.show_header_context_menu)
+        # Add table cell click event connection
+        self.object_table.cellClicked.connect(self.on_table_cell_clicked)
+        # Add header click event connection
+        self.object_table.horizontalHeader().sectionClicked.connect(self.on_header_clicked)
+        # 确保只连接一次语言切换按钮
+        try:
+            self.lang_btn.clicked.disconnect()  # 断开之前的连接
+        except:
+            pass
+        self.lang_btn.clicked.connect(self.toggle_language)
 
 #====== UV Set Management Functions ======
 
     def get_set_list(self):
-        """获取所选对象的UV集列表"""
+        """Get UV set list for selected objects"""
         try:
-            # 保存当前选择
+            # Save current selection
             current_selection = cmds.ls(selection=True)
-            print(f"当前选择对象: {current_selection}")  # 调试信息
             
             self.set_list.clear()
             self.object_table.clear()
             
-            # 获取选中的对象
+            # Get selected objects
             selection = current_selection if current_selection else []
             objects = cmds.polyListComponentConversion(selection)
             self.object_list = []
             
+            # Process objects
             for obj in objects:
                 if cmds.objectType(obj) == "mesh":
                     transform = cmds.listRelatives(obj, parent=True, type="transform")[0]
@@ -254,39 +580,45 @@ class UVSetList_Module_UI(QtWidgets.QDialog):
                 elif cmds.objectType(obj) == "transform":
                     self.object_list.append(obj)
             
-            print(f"处理后的对象列表: {self.object_list}")  # 调试信息
-            
-            # 更新总数显示
+            # Update total count display
             self.total_label.setText(f"Total: {len(self.object_list)}")
             
-            # 获取所有UV集
-            all_sets = set()
-            for obj in self.object_list:
-                try:
-                    sets = cmds.polyUVSet(obj, query=True, allUVSets=True) or []
-                    all_sets.update(sets)
-                except Exception as e:
-                    print(f"获取对象 {obj} 的UV集时出错: {str(e)}")  # 调试信息
+            # Get all UV sets and maintain order
+            all_sets = []
+            # Use first object as reference for UV set order
+            if self.object_list:
+                reference_obj = self.object_list[0]
+                reference_sets = cmds.polyUVSet(reference_obj, query=True, allUVSets=True) or []
+                all_sets.extend(reference_sets)
+                
+                # Collect UV sets from other objects
+                for obj in self.object_list[1:]:
+                    try:
+                        sets = cmds.polyUVSet(obj, query=True, allUVSets=True) or []
+                        # Only add new UV sets
+                        for set_name in sets:
+                            if set_name not in all_sets:
+                                all_sets.append(set_name)
+                    except Exception as e:
+                        print(f"Error getting UV sets for object {obj}: {str(e)}")
             
-            print(f"所有UV集: {all_sets}")  # 调试信息
-            
-            # 添加到UV集列表
-            for set_name in sorted(all_sets):
+            # Add to UV set list
+            for set_name in all_sets:
                 self.set_list.addItem(set_name)
             
-            # 设置表格列
+            # Set table columns
             self.object_table.setColumnCount(len(all_sets) + 1)
-            headers = ["对象"] + list(sorted(all_sets))
+            headers = [self.texts["column_object"]] + all_sets  # Use a list to maintain order
             self.object_table.setHorizontalHeaderLabels(headers)
             
-            # 设置表头样式
+            # Set header style
             header = self.object_table.horizontalHeader()
             header.setStyleSheet("QHeaderView::section { background-color: #3a3a3a; color: white; }")
             
-            # 填充表格
+            # Fill table
             self.object_table.setRowCount(len(self.object_list))
             for row, obj in enumerate(self.object_list):
-                # 设置对象名称（不可编辑）
+                # Set object name (non-editable)
                 obj_item = QtWidgets.QTableWidgetItem(obj)
                 obj_item.setFlags(obj_item.flags() & ~QtCore.Qt.ItemIsEditable)
                 self.object_table.setItem(row, 0, obj_item)
@@ -301,80 +633,80 @@ class UVSetList_Module_UI(QtWidgets.QDialog):
                             item = UVSetTableItem("")
                             self.object_table.setItem(row, col, item)
                 except Exception as e:
-                    print(f"填充对象 {obj} 的UV集信息时出错: {str(e)}")
+                    print(f"Error filling UV set info for object {obj}: {str(e)}")
             
             self.object_table.resizeColumnsToContents()
             
-            # 恢复选择
+            # Restore selection
             if current_selection:
                 cmds.select(current_selection)
             
-            print("get_set_list 方法执行完")  # 调试信息
+            print("get_set_list method completed")  # Debug info
         except Exception as e:
-            cmds.warning(f"get_set_list 方法执行失败: {str(e)}")
-            print(f"get_set_list 方法执行失败: {str(e)}")  # 调试信息
+            cmds.warning(f"get_set_list method failed: {str(e)}")
+            print(f"get_set_list method failed: {str(e)}")  # Debug info
     
     def create_new_uv_set(self, obj_name):
-        """创建新的UV集"""
+        """Create a new UV set"""
         dialog = QtWidgets.QInputDialog(self)
-        dialog.setWindowTitle("新建UV集")
-        dialog.setLabelText("输入UV集名称:")
+        dialog.setWindowTitle(self.texts["dialog_new_title"])
+        dialog.setLabelText(self.texts["dialog_new_label"])
         dialog.setTextValue("uvSet1")
         
         if dialog.exec_() == QtWidgets.QDialog.Accepted:
             new_name = dialog.textValue()
             if new_name:
                 try:
-                    # 保存当前状态
+                    # Save current state
                     current_objects = self.object_list.copy()
                     selected_objects = cmds.ls(selection=True)
                     
-                    # 创建UV集
+                    # Create UV set
                     cmds.polyUVSet(obj_name, create=True, uvSet=new_name)
                     
-                    # 更新UI但保持对象列表
+                    # New UI but keep object list
                     self.object_list = current_objects
                     self.update_table_and_lists()
                     
-                    # 恢复选择
+                    # Restore selection
                     if selected_objects:
                         cmds.select(selected_objects)
                         
                 except Exception as e:
-                    cmds.warning(f"创建UV集失败: {str(e)}")
+                    cmds.warning(f"Failed to create UV set: {str(e)}")
 
     def copy_uv_set(self, obj_name, source_uv_set):
-        """复制UV集"""
+        """Copy UV set"""
         dialog = QtWidgets.QInputDialog(self)
-        dialog.setWindowTitle("复制UV集")
-        dialog.setLabelText("输入新UV集名称:")
+        dialog.setWindowTitle(self.texts["dialog_copy_title"])
+        dialog.setLabelText(self.texts["dialog_copy_label"])
         dialog.setTextValue(f"{source_uv_set}_copy")
         
         if dialog.exec_() == QtWidgets.QDialog.Accepted:
             new_name = dialog.textValue()
             if new_name:
                 try:
-                    # 保存当前状态
+                    # Save current state
                     current_objects = self.object_list.copy()
                     selected_objects = cmds.ls(selection=True)
                     
-                    # 复制UV集
+                    # Copy UV set
                     cmds.polyUVSet(obj_name, copy=True, uvSet=source_uv_set, newUVSet=new_name)
                     
-                    # 更新UI但保持对象列表
+                    # Update UI but keep object list
                     self.object_list = current_objects
                     self.update_table_and_lists()
                     
-                    # 恢复选择
+                    # Restore selection
                     if selected_objects:
                         cmds.select(selected_objects)
                         
                 except Exception as e:
-                    cmds.warning(f"复制UV集失败: {str(e)}")
+                    cmds.warning(f"Failed to copy UV set: {str(e)}")
 
     def rename_uv_set(self, item):
-        """命名UV集"""
-        if item.column() == 0:  # 忽略对象名称列
+        """Rename UV set"""
+        if item.column() == 0:  # Ignore object name column
             return
             
         obj_name = self.object_table.item(item.row(), 0).text()
@@ -384,75 +716,75 @@ class UVSetList_Module_UI(QtWidgets.QDialog):
         if new_name and new_name != old_name:
             try:
                 cmds.polyUVSet(obj_name, rename=True, uvSet=old_name, newUVSet=new_name)
-                # 重新获取列表
+                # Re-fetch list
                 self.get_set_list()
             except Exception as e:
-                cmds.warning(f"重命名UV集失败: {str(e)}")
-                item.setText(old_name)  # 恢复原名称
+                cmds.warning(f"Failed to rename UV set: {str(e)}")
+                item.setText(old_name)  # Restore original name
     
     def delete_uv_set(self, item):
-        """删除UV集"""
+        """Delete UV set"""
         obj_name = self.object_table.item(item.row(), 0).text()
         uv_set = self.object_table.horizontalHeaderItem(item.column()).text()
         
         try:
-            # 保存当前所有对象
+            # Save current state
             current_objects = self.object_list.copy()
             
-            # 删除UV集
+            # Delete UV set
             cmds.polyUVSet(obj_name, delete=True, uvSet=uv_set)
             
-            # 保存当前选择状态
+            # Save current selection state
             selected_objects = cmds.ls(selection=True)
             
-            # 重新获取列表，但使用保存的对象列表
+            # Re-fetch list but use the saved object list
             self.object_list = current_objects
             
-            # 更新表格和UV集列表
+            # Update table and UV set list
             self.update_table_and_lists()
             
-            # 恢复选择
+            # Restore selection
             if selected_objects:
                 cmds.select(selected_objects)
                 
         except Exception as e:
-            cmds.warning(f"删除UV集失败: {str(e)}")
+            cmds.warning(f"Failed to delete UV set: {str(e)}")
 
 #====== UI Update Functions ======
 
     def update_table_and_lists(self):
-        """更新表格和UV集列表，但保持对象列表不"""
+        """Update table and UV set list but keep object list"""
         try:
-            # 清空UV集列表和表格
+            # Clear UV set list and table
             self.set_list.clear()
             self.object_table.clear()
             
-            # 获取所有UV集
+            # Get all UV sets
             all_sets = set()
             for obj in self.object_list:
                 try:
                     sets = cmds.polyUVSet(obj, query=True, allUVSets=True) or []
                     all_sets.update(sets)
                 except Exception as e:
-                    print(f"获取对象 {obj} 的UV集时出错: {str(e)}")
+                    print(f"Error getting UV sets for object {obj}: {str(e)}")
             
-            # 更新UV集列表
+            # Update UV list
             for set_name in sorted(all_sets):
                 self.set_list.addItem(set_name)
             
-            # 设置表格列
+            # Set table columns
             self.object_table.setColumnCount(len(all_sets) + 1)
-            headers = ["对象"] + list(sorted(all_sets))
+            headers = [self.texts["column_object"]] + list(sorted(all_sets))
             self.object_table.setHorizontalHeaderLabels(headers)
             
-            # 设置表头样式
+            # Set header style
             header = self.object_table.horizontalHeader()
             header.setStyleSheet("QHeaderView::section { background-color: #3a3a3a; color: white; }")
             
-            # 填充表格
+            # Fill table
             self.object_table.setRowCount(len(self.object_list))
             for row, obj in enumerate(self.object_list):
-                # 设置对象名称
+                # Set object name
                 obj_item = QtWidgets.QTableWidgetItem(obj)
                 obj_item.setFlags(obj_item.flags() & ~QtCore.Qt.ItemIsEditable)
                 self.object_table.setItem(row, 0, obj_item)
@@ -467,21 +799,21 @@ class UVSetList_Module_UI(QtWidgets.QDialog):
                             item = UVSetTableItem("")
                             self.object_table.setItem(row, col, item)
                 except Exception as e:
-                    print(f"填充对象 {obj} 的UV集信息时出错: {str(e)}")
+                    print(f"Error filling UV set info for object {obj}: {str(e)}")
             
             self.object_table.resizeColumnsToContents()
             
-            # 更新总数显示
+            # Update total count display
             self.total_label.setText(f"Total: {len(self.object_list)}")
             
-            # 触发UV集选择更新
+            # Trigger UV set selection update
             self.get_objects_from_sets()
             
         except Exception as e:
-            cmds.warning(f"更新表格和列表失败: {str(e)}")
+            cmds.warning(f"Failed to update table and lists: {str(e)}")
     
     def update_uv_set_list(self):
-        # 更新左侧的UV集列表
+        # Update UV set list on the left
         self.set_list.clear()
         for col in range(1, self.object_table.columnCount()):
             uv_set = self.object_table.horizontalHeaderItem(col).text()
@@ -490,7 +822,7 @@ class UVSetList_Module_UI(QtWidgets.QDialog):
 #====== Selection Functions ======
 
     def get_objects_from_sets(self):
-        """根据选中的UV集更新对象列表和表格选择"""
+        """Update object list and table selection based on selected UV sets"""
         if self._updating:
             return
             
@@ -498,21 +830,23 @@ class UVSetList_Module_UI(QtWidgets.QDialog):
         try:
             selected_sets = [item.text() for item in self.set_list.selectedItems()]
             
-            # 清空两个列表
+            # Clear two lists
             self.equal_list.clear()
             self.not_list.clear()
             
-            # 高亮显示表格中对应的列
+            # Highlight objects in the table corresponding to the selected columns
             self.object_table.clearSelection()
             for col in range(self.object_table.columnCount()):
                 header_text = self.object_table.horizontalHeaderItem(col).text()
                 if header_text in selected_sets:
-                    # 选择整列
+                    # Select entire column but first check each item exists
                     for row in range(self.object_table.rowCount()):
-                        self.object_table.item(row, col).setSelected(True)
+                        item = self.object_table.item(row, col)
+                        if item and item.text():  # Only select if item exists and has content
+                            item.setSelected(True)
             
             if not selected_sets:
-                # 如果没有选中的UV集，所有对象都显在not列表中
+                # If no UV sets are selected, all objects are displayed in the not list
                 for obj in self.object_list:
                     self.not_list.addItem(obj)
                 self.equal_count.setText("0")
@@ -526,31 +860,31 @@ class UVSetList_Module_UI(QtWidgets.QDialog):
                 try:
                     obj_sets = cmds.polyUVSet(obj, query=True, allUVSets=True) or []
                     
-                    # 根据AND/OR模式判断是否匹配
+                    # Determine if the object matches based on AND/OR mode
                     if self.and_radio.isChecked():
-                        # AND模式：必须包含所有选中的UV集
+                        # AND mode: Objects must contain all selected UV sets
                         if all(s in obj_sets for s in selected_sets):
                             equal_objects.append(obj)
                         else:
                             not_objects.append(obj)
                     else:
-                        # OR模式：包含任一选中的UV集
+                        # OR mode: Objects contain any of selected UV sets
                         if any(s in obj_sets for s in selected_sets):
                             equal_objects.append(obj)
                         else:
                             not_objects.append(obj)
                             
                 except Exception as e:
-                    print(f"处理对象 {obj} 时出错: {str(e)}")
+                    print(f"Error processing object {obj}: {str(e)}")
                     not_objects.append(obj)
             
-            # 更新列表
+            # Update lists
             for obj in equal_objects:
                 self.equal_list.addItem(obj)
             for obj in not_objects:
                 self.not_list.addItem(obj)
             
-            # 更新计数
+            # Update counts
             self.equal_count.setText(str(len(equal_objects)))
             self.not_count.setText(str(len(not_objects)))
             
@@ -558,7 +892,7 @@ class UVSetList_Module_UI(QtWidgets.QDialog):
             self._updating = False
     
     def select_objects_from_list(self, list_widget):
-        """从列表中选择对象"""
+        """Select objects from a list"""
         if self._updating:
             return
             
@@ -566,15 +900,15 @@ class UVSetList_Module_UI(QtWidgets.QDialog):
         try:
             selected_items = list_widget.selectedItems()
             if selected_items:
-                # 取消另一个列表的选择
+                # Unselect the other list
                 other_list = self.not_list if list_widget == self.equal_list else self.equal_list
                 other_list.clearSelection()
                 
-                # 选择对象
+                # Select objects
                 objects_to_select = [item.text() for item in selected_items]
                 cmds.select(objects_to_select)
                 
-                # 同步表格选择
+                # Synchronize table selection
                 self.object_table.clearSelection()
                 for row in range(self.object_table.rowCount()):
                     obj_name = self.object_table.item(row, 0).text()
@@ -584,33 +918,33 @@ class UVSetList_Module_UI(QtWidgets.QDialog):
             self._updating = False
     
     def select_all_from_list(self, list_widget):
-        """选择列表中的所有对象"""
+        """Select all objects in a list"""
         all_items = [list_widget.item(i).text() for i in range(list_widget.count())]
         if all_items:
             cmds.select(all_items)
     
     def on_table_selection_changed(self):
-        """处理表格选择变化"""
+        """Handle table selection change"""
         if self._updating:
             return
             
         self._updating = True
         try:
-            # 获取选中的行
+            # Get selected rows
             selected_rows = set(item.row() for item in self.object_table.selectedItems())
             
-            # 如果有选中的行
+            # If there are selected rows
             if selected_rows:
-                # 获取选中行对应的对象名称
+                # Get object names corresponding to selected rows
                 objects_to_select = []
                 for row in selected_rows:
                     obj_name = self.object_table.item(row, 0).text()
                     objects_to_select.append(obj_name)
                 
-                # 在Maya中选择这些对象
+                # Select these objects in Maya
                 cmds.select(objects_to_select)
                 
-                # 清除Equal/Not列表的选择
+                # Clear selection in Equal/Not lists
                 self.equal_list.clearSelection()
                 self.not_list.clearSelection()
         finally:
@@ -619,28 +953,28 @@ class UVSetList_Module_UI(QtWidgets.QDialog):
 #====== Context Menu Functions ======
 
     def show_context_menu(self, pos):
-        """显示右键菜单"""
+        """Show right-click menu"""
         item = self.object_table.itemAt(pos)
         if not item:
             return
-            
-        if item.column() == 0:  # 对象不显示菜单
+        
+        if item.column() == 0:  # Object column does not show menu
             return
             
         menu = QtWidgets.QMenu(self)
         
-        # 获取当前对象和UV集名称
+        # Get current object and UV set name
         obj_name = self.object_table.item(item.row(), 0).text()
         uv_set = self.object_table.horizontalHeaderItem(item.column()).text()
         
-        # 添加菜单项
-        new_action = menu.addAction("新建UV集")
-        copy_action = menu.addAction("复制UV集")
-        rename_action = menu.addAction("重命名UV集")
+        # Add menu items
+        new_action = menu.addAction(self.texts["menu_new"])
+        copy_action = menu.addAction(self.texts["menu_copy"])
+        rename_action = menu.addAction(self.texts["menu_rename"])
         menu.addSeparator()
-        delete_action = menu.addAction("删除UV集")
+        delete_action = menu.addAction(self.texts["menu_delete"])
         
-        # 执行菜单
+        # Execute menu
         action = menu.exec_(self.object_table.viewport().mapToGlobal(pos))
         
         if action == new_action:
@@ -653,62 +987,440 @@ class UVSetList_Module_UI(QtWidgets.QDialog):
             self.delete_uv_set(item)
 
     def show_rename_dialog(self, item):
-        """显示重命名对话框"""
+        """Show rename dialog"""
         obj_name = self.object_table.item(item.row(), 0).text()
         old_name = self.object_table.horizontalHeaderItem(item.column()).text()
         
         dialog = QtWidgets.QInputDialog(self)
-        dialog.setWindowTitle("重命名UV集")
-        dialog.setLabelText("输入新名称:")
+        dialog.setWindowTitle(self.texts["dialog_rename_title"])
+        dialog.setLabelText(self.texts["dialog_rename_label"])
         dialog.setTextValue(old_name)
         
         if dialog.exec_() == QtWidgets.QDialog.Accepted:
             new_name = dialog.textValue()
             if new_name and new_name != old_name:
                 try:
-                    # 保存当前状态
+                    # Save current state
                     current_objects = self.object_list.copy()
                     selected_objects = cmds.ls(selection=True)
                     
-                    # 重命名UV集
+                    # Rename UV set
                     cmds.polyUVSet(obj_name, rename=True, uvSet=old_name, newUVSet=new_name)
                     
-                    # 新UI但保持对象列表
+                    # New UI but keep object list
                     self.object_list = current_objects
                     self.update_table_and_lists()
                     
-                    # 恢复选择
+                    # Restore selection
                     if selected_objects:
                         cmds.select(selected_objects)
                         
                 except Exception as e:
-                    cmds.warning(f"重命名UV集失败: {str(e)}")
+                    cmds.warning(f"Failed to rename UV set: {str(e)}")
+
+    def delete_uv_sets_by_name(self):
+        """Delete all UV sets with the specified name"""
+        # Create input dialog
+        dialog = QtWidgets.QInputDialog(self)
+        dialog.setWindowTitle(self.texts["menu_delete"])
+        dialog.setLabelText(self.texts["dialog_new_label"])
+        dialog.setTextValue("")
+        
+        if dialog.exec_() == QtWidgets.QDialog.Accepted:
+            uv_set_name = dialog.textValue()
+            if not uv_set_name:
+                cmds.warning(self.texts["warning_create_failed"])
+                return
+            
+            try:
+                deleted_count = 0
+                # Save current state
+                current_objects = self.object_list.copy()
+                selected_objects = cmds.ls(selection=True)
+                
+                # Iterate through all objects
+                for row in range(self.object_table.rowCount()):
+                    obj_name = self.object_table.item(row, 0).text()
+                    # Get all UV sets of the object
+                    uv_sets = cmds.polyUVSet(obj_name, query=True, allUVSets=True) or []
+                    
+                    # If the UV set with the specified name is found, delete it
+                    if uv_set_name in uv_sets:
+                        try:
+                            cmds.polyUVSet(obj_name, delete=True, uvSet=uv_set_name)
+                            deleted_count += 1
+                        except Exception as e:
+                            print(f"Error deleting UV set {uv_set_name} for object {obj_name}: {str(e)}")
+                
+                # Update UI but keep object list
+                self.object_list = current_objects
+                self.update_table_and_lists()
+                
+                # Restore selection
+                if selected_objects:
+                    cmds.select(selected_objects)
+                
+                # Display result
+                if deleted_count > 0:
+                    cmds.warning(f"Deleted '{uv_set_name}' UV set from {deleted_count} objects")
+                else:
+                    cmds.warning(f"UV set '{uv_set_name}' not found")
+                
+            except Exception as e:
+                cmds.warning(f"Failed to delete UV sets by name: {str(e)}")
+
+    def show_header_context_menu(self, pos):
+        """Show right-click menu for header"""
+        column = self.object_table.horizontalHeader().logicalIndexAt(pos)
+        if column == 0:  # Object column does not show menu
+            return
+        
+        menu = QtWidgets.QMenu(self)
+        uv_set = self.object_table.horizontalHeaderItem(column).text()
+        
+        # Add menu items
+        rename_column_action = menu.addAction(self.texts["menu_header_rename_format"].format(uv_set))
+        menu.addSeparator()
+        delete_column_action = menu.addAction(self.texts["menu_header_delete_format"].format(uv_set))
+        
+        # Execute menu
+        action = menu.exec_(self.object_table.horizontalHeader().viewport().mapToGlobal(pos))
+        
+        if action == delete_column_action:
+            self.delete_column_uv_sets(column)
+        elif action == rename_column_action:
+            self.rename_column_uv_sets(column)
+
+    def delete_column_uv_sets(self, column):
+        """Delete all UV sets in the specified column"""
+        try:
+            uv_set = self.object_table.horizontalHeaderItem(column).text()
+            deleted_count = 0
+            
+            # Save current state
+            current_objects = self.object_list.copy()
+            selected_objects = cmds.ls(selection=True)
+            
+            # Iterate through all objects
+            for row in range(self.object_table.rowCount()):
+                obj_name = self.object_table.item(row, 0).text()
+                # Get all UV sets of the object
+                uv_sets = cmds.polyUVSet(obj_name, query=True, allUVSets=True) or []
+                
+                # If the UV set with the specified name is found, delete it
+                if uv_set in uv_sets:
+                    try:
+                        cmds.polyUVSet(obj_name, delete=True, uvSet=uv_set)
+                        deleted_count += 1
+                    except Exception as e:
+                        print(f"Error deleting UV set {uv_set} for object {obj_name}: {str(e)}")
+            
+            # Update UI but keep object list
+            self.object_list = current_objects
+            self.update_table_and_lists()
+            
+            # Restore selection
+            if selected_objects:
+                cmds.select(selected_objects)
+            
+            # Display result
+            if deleted_count > 0:
+                cmds.warning(f"Deleted '{uv_set}' UV set from {deleted_count} objects")
+            else:
+                cmds.warning(f"UV set '{uv_set}' not found")
+                
+        except Exception as e:
+            cmds.warning(f"Failed to delete UV sets by name: {str(e)}")
+
+    def batch_rename_current_uv_set(self, uv_set):
+        """Batch rename the current UV set"""
+        try:
+            # Create rename dialog
+            dialog = QtWidgets.QInputDialog(self)
+            dialog.setWindowTitle(self.texts["dialog_rename_title"])
+            dialog.setLabelText(self.texts["dialog_batch_rename_label"].format(uv_set))
+            dialog.setTextValue(uv_set)
+            
+            if dialog.exec_() == QtWidgets.QDialog.Accepted:
+                new_name = dialog.textValue()
+                if new_name and new_name != uv_set:
+                    renamed_count = 0
+                    # Save current state
+                    current_objects = self.object_list.copy()
+                    selected_objects = cmds.ls(selection=True)
+                    
+                    # Iterate through all objects
+                    for row in range(self.object_table.rowCount()):
+                        obj_name = self.object_table.item(row, 0).text()
+                        # Get all UV sets of the object
+                        uv_sets = cmds.polyUVSet(obj_name, query=True, allUVSets=True) or []
+                        
+                        # If the UV set with the specified name is found, rename it
+                        if uv_set in uv_sets:
+                            try:
+                                cmds.polyUVSet(obj_name, rename=True, uvSet=uv_set, newUVSet=new_name)
+                                renamed_count += 1
+                            except Exception as e:
+                                print(f"Error renaming UV set for object {obj_name}: {str(e)}")
+                    
+                    # Update UI but keep object list
+                    self.object_list = current_objects
+                    self.update_table_and_lists()
+                    
+                    # Restore selection
+                    if selected_objects:
+                        cmds.select(selected_objects)
+                    
+                    # Display result
+                    if renamed_count > 0:
+                        cmds.warning(f"Renamed '{uv_set}' UV set to '{new_name}' for {renamed_count} objects")
+                    else:
+                        cmds.warning(f"UV set '{uv_set}' not found")
+    
+        except Exception as e:
+            cmds.warning(f"Failed to batch rename UV sets: {str(e)}")
+
+    def rename_column_uv_sets(self, column):
+        """Rename all UV sets in the specified column"""
+        try:
+            uv_set = self.object_table.horizontalHeaderItem(column).text()
+            
+            # Create rename dialog
+            dialog = QtWidgets.QInputDialog(self)
+            dialog.setWindowTitle(self.texts["dialog_rename_title"])
+            dialog.setLabelText(self.texts["dialog_rename_header_label"].format(uv_set))
+            dialog.setTextValue(uv_set)
+            
+            if dialog.exec_() == QtWidgets.QDialog.Accepted:
+                new_name = dialog.textValue()
+                if new_name and new_name != uv_set:
+                    # Save current state
+                    current_objects = self.object_list.copy()
+                    selected_objects = cmds.ls(selection=True)
+                    
+                    # First collect all objects that need renaming
+                    objects_to_rename = []
+                    for row in range(self.object_table.rowCount()):
+                        obj_name = self.object_table.item(row, 0).text()
+                        uv_sets = cmds.polyUVSet(obj_name, query=True, allUVSets=True) or []
+                        if uv_set in uv_sets:
+                            objects_to_rename.append(obj_name)
+                    
+                    if not objects_to_rename:
+                        cmds.warning(f"UV set '{uv_set}' not found")
+                        return
+                    
+                    # Perform renaming operation
+                    try:
+                        # Select objects that need renaming
+                        cmds.select(objects_to_rename)
+                        # Rename all selected objects' UV sets at once
+                        cmds.polyUVSet(rename=True, uvSet=uv_set, newUVSet=new_name)
+                        renamed_count = len(objects_to_rename)
+                        cmds.warning(f"Renamed '{uv_set}' UV set to '{new_name}' for {renamed_count} objects")
+                    except Exception as e:
+                        cmds.warning(f"Failed to rename UV sets: {str(e)}")
+                    finally:
+                        # Restore original selection
+                        if selected_objects:
+                            cmds.select(selected_objects)
+                        else:
+                            cmds.select(clear=True)
+                
+                    # Re-fetch list instead of updating
+                    self.object_list = current_objects
+                    self.get_set_list()  # Use get_set_list instead of update_table_and_lists
+                    
+        except Exception as e:
+            cmds.warning(f"Failed to rename UV sets: {str(e)}")
 
 #====== Utility Functions ======
 
     def open_editor(self):
-        """打开UV编辑器"""
+        """Open UV editor"""
         mel.eval('UVSetEditor')
 
+    def open_uv_editor(self):
+        """Open UV Editor window"""
+        try:
+            mel.eval('TextureViewWindow')
+        except Exception as e:
+            cmds.warning(f"Error opening UV Editor: {str(e)}")
+        
+
     def on_mode_changed(self):
-        """处理AND/OR模式切换"""
+        """Handle AND/OR mode switch"""
         if self._updating:
             return
             
         self._updating = True
         try:
-            # 保存当前选择状态
+            # Save current selection state
             selected_objects = cmds.ls(selection=True)
             
-            # 重新计算Equal/Not列表
+            # Re-calculate Equal/Not lists
             self.get_objects_from_sets()
             
-            # 恢复选择状态
+            # Restore selection state
             if selected_objects:
                 cmds.select(selected_objects)
                 
         finally:
             self._updating = False
+
+    def delete_empty_uv_sets(self):
+        """Delete all empty UV sets"""
+        try:
+            deleted_count = 0
+            for row in range(self.object_table.rowCount()):
+                obj_name = self.object_table.item(row, 0).text()
+                for col in range(1, self.object_table.columnCount()):
+                    uv_set = self.object_table.horizontalHeaderItem(col).text()
+                    # Check if UV set is empty
+                    if cmds.polyUVSet(obj_name, query=True, uvSet=uv_set):
+                        if not cmds.polyUVSet(obj_name, query=True, numberOfUVs=True, uvSet=uv_set):
+                            cmds.polyUVSet(obj_name, delete=True, uvSet=uv_set)
+                            deleted_count += 1
+            
+            self.update_table_and_lists()
+            cmds.warning(f"Deleted {deleted_count} empty UV sets")
+        except Exception as e:
+            cmds.warning(f"Failed to delete empty UV sets: {str(e)}")
+
+    def copy_uv_sets_to_selected(self):
+        """Copy selected UV sets to other selected objects"""
+        # Get selected UV sets
+        selected_sets = set()
+        for item in self.object_table.selectedItems():
+            if item.column() > 0:  # Skip object name column
+                selected_sets.add(self.object_table.horizontalHeaderItem(item.column()).text())
+        
+        if not selected_sets:
+            cmds.warning(self.texts["warning_create_failed"])
+            return
+        
+        # Get target objects
+        target_objects = cmds.ls(selection=True)
+        if not target_objects:
+            cmds.warning(self.texts["warning_create_failed"])
+            return
+        
+        try:
+            for obj in target_objects:
+                for uv_set in selected_sets:
+                    # Check if target object already has a UV set with the same name
+                    existing_sets = cmds.polyUVSet(obj, query=True, allUVSets=True) or []
+                    if uv_set not in existing_sets:
+                        cmds.polyUVSet(obj, create=True, uvSet=uv_set)
+            
+            self.update_table_and_lists()
+            cmds.warning(f"Copied {len(selected_sets)} UV sets to {len(target_objects)} objects")
+        except Exception as e:
+            cmds.warning(f"Failed to copy UV sets: {str(e)}")
+
+    def on_table_cell_clicked(self, row, column):
+        """Handle table cell click event"""
+        if column == 0:  # Skip object column
+            return
+        
+        # Get object and UV set names
+        obj_name = self.object_table.item(row, 0).text()
+        uv_set = self.object_table.horizontalHeaderItem(column).text()
+        
+        # Check if cell has UV set
+        cell_item = self.object_table.item(row, column)
+        if cell_item and cell_item.text():
+            try:
+                # Select object
+                cmds.select(obj_name)
+                # Switch UV set
+                cmds.polyUVSet(obj_name, currentUVSet=True, uvSet=uv_set)
+                print(f"Switched to UV set: {uv_set}")
+            except Exception as e:
+                cmds.warning(f"Failed to switch UV set: {str(e)}")
+
+    def on_header_clicked(self, column):
+        """Handle header click event"""
+        if column == 0:  # Skip object column
+            return
+        
+        # Get UV set name
+        uv_set = self.object_table.horizontalHeaderItem(column).text()
+        
+        # Get currently selected objects
+        selected_objects = cmds.ls(selection=True)
+        if selected_objects:
+            try:
+                # Switch UV set for all selected objects
+                for obj in selected_objects:
+                    # Check if object has this UV set
+                    uv_sets = cmds.polyUVSet(obj, query=True, allUVSets=True) or []
+                    if uv_set in uv_sets:
+                        cmds.polyUVSet(obj, currentUVSet=True, uvSet=uv_set)
+                print(f"Switched to UV set {uv_set} for selected objects")
+            except Exception as e:
+                cmds.warning(f"Failed to switch UV set: {str(e)}")
+
+    def update_language_button(self):
+        """更新语言按钮显示"""
+        print(f"Updating language button, current language: {self.current_language}")  # 调试信息
+        self.lang_btn.setText("EN" if self.current_language == "zh_CN" else "CN")
+
+    def toggle_language(self):
+        """切换界面语言"""
+        print("Toggle language called")  # 调试信息
+        
+        # 切换语言
+        self.current_language = "zh_CN" if self.current_language == "en_US" else "en_US"
+        print(f"New language: {self.current_language}")  # 调试信息
+        
+        # 更新文本字典
+        self.texts = UI_TEXTS[self.current_language]
+        
+        # 更新按钮显示
+        self.update_language_button()
+        
+        # 更新窗口标题
+        self.setWindowTitle(self.texts["window_title"])
+        
+        # 更新按钮文本
+        self.get_btn.setText(self.texts["btn_get"])
+        
+        # 更新相等/不相等按钮
+        equal_btn = self.findChild(RoundedButton, "equal_btn")
+        not_btn = self.findChild(RoundedButton, "not_btn")
+        if equal_btn:
+            equal_btn.setText(self.texts["btn_equal"])
+        if not_btn:
+            not_btn.setText(self.texts["btn_not"])
+        
+        # 更新标签
+        self.total_label.setText(self.texts["label_total"].format(len(self.object_list)))
+        self.and_radio.setText(self.texts["label_and"])
+        self.or_radio.setText(self.texts["label_or"])
+        
+        # 更新分组框标题
+        for group in self.findChildren(QtWidgets.QGroupBox):
+            if group.title() == self.texts["group_uv_list"]:
+                group.setTitle(self.texts["group_uv_list"])
+            elif group.title() == self.texts["group_obj_lists"]:
+                group.setTitle(self.texts["group_obj_lists"])
+            elif group.title() == self.texts["group_uv_table"]:
+                group.setTitle(self.texts["group_uv_table"])
+        
+        # 更新帮助文本
+        self.help_text.setText(self.texts["help_text"])
+        
+        # 更新表格标题
+        if self.object_table.columnCount() > 0:
+            self.object_table.horizontalHeaderItem(0).setText(self.texts["column_object"])
+        
+        # 更新工具提示
+        self.editor_btn.setToolTip(self.texts["tooltip_editor"] if "tooltip_editor" in self.texts else "Open UV Editor")
+        self.uv_editor_btn.setToolTip(self.texts["tooltip_uv_editor"] if "tooltip_uv_editor" in self.texts else "Open UV Editor")
+        self.lang_btn.setToolTip(self.texts["tooltip_language"] if "tooltip_language" in self.texts else "Switch Language")
+        
+        print("Language switch complete")  # 调试信息
 
 #====== UI Functions ======
 
@@ -718,11 +1430,11 @@ def maya_main_window():
 
 def show():
     """
-    显示UV Set列表工具的UI
+    Display the UV Set List tool UI
     
-    功能:
-    - 关闭并删除已存在的UI实例(如果存在)
-    - 创建新的UI实例并显示
+    Function:
+    - Close and delete the existing UI instance (if exists)
+    - Create a new UI instance and display
     """
     global uvsetlist_window_ui
     try:

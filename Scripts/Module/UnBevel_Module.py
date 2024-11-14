@@ -461,7 +461,7 @@ class UnBevelUI(QtWidgets.QDialog):
 
     def update_lang_button_text(self):
         """update language switch button text"""
-        self.lang_btn.setText('ZH' if self.current_language == 'en' else 'EN')  # 改为 ZH/EN
+        self.lang_btn.setText('CN' if self.current_language == 'en' else 'EN')  # 改为 CN/EN
 
     def log(self, message):
         """志输出函数"""

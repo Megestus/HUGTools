@@ -12,7 +12,7 @@ import maya.OpenMayaUI as omui
 from shiboken2 import wrapInstance
 
 # Define constants
-HUGTOOL_VERSION = "1.2.2 Beta"
+HUGTOOL_VERSION = "1.2.5 Beta"
 HUGTOOL_ICON = "HUG3.png"
 HUGTOOL_TITLE = "HUGTOOL"
 HUGTOOL_HELP_URL = "https://megestus.github.io/HUGTools/"
@@ -134,6 +134,8 @@ LANG = {
         "Length": "Length",
         "Map Borders On": "UV Borders On",
         "Map Borders Off": "UV Borders Off",
+        "UV Set List": "UV Set List",
+        "UV Set List_tip": "Open UV Set List tool",
     },
     'zh_CN': {
         "Display Control": "显示控制",
@@ -169,7 +171,7 @@ LANG = {
         "UVSetSwap_tip": "UV集编辑器，用于管理和交换UV集",
         "QuickExport_tip": "快速导出工具",
         "ScreenShot_tip": "视口截图工具",
-        "More_tip": "更多独立工具",
+        "More_tip": "更多独���工具",
         "Select Control": "选择控制",
         "Crease": "折边",
         "Crease_tip": "切换折边显示",
@@ -186,6 +188,8 @@ LANG = {
         "Length": "长度",
         "Map Borders On": "UV边界显示开启",
         "Map Borders Off": "UV边界显示关闭",
+        "UV Set List": "UV集列表",
+        "UV Set List_tip": "打开UV集列表工具",
     }
 }
 
@@ -281,7 +285,7 @@ class HUGToolsWindow(QtWidgets.QDialog):
         self.select_group = QtWidgets.QGroupBox("Select Control")
         self.select_hardedges_btn = RoundedButton(LANG[CURRENT_LANG]["Select Hard Edges"], icon=QtGui.QIcon(":UVTkEdge.png"))
         self.select_hardedges_btn.setToolTip("Select all hard edges on the mesh")
-        self.select_uvborder_btn = RoundedButton(LANG[CURRENT_LANG]["Select UV Border Edge"], icon=QtGui.QIcon(":selectTextureBorders.png"))
+        self.select_uvborder_btn = RoundedButton(LANG[CURRENT_LANG]["Select UV Border Edge"], icon=QtGui.QIcon(":polyCopyUVSet.png"))
         self.select_uvborder_btn.setToolTip("Soft/Hard Edges Set by UV Border")
         self.planar_projection_btn = RoundedButton(LANG[CURRENT_LANG]["Planar Projection"], icon=QtGui.QIcon(":polyCameraUVs.png"))
         self.planar_projection_btn.setToolTip("Apply planar UV projection")
@@ -289,8 +293,8 @@ class HUGToolsWindow(QtWidgets.QDialog):
         self.uvlayout_hardedges_btn.setToolTip("Perform UV layout based on hard edges")
         self.edge_to_curve_btn = RoundedButton(LANG[CURRENT_LANG]["EdgeToCurve"], icon=QtGui.QIcon(":polyEdgeToCurves.png"))
         self.edge_to_curve_btn.setToolTip(LANG[CURRENT_LANG]["EdgeToCurve_tip"])
-        self.uvset_list_btn = RoundedButton("UV Set List", icon=QtGui.QIcon(":polyUVSet.png"))
-        self.uvset_list_btn.setToolTip("Open UV Set List tool")
+        self.uvset_list_btn = RoundedButton(LANG[CURRENT_LANG]["UV Set List"], icon=QtGui.QIcon(":pasteUV.png"))
+        self.uvset_list_btn.setToolTip(LANG[CURRENT_LANG]["UV Set List_tip"])
 
         # crease module
         self.editor_group = QtWidgets.QGroupBox(LANG[CURRENT_LANG]["Editor"])
@@ -462,7 +466,7 @@ class HUGToolsWindow(QtWidgets.QDialog):
         self.select_uvborder_btn.clicked.connect(self.SelectUVBorderEdge2)
         self.select_hardedges_btn.clicked.connect(self.select_hard_edges)
         self.uvlayout_hardedges_btn.clicked.connect(self.UVLayout_By_hardEdges)
-        self.planar_projection_btn.clicked.connect(self.apply_planar_projection)
+        self.planar_projection_btn.clicked.connect(self.apply_planar_projection2)
         self.uvset_list_btn.clicked.connect(self.UVSetList_view)
         self.edge_to_curve_btn.clicked.connect(self.convert_edge_to_curve)
 
@@ -647,11 +651,11 @@ class HUGToolsWindow(QtWidgets.QDialog):
 
     def SelectUVBorderEdge2(self, *args):
         """
-        Select UV border edges for multiple objects - Optimized version
+        Select UV border edges for multiple objects
         
         Function:
-        - Works on all selected objects simultaneously
-        - More efficient for high-poly objects
+        - Works on all selected objects
+        - Selects UV border edges based on UV boundaries
         """
         # 获取当前选择的对象
         selection = cmds.ls(selection=True, type="transform")
@@ -660,20 +664,21 @@ class HUGToolsWindow(QtWidgets.QDialog):
             return
             
         try:
-            # 一次性选择所有对象的所有组件
-            all_faces = [f"{obj}.f[*]" for obj in selection]
-            cmds.select(all_faces)
+            # 保存当前选择
+            cmds.select(clear=True)
             
-            # 执行优化后的MEL命令序列
-            mel.eval('''
-                SelectUVBorderEdges;
-                polySelectConstraint -type 0x8000 -sm 1;
-                polySelectConstraint -mode 3 -type 0x8000 -sm 1;
-                polyOptions -softEdge;
-                polySelectConstraint -mode 0;
-            ''')
-            
-            # 显示成功消息
+            for obj in selection:
+                # 选择当前对象
+                cmds.select(obj, add=True)
+                # 执行MEL命令
+                mel.eval('''
+                    expandPolyGroupSelection;
+                    polyUVBorderHard;
+                    selectUVBorderComponents {} "" 1;
+                    polyOptions -softEdge;
+                ''')
+                
+            # 显示简单的成功消息
             message = "已根据UV边界设置软硬边" if CURRENT_LANG == 'zh_CN' else "Soft hard Edges Set by UV Border"
             cmds.inViewMessage(
                 amg=f'<span style="color:#FFA500;">{message}</span>', 
@@ -813,31 +818,93 @@ class HUGToolsWindow(QtWidgets.QDialog):
         cmds.inViewMessage(amg=message, pos='botRight', fade=True, fst=10, fad=1)
 
 
-    def apply_planar_projection(self):
+    # def apply_planar_projection1(self):
+    #     """
+    #     Apply planar projection to selected polygon objects
+        
+    #     Functions:
+    #     - Select faces and apply planar projection
+    #     - Handle exceptions and restore selection mode
+    #     """
+    #     cmds.selectMode(object=True)  # Force switch to object mode
+        
+    #     selection = cmds.ls(selection=True, objectsOnly=True)
+    #     if selection:
+    #         try:
+    #             faces = [f"{obj}.f[*]" for obj in selection]
+    #             cmds.select(faces, r=True)
+    #             cmds.polyProjection(type='Planar', md='p')
+    #             cmds.undoInfo(cck=True)
+    #         except Exception as e:
+    #             cmds.warning(f"Error applying planar projection: {e}")
+    #         finally:
+    #             cmds.polySelectConstraint(sm=0)  # Reset selection mode, ensure all edges can be selected
+    #             cmds.select(selection, r=True)
+    #             cmds.selectMode(object=True)  # Ensure we end in object mode
+    #     else:
+    #         cmds.warning("No polygon object selected. Please select one or more polygon meshes.")
+
+
+
+
+    def apply_planar_projection2(self, *args):
         """
-        Apply planar projection to selected polygon objects
+        Apply planar projection to selected objects
         
         Functions:
-        - Select faces and apply planar projection
-        - Handle exceptions and restore selection mode
+        - Applies planar UV projection to selected objects
+        - Handles multiple object selection
+        - Maintains proper selection mode
         """
-        cmds.selectMode(object=True)  # Force switch to object mode
+        # Get current selection
+        selection = cmds.ls(selection=True)
+        if not selection:
+            cmds.warning("请选择物体!" if CURRENT_LANG == 'zh_CN' else "Please select objects!")
+            return
         
-        selection = cmds.ls(selection=True, objectsOnly=True)
-        if selection:
-            try:
-                faces = [f"{obj}.f[*]" for obj in selection]
-                cmds.select(faces, r=True)
-                cmds.polyProjection(type='Planar', md='p')
-                cmds.undoInfo(cck=True)
-            except Exception as e:
-                cmds.warning(f"Error applying planar projection: {e}")
-            finally:
-                cmds.polySelectConstraint(sm=0)  # Reset selection mode, ensure all edges can be selected
-                cmds.select(selection, r=True)
-                cmds.selectMode(object=True)  # Ensure we end in object mode
-        else:
-            cmds.warning("No polygon object selected. Please select one or more polygon meshes.")
+        try:
+            for obj in selection:
+                # Clear selection
+                cmds.select(clear=True)
+                # Select the object
+                cmds.select(obj)
+                # Select all faces of the object
+                faces = f"{obj}.f[*]"
+                cmds.select(faces, add=True)
+                # Execute MEL command sequence
+                mel.eval(f'''
+                    hilite "{obj}";
+                    selectMode -component;
+                    select -r "{faces}";
+                    polyProjection -type Planar -md p -constructionHistory 1 "{faces}";
+                ''')
+                
+            # Display success message
+            message = "已平面投射UV" if CURRENT_LANG == 'zh_CN' else "Planar UV projection applied"
+            cmds.inViewMessage(
+                amg=f'<span style="color:#48AAB5">{message}</span>', 
+                pos='topCenter', 
+                fade=True, 
+                fst=3, 
+                fad=1
+            )
+                
+        except Exception as e:
+            error_msg = f"UV投射时出错: {str(e)}" if CURRENT_LANG == 'zh_CN' else f"Error applying UV projection: {str(e)}"
+            cmds.warning(error_msg)
+        finally:
+            # Restore selection
+            cmds.select(selection)
+            cmds.selectMode(object=True)
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1226,6 +1293,9 @@ class HUGToolsWindow(QtWidgets.QDialog):
 
         self.toggle_set_display_map_borders_btn.setText(LANG[CURRENT_LANG]["MapBorders"])
         self.toggle_set_display_map_borders_btn.setToolTip(LANG[CURRENT_LANG]["MapBorders"])
+
+        self.uvset_list_btn.setText(LANG[CURRENT_LANG]["UV Set List"])
+        self.uvset_list_btn.setToolTip(LANG[CURRENT_LANG]["UV Set List_tip"])
 
 
 
