@@ -647,11 +647,11 @@ class HUGToolsWindow(QtWidgets.QDialog):
 
     def SelectUVBorderEdge2(self, *args):
         """
-        Select UV border edges for multiple objects
+        Select UV border edges for multiple objects - Optimized version
         
         Function:
-        - Works on all selected objects
-        - Selects UV border edges based on UV boundaries
+        - Works on all selected objects simultaneously
+        - More efficient for high-poly objects
         """
         # 获取当前选择的对象
         selection = cmds.ls(selection=True, type="transform")
@@ -660,21 +660,20 @@ class HUGToolsWindow(QtWidgets.QDialog):
             return
             
         try:
-            # 保存当前选择
-            cmds.select(clear=True)
+            # 一次性选择所有对象的所有组件
+            all_faces = [f"{obj}.f[*]" for obj in selection]
+            cmds.select(all_faces)
             
-            for obj in selection:
-                # 选择当前对象
-                cmds.select(obj, add=True)
-                # 执行MEL命令
-                mel.eval('''
-                    expandPolyGroupSelection;
-                    polyUVBorderHard;
-                    selectUVBorderComponents {} "" 1;
-                    polyOptions -softEdge;
-                ''')
-                
-            # 显示简单的成功消息
+            # 执行优化后的MEL命令序列
+            mel.eval('''
+                SelectUVBorderEdges;
+                polySelectConstraint -type 0x8000 -sm 1;
+                polySelectConstraint -mode 3 -type 0x8000 -sm 1;
+                polyOptions -softEdge;
+                polySelectConstraint -mode 0;
+            ''')
+            
+            # 显示成功消息
             message = "已根据UV边界设置软硬边" if CURRENT_LANG == 'zh_CN' else "Soft hard Edges Set by UV Border"
             cmds.inViewMessage(
                 amg=f'<span style="color:#FFA500;">{message}</span>', 
