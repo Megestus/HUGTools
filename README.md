@@ -2,7 +2,7 @@
 
 ![HUGTool Logo](Icons/HUGlogo.png)
 
-[![开发版本](https://img.shields.io/badge/bata-1.1.2-blue.svg)](https://github.com/Megestus/HUGTool/releases)
+[![开发版本](https://img.shields.io/badge/bata-1.2.5-blue.svg)](https://github.com/Megestus/HUGTool/releases)
 
 
 
@@ -14,8 +14,9 @@ HUGTool是一款专为团队设计的高效建模工具集。它集成了一系�
 
 ### 🔍 显示控制
 - 法线显示控制（显示/隐藏、大小调节）
-- 软边/硬边模式切换
-- 折痕模式快速切换
+- 软边/硬边显示切换
+- 折痕模式显示切换
+- Uv边界边显示切换
 
 ### 🛠️ 编辑器 （wip）
 - 顶点法线编辑工具
@@ -28,6 +29,8 @@ HUGTool是一款专为团队设计的高效建模工具集。它集成了一系�
 - edge2curve
 - 快速平面投影
 - 基于硬边的自动UV布局
+_ Uv集列表工具
+
 
 ### 🔧 实用工具
 - 快速重命名工具
