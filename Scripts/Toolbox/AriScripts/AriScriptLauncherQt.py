@@ -527,7 +527,7 @@ class AriScriptLauncher:
         self.load_descriptions()
         
         # 添加支持的前缀列表
-        self.supported_prefixes = ["Ari", "Me_"]  # 可以在这里添加更多前缀
+        self.supported_prefixes = ["Ari", "Me_",]  # 可以在这里添加更多前缀
         
         # 初始化数据
         self.init_data()
@@ -568,7 +568,7 @@ class AriScriptLauncher:
             self.mel_url_list = []
         
     def create_default_config(self, config_path):
-        """��建默认配置��件"""
+        """默认配置文件"""
         try:
             # 确保config目录存在
             config_dir = os.path.dirname(config_path)
@@ -577,7 +577,7 @@ class AriScriptLauncher:
             
             # 创建默认配置
             default_config = {
-                "说明": "这是AriScripts工具集的配���文件，用于定义每个工具的描述信息。添加新工具时，请按照示例格式添加相应的配置。",
+                "说明": "这是AriScripts工具集的配置文件，用于定义每个工具的描述信息。添加新工具时，请按照示例格式添加相应的配置。",
                 "示例": {
                     "工具名称": {
                         "中文描述": "在这里填写工具的中文说明",

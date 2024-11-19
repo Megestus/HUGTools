@@ -135,6 +135,12 @@ class MoreToolsWindow(QtWidgets.QDialog):
                     "tooltip": "NitroPoly Modeling Tool (In Development)",
                     "description": "Advanced polygon modeling toolset",
                     "disabled": True
+                },
+                {
+                    "name": "ShelfCreator",
+                    "icon": "commandButton.png",  # 可以更换为你想要的图标
+                    "tooltip": "工具架创建器",
+                    "description": "创建和管理Maya工具架按钮"
                 }
             ]
         }
@@ -643,6 +649,9 @@ class MoreToolsWindow(QtWidgets.QDialog):
 
 
                 
+        elif tool_name == "ShelfCreator":
+            launch_shelf_creator()
+
         else:
             print(f"{tool_name} - In development")
 
@@ -666,6 +675,26 @@ def show():
     more_tools_window.show()
     more_tools_window.raise_()
     more_tools_window.activateWindow()
+
+def launch_shelf_creator(*args):
+    """启动工具架创建器"""
+    try:
+        # 更新导入路径
+        shelf_path = r'H:/Megestus_ArtDev/ArtTool/Maya/DevTools/HUGTools/Scripts/Toolbox/Binshelf_Craete'
+        if shelf_path not in sys.path:
+            sys.path.insert(0, shelf_path)
+            
+        # 导入模块
+        import shelf_creator_window
+        importlib.reload(shelf_creator_window)
+        
+        # 显示窗口
+        shelf_creator_window.show_window()
+            
+    except Exception as e:
+        cmds.warning(f"启动工具架创建器失败: {str(e)}")
+        import traceback
+        cmds.warning(traceback.format_exc())
 
 if __name__ == "__main__":
     show()

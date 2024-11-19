@@ -1,18 +1,18 @@
 import importlib
 import maya.cmds as cmds
 import maya.mel as mel
-import re
 from functools import partial
 from PySide2 import QtWidgets, QtCore, QtGui
 import webbrowser
 import os
 import sys
-import locale
 import maya.OpenMayaUI as omui
 from shiboken2 import wrapInstance
+from pathlib import Path
+from Toolbox.LOD import LOD
 
 # Define constants
-HUGTOOL_VERSION = "1.2.5 Beta"
+HUGTOOL_VERSION = "1.3.0 Beta"
 HUGTOOL_ICON = "HUG3.png"
 HUGTOOL_TITLE = "HUGTOOL"
 HUGTOOL_HELP_URL = "https://megestus.github.io/HUGTools/"
@@ -25,12 +25,19 @@ class RoundedButton(QtWidgets.QPushButton):
     - Rounded design
     - Custom color and hover effect
     - Bold text
+    - Unified size policy
     """
     def __init__(self, text="", icon=None):
         super(RoundedButton, self).__init__(text)
         if icon:
             self.setIcon(icon)
             self.setIconSize(QtCore.QSize(24, 24))
+            
+        # Set unified size policy for all RoundedButton instances
+        self.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
+        self.setMinimumSize(100, 40)
+        self.setFixedHeight(38)
+        
         self.setStyleSheet(
             """
             QPushButton {
@@ -40,7 +47,6 @@ class RoundedButton(QtWidgets.QPushButton):
                 padding: 5px;
                 font-weight: bold;
                 text-align: center;
-                
             }
             QPushButton:hover {
                 background-color: #E0E0E0;
@@ -53,30 +59,24 @@ class RoundedButton(QtWidgets.QPushButton):
 
 def get_script_path():
     """
-    Get the directory path of the current script
+    Get the Scripts directory path of the HUGTools using Path object
     """
-    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    current_file = Path(__file__).resolve()
+    scripts_dir = current_file.parent
+    return scripts_dir
 
 # Import other modules
 import Module.Editor_Rename_Module as Editor_Rename_Module
 import Module.Quick_Rename_Module as Quick_Rename_Module
-import Module.UVSetEditor_Module as UVSetEditor_Module
 import Module.NormalEdit_Module as NormalEdit_Module
 import Module.More_Tools_Module as More_Tools_Module
 import Module.UnBevel_Module as UnBevel_Module
 import Module.UVSetList_Module as UVSetList_Module
 from Toolbox.QuickExport import QuickExport
 from Toolbox.ViewCapture import screen_shot
+from Toolbox.AriScripts import AriScriptLauncherQt
+import Toolbox.MirrorTool as k_mirrorToolStartUI
 
-# Function to get the system encoding
-def get_system_encoding():
-    encoding = sys.getdefaultencoding()
-    if encoding.lower() == 'ascii':
-        # in some Windows systems, the default encoding may be reported as ASCII
-        # but it may actually be using CP437 or other encodings
-        import locale
-        encoding = locale.getpreferredencoding()
-    return encoding
 
 # based on system encoding, default use english
 CURRENT_LANG = 'en_US'
@@ -104,7 +104,6 @@ LANG = {
         "Toolbox": "Toolbox",
         "QuickRename": "QuickRename",
         "Rename": "Rename",
-        "UVSetSwap": "UVSetSwap",
         "QuickExport": "QuickExport",
         "ScreenShot": "ScreenShot",
         "document": "document",
@@ -114,7 +113,6 @@ LANG = {
         "More Tools": "More Tools",
         "QuickRename_tip": "Quick rename tool for batch renaming objects",
         "Rename_tip": "Advanced rename editor with more options",
-        "UVSetSwap_tip": "UV set editor for managing and swapping UV sets",
         "QuickExport_tip": "Quick export tool for exporting objects",
         "ScreenShot_tip": "Capture viewport screenshots",
         "More_tip": "More independent tools",
@@ -134,8 +132,10 @@ LANG = {
         "Length": "Length",
         "Map Borders On": "UV Borders On",
         "Map Borders Off": "UV Borders Off",
-        "UV Set List": "UV Set List",
-        "UV Set List_tip": "Open UV Set List tool",
+        "UV Set List": "UVsL Editor",
+        "UV Set List_tip": "Open UV Set List Editor tool",
+        "AriScript": "AriScript",
+        "AriScript_tip": "open AriScript tools",
     },
     'zh_CN': {
         "Display Control": "显示控制",
@@ -158,7 +158,6 @@ LANG = {
         "Toolbox": "工具箱",
         "QuickRename": "快速重命名",
         "Rename": "重命名",
-        "UVSetSwap": "UV集交换",
         "QuickExport": "快速导出",
         "ScreenShot": "截图",
         "document": "文档",
@@ -168,10 +167,9 @@ LANG = {
         "More Tools": "更多工具",
         "QuickRename_tip": "批量重命名工具",
         "Rename_tip": "高级重命名编辑器",
-        "UVSetSwap_tip": "UV集编辑器，用于管理和交换UV集",
         "QuickExport_tip": "快速导出工具",
         "ScreenShot_tip": "视口截图工具",
-        "More_tip": "更多独���工具",
+        "More_tip": "更多工具",
         "Select Control": "选择控制",
         "Crease": "折边",
         "Crease_tip": "切换折边显示",
@@ -188,8 +186,10 @@ LANG = {
         "Length": "长度",
         "Map Borders On": "UV边界显示开启",
         "Map Borders Off": "UV边界显示关闭",
-        "UV Set List": "UV集列表",
-        "UV Set List_tip": "打开UV集列表工具",
+        "UV Set List": "UV集列表器",
+        "UV Set List_tip": "打开UV集列表编辑器工具",
+        "AriScript": "AriScript工具集",
+        "AriScript_tip": "打开AriScript工具集",
     }
 }
 
@@ -203,10 +203,10 @@ class HUGToolsWindow(QtWidgets.QDialog):
         self.setWindowTitle(HUGTOOL_TITLE)
         self.setMinimumWidth(280)
 
-        # set window icon
-        icon_path = os.path.join(get_script_path(), "Icons", HUGTOOL_ICON)
+        # 使用Scripts目录路径获取图标
+        icon_path = get_script_path() / "Icons" / HUGTOOL_ICON
         if os.path.exists(icon_path):
-            self.setWindowIcon(QtGui.QIcon(icon_path))
+            self.setWindowIcon(QtGui.QIcon(str(icon_path)))
         else:
             print(f"Warning: Icon file '{icon_path}' does not exist.")
 
@@ -220,6 +220,29 @@ class HUGToolsWindow(QtWidgets.QDialog):
         self.create_widgets()
         self.create_layouts()
         self.create_connections()
+
+    def load_icon(self, icon_path, default_icon=":menuIconFile.png"):
+        """
+        Load icon from path with fallback to default Maya icon
+        """
+        try:
+            if isinstance(icon_path, str):
+                # 所有图标都从Scripts目录下加载
+                full_path = get_script_path() / icon_path
+                
+                # 确保路径是绝对路径
+                full_path = full_path.resolve()
+                
+                if full_path.exists():
+                    print(f"Found icon at: {full_path}")
+                    return QtGui.QIcon(str(full_path))
+                else:
+                    print(f"Warning: Icon file '{full_path}' does not exist. Using default icon.")
+                    return QtGui.QIcon(default_icon)
+            
+        except Exception as e:
+            print(f"Error loading icon: {str(e)}")
+            return QtGui.QIcon(default_icon)
 
     def create_widgets(self):
         # Create help button
@@ -257,7 +280,6 @@ class HUGToolsWindow(QtWidgets.QDialog):
         # Normal display module
         self.display_group = QtWidgets.QGroupBox(LANG[CURRENT_LANG]["Display Control"])
         self.toggle_normal_display_btn = RoundedButton("Normal", icon=QtGui.QIcon(":polyNormalSetToFace.png"))
-        self.toggle_normal_display_btn.setMinimumSize(100, 40)
         self.toggle_normal_display_btn.setToolTip("Toggle normal display")
         self.normal_size_label = QtWidgets.QLabel("Normal Size:")
         self.normal_size_field = QtWidgets.QDoubleSpinBox()
@@ -268,18 +290,40 @@ class HUGToolsWindow(QtWidgets.QDialog):
         self.normal_size_slider.setValue(40)
 
         # Edge display module
-        self.toggle_softEdge_btn = RoundedButton("Soft", icon=QtGui.QIcon(":polySoftEdge.png"))
-        self.toggle_softEdge_btn.setMinimumSize(80, 40)
-        self.toggle_softEdge_btn.setToolTip("Toggle soft edge display")
-        self.toggle_hardedge_btn = RoundedButton("Hard", icon=QtGui.QIcon(":polyHardEdge.png"))
-        self.toggle_hardedge_btn.setMinimumSize(80, 40)
-        self.toggle_hardedge_btn.setToolTip("Toggle hard edge display")
-        self.toggle_crease_edge_btn = RoundedButton(LANG[CURRENT_LANG]["Crease"], icon=QtGui.QIcon(":polyCrease.png"))
-        self.toggle_crease_edge_btn.setMinimumSize(80, 40)
-        self.toggle_crease_edge_btn.setToolTip(LANG[CURRENT_LANG]["Crease_tip"])
-        self.toggle_set_display_map_borders_btn = RoundedButton(LANG[CURRENT_LANG]["MapBorders"], icon=QtGui.QIcon(":UVEditorTextureBorder.png"))  
-        self.toggle_set_display_map_borders_btn.setMinimumSize(80, 40)
-        self.toggle_set_display_map_borders_btn.setToolTip(LANG[CURRENT_LANG]["MapBorders"])
+        self.toggle_softEdge_btn = RoundedButton("", icon=QtGui.QIcon(":polySoftEdge.png"))
+        self.toggle_softEdge_btn.setToolTip("Toggle Soft Edge Display\n\nShow/Hide soft edges")
+        self.toggle_softEdge_btn.setFixedSize(52, 35)  # 设置固定大小的正方形按钮
+
+        self.toggle_hardedge_btn = RoundedButton("", icon=QtGui.QIcon(":polyHardEdge.png"))
+        self.toggle_hardedge_btn.setToolTip("Toggle Hard Edge Display\n\nShow/Hide hard edges")
+        self.toggle_hardedge_btn.setFixedSize(52, 35)
+
+        self.toggle_crease_edge_btn = RoundedButton("", icon=QtGui.QIcon(":polyCrease.png"))
+        self.toggle_crease_edge_btn.setToolTip("Toggle Crease Edge Display\n\nShow/Hide crease edges")
+        self.toggle_crease_edge_btn.setFixedSize(52, 35)
+
+        self.toggle_set_display_map_borders_btn = RoundedButton("", icon=QtGui.QIcon(":UVEditorTextureBorder.png"))
+        self.toggle_set_display_map_borders_btn.setToolTip("Toggle UV Border Display\n\nShow/Hide UV borders")
+        self.toggle_set_display_map_borders_btn.setFixedSize(52, 35)
+
+        # 修改按钮样式，使其更适合只显示图标
+        icon_button_style = """
+            QPushButton {
+                background-color: #D0D0D0;
+                border-radius: 5px;
+                padding: 3px;
+            }
+            QPushButton:hover {
+                background-color: #E0E0E0;
+            }
+            QPushButton:pressed {
+                background-color: #C0C0C0;
+            }
+        """
+        self.toggle_softEdge_btn.setStyleSheet(icon_button_style)
+        self.toggle_hardedge_btn.setStyleSheet(icon_button_style)
+        self.toggle_crease_edge_btn.setStyleSheet(icon_button_style)
+        self.toggle_set_display_map_borders_btn.setStyleSheet(icon_button_style)
 
         # select module
         self.select_group = QtWidgets.QGroupBox("Select Control")
@@ -301,53 +345,62 @@ class HUGToolsWindow(QtWidgets.QDialog):
         self.open_NormalEdit_btn = RoundedButton(LANG[CURRENT_LANG]["NormalEdit"], icon=QtGui.QIcon(":nodeGrapherModeAllLarge.png"))
         self.open_NormalEdit_btn.setToolTip("Open Normal Edit window")
         self.open_crease_editor_btn = RoundedButton(LANG[CURRENT_LANG]["Crease Editor"], icon=QtGui.QIcon(":polyCrease.png"))
+        self.open_crease_editor_btn.setToolTip(LANG[CURRENT_LANG]["Crease Editor"])
         self.open_uv_editor_btn = RoundedButton(LANG[CURRENT_LANG]["UV Editor"], icon=QtGui.QIcon(":textureEditor.png"))
         self.open_uv_editor_btn.setToolTip(LANG[CURRENT_LANG]["UV Editor_tip"])
 
-        # ===  this function is under development ===
-        # self.create_fixed_crease_set_btn = RoundedButton(LANG[CURRENT_LANG]["Create Crease Set by Name"], icon=QtGui.QIcon(":polyCrease.png"))
-        # self.crease_1_btn = RoundedButton(LANG[CURRENT_LANG]["Crease V2"], icon=QtGui.QIcon(":polyCrease.png"))
-        # self.crease_3_btn = RoundedButton(LANG[CURRENT_LANG]["Crease V5"], icon=QtGui.QIcon(":polyCrease.png"))
-
-
         #toolbox
         self.Toolbox_group = QtWidgets.QGroupBox(LANG[CURRENT_LANG]["Toolbox"])
-        self.Toolbox_QuickRename_btn = RoundedButton(LANG[CURRENT_LANG]["QuickRename"], icon=QtGui.QIcon(":annotation.png"))
-        self.Toolbox_QuickRename_btn.setToolTip(LANG[CURRENT_LANG]["QuickRename_tip"])
-        self.Toolbox_Rename_btn = RoundedButton(LANG[CURRENT_LANG]["Rename"], icon=QtGui.QIcon(":quickRename.png"))
-        self.Toolbox_Rename_btn.setToolTip(LANG[CURRENT_LANG]["Rename_tip"])
-        self.Toolbox_UVset_btn = RoundedButton(LANG[CURRENT_LANG]["UVSetSwap"], icon=QtGui.QIcon(":polyUVSetEditor.png"))
-        self.Toolbox_UVset_btn.setToolTip(LANG[CURRENT_LANG]["UVSetSwap_tip"])
-        self.Toolbox_QuickExport_btn = RoundedButton(LANG[CURRENT_LANG]["QuickExport"], icon=QtGui.QIcon(":sourceScript.png"))
-        self.Toolbox_QuickExport_btn.setToolTip(LANG[CURRENT_LANG]["QuickExport_tip"])
-        self.Toolbox_UnBevel_btn = RoundedButton(LANG[CURRENT_LANG]["UnBevel"], icon=QtGui.QIcon(":polyBevel.png"))
-        self.Toolbox_UnBevel_btn.setToolTip(LANG[CURRENT_LANG]["UnBevel_tip"])
-        self.Toolbox_ScreenShot_btn = RoundedButton(LANG[CURRENT_LANG]["ScreenShot"], icon=QtGui.QIcon(":out_snapshot.png"))
-        self.Toolbox_ScreenShot_btn.setToolTip(LANG[CURRENT_LANG]["ScreenShot_tip"])
-        self.Toolbox_More_btn = RoundedButton(LANG[CURRENT_LANG]["More"], icon=QtGui.QIcon(":loadPreset.png"))
-        self.Toolbox_More_btn.setToolTip(LANG[CURRENT_LANG]["More_tip"])
-        self.Toolbox_CalcDistance_btn = RoundedButton("Distance", icon=QtGui.QIcon(":distanceDim.png"))
-        self.Toolbox_CalcDistance_btn.setToolTip("Calculate edge length")
-        self.Toolbox_CalcDistance_btn.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
-        self.Toolbox_CalcDistance_btn.setMinimumSize(100, 40)
-        self.Toolbox_CalcDistance_btn.setFixedHeight(40)
-
-        # set size policy and size for all toolbox buttons
-        toolbox_buttons = [
-            self.Toolbox_QuickRename_btn,
-            self.Toolbox_Rename_btn,
-            self.Toolbox_UVset_btn,
-            self.Toolbox_QuickExport_btn,
-            self.Toolbox_ScreenShot_btn,
-            self.Toolbox_UnBevel_btn,
-            self.Toolbox_More_btn,
-            self.Toolbox_CalcDistance_btn
-        ]
         
-        for btn in toolbox_buttons:
-            btn.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
-            btn.setMinimumSize(100, 40)
-            btn.setFixedHeight(40)  # fixed height to 40
+        # 首先创建所有按钮
+        self.Toolbox_QuickRename_btn = RoundedButton(LANG[CURRENT_LANG]["QuickRename"], icon=QtGui.QIcon(":annotation.png"))
+        self.Toolbox_Rename_btn = RoundedButton(LANG[CURRENT_LANG]["Rename"], icon=QtGui.QIcon(":quickRename.png"))
+        self.Toolbox_QuickExport_btn = RoundedButton(LANG[CURRENT_LANG]["QuickExport"], icon=QtGui.QIcon(":sourceScript.png"))
+        self.Toolbox_UnBevel_btn = RoundedButton(LANG[CURRENT_LANG]["UnBevel"], icon=QtGui.QIcon(":polyBevel.png"))
+        self.Toolbox_ScreenShot_btn = RoundedButton(LANG[CURRENT_LANG]["ScreenShot"], icon=QtGui.QIcon(":out_snapshot.png"))
+        self.Toolbox_More_btn = RoundedButton(LANG[CURRENT_LANG]["More"], icon=QtGui.QIcon(":loadPreset.png"))
+        self.Toolbox_CalcDistance_btn = RoundedButton("Distance", icon=QtGui.QIcon(":distanceDim.png"))
+
+        # 使用load_icon方法加载AriScript图标
+        ari_icon = self.load_icon(
+            "Toolbox/AriScripts/icons/AriScriptLauncher.png", 
+            ":createBinFromSelectedNodes.png"
+        )
+        self.Toolbox_AriScriptLauncherQt_btn = RoundedButton(
+            LANG[CURRENT_LANG]["AriScript"], 
+            icon=ari_icon
+        )
+
+        # 使用load_icon方法加载MirrorTool图标
+        mirror_icon = self.load_icon(
+            "Toolbox/MirrorTool/K_Mirror_icons/ShelfIcon.png",
+            ":symmetrize.png"
+        )
+        self.Toolbox_MirrorTool_btn = RoundedButton(
+            "MirrorTool",
+            icon=mirror_icon
+        )
+
+        # 添加LOD工具按钮
+        self.Toolbox_LOD_btn = RoundedButton(
+            "LOD Tool", 
+            icon=QtGui.QIcon(":nodeGrapherModeAllLarge.png")
+        )
+        self.Toolbox_LOD_btn.setToolTip("Level of Detail Tool")
+
+        # 设置所有按钮的工具提示
+        self.Toolbox_QuickRename_btn.setToolTip(LANG[CURRENT_LANG]["QuickRename_tip"])
+        self.Toolbox_Rename_btn.setToolTip(LANG[CURRENT_LANG]["Rename_tip"])
+        self.Toolbox_QuickExport_btn.setToolTip(LANG[CURRENT_LANG]["QuickExport_tip"])
+        self.Toolbox_UnBevel_btn.setToolTip(LANG[CURRENT_LANG]["UnBevel_tip"])
+        self.Toolbox_ScreenShot_btn.setToolTip(LANG[CURRENT_LANG]["ScreenShot_tip"])
+        self.Toolbox_More_btn.setToolTip(LANG[CURRENT_LANG]["More_tip"])
+        self.Toolbox_CalcDistance_btn.setToolTip(LANG[CURRENT_LANG]["Distance_tip"])
+        self.Toolbox_AriScriptLauncherQt_btn.setToolTip(LANG[CURRENT_LANG]["AriScript_tip"])
+        self.Toolbox_MirrorTool_btn.setToolTip("Mirror Objects Tool")
+        self.Toolbox_LOD_btn.setToolTip("Level of Detail Tool")
+
+
 
 
 
@@ -371,11 +424,13 @@ class HUGToolsWindow(QtWidgets.QDialog):
         display_layout.addWidget(self.normal_size_slider)
         
         # Edge display controls
-        edge_toggle_layout = QtWidgets.QGridLayout()
-        edge_toggle_layout.addWidget(self.toggle_softEdge_btn, 0, 0)
-        edge_toggle_layout.addWidget(self.toggle_hardedge_btn, 0, 1)
-        edge_toggle_layout.addWidget(self.toggle_crease_edge_btn, 1, 0)
-        edge_toggle_layout.addWidget(self.toggle_set_display_map_borders_btn, 1, 1)
+        edge_toggle_layout = QtWidgets.QHBoxLayout()
+        edge_toggle_layout.addWidget(self.toggle_softEdge_btn)
+        edge_toggle_layout.addWidget(self.toggle_hardedge_btn)
+        edge_toggle_layout.addWidget(self.toggle_crease_edge_btn)
+        edge_toggle_layout.addWidget(self.toggle_set_display_map_borders_btn)
+        edge_toggle_layout.setSpacing(4)  # 设置按钮之间的间距
+        edge_toggle_layout.setContentsMargins(0, 0, 0, 0)  # 移除边距
         display_layout.addLayout(edge_toggle_layout)
         
         self.display_group.setLayout(display_layout)
@@ -384,17 +439,18 @@ class HUGToolsWindow(QtWidgets.QDialog):
         select_layout = QtWidgets.QGridLayout()
         select_layout.addWidget(self.select_hardedges_btn, 0, 0)
         select_layout.addWidget(self.select_uvborder_btn, 0, 1)
-        select_layout.addWidget(self.edge_to_curve_btn, 1, 0)
-        select_layout.addWidget(self.planar_projection_btn, 1, 1)
-        select_layout.addWidget(self.uvlayout_hardedges_btn, 2, 0)
-        select_layout.addWidget(self.uvset_list_btn, 2, 1)
+        select_layout.addWidget(self.planar_projection_btn, 1, 0)
+        select_layout.addWidget(self.uvlayout_hardedges_btn, 1, 1)
+        select_layout.addWidget(self.edge_to_curve_btn, 2, 0)
+        select_layout.addWidget(self.Toolbox_UnBevel_btn, 2, 1)
         self.select_group.setLayout(select_layout)
 
         # crease control group layout
-        editor_layout = QtWidgets.QVBoxLayout()
-        editor_layout.addWidget(self.open_NormalEdit_btn)
-        editor_layout.addWidget(self.open_crease_editor_btn)
-        editor_layout.addWidget(self.open_uv_editor_btn)
+        editor_layout = QtWidgets.QGridLayout()
+        editor_layout.addWidget(self.open_NormalEdit_btn, 0, 0)
+        editor_layout.addWidget(self.open_crease_editor_btn, 0, 1)
+        editor_layout.addWidget(self.open_uv_editor_btn, 1, 0)
+        editor_layout.addWidget(self.uvset_list_btn, 1, 1)
         self.editor_group.setLayout(editor_layout)
 
         #toolbox group layout
@@ -402,11 +458,14 @@ class HUGToolsWindow(QtWidgets.QDialog):
         Toolbox_layout.addWidget(self.Toolbox_QuickRename_btn, 0, 0)
         Toolbox_layout.addWidget(self.Toolbox_Rename_btn, 0, 1)
         Toolbox_layout.addWidget(self.Toolbox_QuickExport_btn, 1, 0)
-        Toolbox_layout.addWidget(self.Toolbox_UVset_btn, 1, 1)
-        Toolbox_layout.addWidget(self.Toolbox_UnBevel_btn, 2, 0)
-        Toolbox_layout.addWidget(self.Toolbox_ScreenShot_btn, 2, 1)
-        Toolbox_layout.addWidget(self.Toolbox_CalcDistance_btn, 3, 0)
-        Toolbox_layout.addWidget(self.Toolbox_More_btn, 3, 1)
+        Toolbox_layout.addWidget(self.Toolbox_AriScriptLauncherQt_btn, 1, 1)
+        Toolbox_layout.addWidget(self.Toolbox_LOD_btn, 2, 0)  
+        Toolbox_layout.addWidget(self.Toolbox_ScreenShot_btn, 3, 1)
+        Toolbox_layout.addWidget(self.Toolbox_CalcDistance_btn, 2, 1)
+        Toolbox_layout.addWidget(self.Toolbox_MirrorTool_btn, 3, 0)
+
+
+        # Toolbox_layout.addWidget(self.Toolbox_More_btn, 3, 0)
 
         self.Toolbox_group.setLayout(Toolbox_layout)
 
@@ -473,20 +532,17 @@ class HUGToolsWindow(QtWidgets.QDialog):
         self.open_crease_editor_btn.clicked.connect(self.open_crease_set_editor)
         self.open_uv_editor_btn.clicked.connect(self.open_uv_editor)
 
-        # ===  this function is under development ===
-        # self.create_fixed_crease_set_btn.clicked.connect(self.create_fixed_crease_set)
-        # self.crease_1_btn.clicked.connect(partial(self.apply_crease_preset, 1))
-        # self.crease_3_btn.clicked.connect(partial(self.apply_crease_preset, 3))
 
         self.Toolbox_QuickRename_btn.clicked.connect(self.quick_rename)
         self.Toolbox_Rename_btn.clicked.connect(self.rename_edit)
-        self.Toolbox_UVset_btn.clicked.connect(self.UVset_swap) 
         self.Toolbox_QuickExport_btn.clicked.connect(self.quick_export)
         self.Toolbox_ScreenShot_btn.clicked.connect(self.screen_shot)
         self.Toolbox_UnBevel_btn.clicked.connect(self.unbevel_tool)
         self.Toolbox_More_btn.clicked.connect(self.show_more_tools)
         self.Toolbox_CalcDistance_btn.clicked.connect(self.calculate_distance)
-
+        self.Toolbox_AriScriptLauncherQt_btn.clicked.connect(self.AriScriptLauncherQt)
+        self.Toolbox_MirrorTool_btn.clicked.connect(self.mirrorTool)
+        self.Toolbox_LOD_btn.clicked.connect(self.show_lod_tool)
         # connect help button
         self.help_btn.clicked.connect(self.show_help)
 
@@ -518,18 +574,6 @@ class HUGToolsWindow(QtWidgets.QDialog):
 
     def set_normal_size(self, value):
         cmds.polyOptions(sn=value)
-
-    # toggle normal display
-    def toggle(self):
-        sel = cmds.ls(sl=True)
-        if sel:
-            new_size = self.normal_size_field.value()
-            display_state = cmds.polyOptions(q=True, dn=True)[0]
-            cmds.polyOptions(dn=not display_state, pt=True, sn=new_size)
-        else:
-            cmds.warning("No object selected!")
-
-
 
 
     # in the file top add this global variable
@@ -818,33 +862,6 @@ class HUGToolsWindow(QtWidgets.QDialog):
         cmds.inViewMessage(amg=message, pos='botRight', fade=True, fst=10, fad=1)
 
 
-    # def apply_planar_projection1(self):
-    #     """
-    #     Apply planar projection to selected polygon objects
-        
-    #     Functions:
-    #     - Select faces and apply planar projection
-    #     - Handle exceptions and restore selection mode
-    #     """
-    #     cmds.selectMode(object=True)  # Force switch to object mode
-        
-    #     selection = cmds.ls(selection=True, objectsOnly=True)
-    #     if selection:
-    #         try:
-    #             faces = [f"{obj}.f[*]" for obj in selection]
-    #             cmds.select(faces, r=True)
-    #             cmds.polyProjection(type='Planar', md='p')
-    #             cmds.undoInfo(cck=True)
-    #         except Exception as e:
-    #             cmds.warning(f"Error applying planar projection: {e}")
-    #         finally:
-    #             cmds.polySelectConstraint(sm=0)  # Reset selection mode, ensure all edges can be selected
-    #             cmds.select(selection, r=True)
-    #             cmds.selectMode(object=True)  # Ensure we end in object mode
-    #     else:
-    #         cmds.warning("No polygon object selected. Please select one or more polygon meshes.")
-
-
 
 
     def apply_planar_projection2(self, *args):
@@ -942,68 +959,6 @@ class HUGToolsWindow(QtWidgets.QDialog):
         else:
             return base_name
 
-    def create_fixed_crease_set(self):
-        """
-        Create or update a crease set with a fixed crease value of 5
-        
-        Functions:
-        - Create a new crease set or update an existing one when edges are selected
-        - Automatically generate crease set name based on object naming rules
-        - Add selected edges to the crease set
-        - Apply a fixed crease value of 5 to all edges in the crease set
-        
-        Usage:
-        1. Select one or more edges
-        2. Click the "Create Crease Set by Name" button
-        
-        Notes:
-        - If no edges are selected, a warning message will be displayed
-        - If a matching crease set already exists, it will be used
-        - A confirmation message will be displayed upon completion
-        """
-        selection = cmds.ls(selection=True, flatten=True)
-        if not selection:
-            cmds.warning("No object selected. Please select one or more edges.")
-            return
-
-        # Filter out edges
-        edges = [edge for edge in selection if '.e[' in edge]
-        
-        if not edges:
-            cmds.warning("No edges selected. Please select one or more edges.")
-            return
-
-        base_name = self.get_object_name()
-        
-        # Find all potentially matching crease sets
-        all_crease_sets = cmds.ls(type="creaseSet")
-        matching_crease_sets = [cs for cs in all_crease_sets if cs.startswith(base_name)]
-
-        if matching_crease_sets:
-            crease_set_name = matching_crease_sets[0]
-            cmds.warning(f"Using existing crease set: {crease_set_name}")
-        else:
-            # Create a new creaseSet node
-            crease_set_name = cmds.createNode('creaseSet', name=base_name)
-            cmds.warning(f"Created new crease set: {crease_set_name}")
-
-        edges_added = False
-        for edge in edges:
-            # Check if this edge is already in the crease set
-            existing_edges = cmds.sets(crease_set_name, query=True) or []
-            if edge not in existing_edges:
-                # Add the new edge to the crease set
-                cmds.sets(edge, add=crease_set_name)
-                edges_added = True
-
-        if edges_added:
-            # Apply a fixed crease value of 5 to the entire crease set
-            all_edges = cmds.sets(crease_set_name, query=True) or []
-            cmds.polyCrease(all_edges, value=5.0)
-            cmds.select(crease_set_name)
-            cmds.inViewMessage(amg=f'<span style="color:#FFA500;">Updated crease set: {crease_set_name}, crease value set to 5, but needs refresh</span>', pos='botRight', fade=True, fst=10, fad=1)
-        else:
-            cmds.inViewMessage(amg=f'<span style="color:#FFA500;">No new edges added to crease set: {crease_set_name}</span>', pos='botRight', fade=True, fst=10, fad=1)
 
     def open_crease_set_editor(self):
         """
@@ -1016,49 +971,6 @@ class HUGToolsWindow(QtWidgets.QDialog):
             # If the above method fails, consider opening the regular component editor or displaying an error message
             # cmds.ComponentEditor()
 
-    def apply_crease_preset(self, presetnum):
-        """
-        Apply crease preset
-        
-        Functions:
-        - Apply specified crease preset to selected objects or edges
-        - Update smooth level and display settings
-        """
-        cmds.undoInfo(openChunk=True)
-        try:
-            sel = cmds.ls(selection=True, long=True, flatten=True)
-            
-            if not sel:
-                cmds.warning("No objects or edges selected.")
-                return
-
-            processed_objects = {}
-
-            for obj in sel:
-                try:
-                    # Check if it's an edge component
-                    if '.e[' in obj:
-                        mesh = obj.split('.')[0]
-                        if mesh not in processed_objects:
-                            processed_objects[mesh] = []
-                        processed_objects[mesh].append(obj)
-                    elif cmds.objectType(obj) == 'transform':
-                        shapes = cmds.listRelatives(obj, shapes=True, fullPath=True) or []
-                        for shape in shapes:
-                            if cmds.objectType(shape) == 'mesh':
-                                processed_objects[shape] = None
-                    elif cmds.objectType(obj) == 'mesh':
-                        processed_objects[obj] = None
-                except Exception as e:
-                    cmds.warning(f"Error processing object {obj}: {str(e)}")
-
-            for mesh, edges in processed_objects.items():
-                self.apply_crease_to_mesh(mesh, presetnum, edges)
-
-            cmds.select(sel, replace=True)
-            cmds.inViewMessage(amg=f'<span style="color:#FFA500;">Applied Crease Preset {presetnum}</span>', pos='botRight', fade=True, fst=10, fad=1)
-        finally:
-            cmds.undoInfo(closeChunk=True)
 
     def apply_crease_to_mesh(self, mesh, presetnum, specific_edges=None):
         """
@@ -1113,6 +1025,23 @@ class HUGToolsWindow(QtWidgets.QDialog):
 
     #============input function modules===============
 
+    def show_lod_tool(self):
+        """Launch LOD tool"""
+        try:
+            importlib.reload(LOD)
+            LOD.show_lod_window()
+        except Exception as e:
+            cmds.warning(f"Error launching LOD tool: {str(e)}")
+
+    def mirrorTool(self):
+        mel.eval('source "k_mirrorToolStartUI.mel"')
+        mel.eval('k_mirrorToolStartUI()')
+
+
+
+    def AriScriptLauncherQt(self):
+        importlib.reload(AriScriptLauncherQt)
+        AriScriptLauncherQt.show()
 
     def UVSetList_view(self):
         """Launch UV Set List tool"""
@@ -1125,20 +1054,13 @@ class HUGToolsWindow(QtWidgets.QDialog):
             cmds.warning(error_msg)
             print(f"Error details: {e}")  # 详细错误信息
 
-
     def quick_rename(self):
         importlib.reload(Quick_Rename_Module)
         Quick_Rename_Module.show()
 
-
     def rename_edit(self):
         importlib.reload(Editor_Rename_Module)
         Editor_Rename_Module.show()
-
-    def UVset_swap(self):
-        importlib.reload(UVSetEditor_Module)
-        UVSetEditor_Module.show()
-
 
     def quick_export(self):
         importlib.reload(QuickExport)
@@ -1250,15 +1172,9 @@ class HUGToolsWindow(QtWidgets.QDialog):
         self.open_crease_editor_btn.setText(LANG[CURRENT_LANG]["Crease Editor"])
         self.open_uv_editor_btn.setText(LANG[CURRENT_LANG]["UV Editor"])
         
-        # more controls 
-        # self.create_fixed_crease_set_btn.setText(LANG[CURRENT_LANG]["Create Crease Set by Name"])
-        # self.crease_1_btn.setText(LANG[CURRENT_LANG]["Crease V2"])
-        # self.crease_3_btn.setText(LANG[CURRENT_LANG]["Crease V5"])
-        
         self.Toolbox_group.setTitle(LANG[CURRENT_LANG]["Toolbox"])
         self.Toolbox_QuickRename_btn.setText(LANG[CURRENT_LANG]["QuickRename"])
         self.Toolbox_Rename_btn.setText(LANG[CURRENT_LANG]["Rename"])
-        self.Toolbox_UVset_btn.setText(LANG[CURRENT_LANG]["UVSetSwap"])
         self.Toolbox_QuickExport_btn.setText(LANG[CURRENT_LANG]["QuickExport"])
         self.Toolbox_ScreenShot_btn.setText(LANG[CURRENT_LANG]["ScreenShot"])
         self.Toolbox_UnBevel_btn.setText(LANG[CURRENT_LANG]["UnBevel"])
@@ -1275,7 +1191,6 @@ class HUGToolsWindow(QtWidgets.QDialog):
         # more controls tooltip
         self.Toolbox_QuickRename_btn.setToolTip(LANG[CURRENT_LANG]["QuickRename_tip"])
         self.Toolbox_Rename_btn.setToolTip(LANG[CURRENT_LANG]["Rename_tip"])
-        self.Toolbox_UVset_btn.setToolTip(LANG[CURRENT_LANG]["UVSetSwap_tip"])
         self.Toolbox_QuickExport_btn.setToolTip(LANG[CURRENT_LANG]["QuickExport_tip"])
         self.Toolbox_ScreenShot_btn.setToolTip(LANG[CURRENT_LANG]["ScreenShot_tip"])
         self.Toolbox_UnBevel_btn.setToolTip(LANG[CURRENT_LANG]["UnBevel_tip"])
@@ -1296,6 +1211,11 @@ class HUGToolsWindow(QtWidgets.QDialog):
 
         self.uvset_list_btn.setText(LANG[CURRENT_LANG]["UV Set List"])
         self.uvset_list_btn.setToolTip(LANG[CURRENT_LANG]["UV Set List_tip"])
+
+        self.Toolbox_MirrorTool_btn.setText("MirrorTool")
+        self.Toolbox_MirrorTool_btn.setToolTip("Mirror Objects Tool")
+        self.Toolbox_LOD_btn.setText("LOD Tool")
+        self.Toolbox_LOD_btn.setToolTip("Level of Detail Tool")
 
 
 

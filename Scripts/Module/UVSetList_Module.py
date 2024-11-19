@@ -3,12 +3,14 @@ from PySide2 import QtWidgets, QtCore, QtGui
 import maya.mel as mel
 import maya.OpenMayaUI as omui
 from shiboken2 import wrapInstance
+import importlib
+
 
 # UI text dictionary
 UI_TEXTS = {
     'en_US': {
         # Window title
-        "window_title": "UV Set List Tool",
+        "window_title": "UV List Editor",
         
         # Button texts
         "btn_get": "Get",
@@ -94,7 +96,7 @@ UI_TEXTS = {
     },
     'zh_CN': {
         # Window title
-        "window_title": "UV Set List Tool",
+        "window_title": "UV List Editor",
         
         # Button texts
         "btn_get": "获取",
@@ -184,29 +186,51 @@ UI_TEXTS = {
 
 class RoundedButton(QtWidgets.QPushButton):
     """Custom rounded button class"""
-    def __init__(self, text="", icon=None):
+    def __init__(self, text="", icon=None, is_toolbar=False):
         super(RoundedButton, self).__init__(text)
         if icon:
             self.setIcon(icon)
             self.setIconSize(QtCore.QSize(24, 24))
-        self.setStyleSheet(
-            """
-            QPushButton {
-                background-color: #D0D0D0;
-                color: #303030;
-                border-radius: 10px;
-                padding: 5px;
-                font-weight: bold;
-                text-align: center;
-            }
-            QPushButton:hover {
-                background-color: #E0E0E0;
-            }
-            QPushButton:pressed {
-                background-color: #C0C0C0;
-            }
-            """
-        )
+            
+        if is_toolbar:
+            # 工栏按钮样式
+            self.setStyleSheet("""
+                QPushButton {
+                    background-color: #353535;
+                    color: #CCCCCC;
+                    border: 1px solid #555555;
+                    border-radius: 12px;
+                    padding: 4px 8px;
+                    font-size: 11px;
+                    min-height: 24px;
+                }
+                QPushButton:hover {
+                    background-color: #404040;
+                    border-color: #666666;
+                }
+                QPushButton:pressed {
+                    background-color: #303030;
+                    border-color: #777777;
+                }
+            """)
+        else:
+            # 普通按钮样式
+            self.setStyleSheet("""
+                QPushButton {
+                    background-color: #D0D0D0;
+                    color: #303030;
+                    border-radius: 10px;
+                    padding: 5px;
+                    font-weight: bold;
+                    text-align: center;
+                }
+                QPushButton:hover {
+                    background-color: #E0E0E0;
+                }
+                QPushButton:pressed {
+                    background-color: #C0C0C0;
+                }
+            """)
 
 class UVSetTableItem(QtWidgets.QTableWidgetItem):
     def __init__(self, text=""):
@@ -224,6 +248,9 @@ class UVSetList_Module_UI(QtWidgets.QDialog):
         self.setObjectName("UVSetList_Module_UI")
         self.object_list = []
         self._updating = False
+        self.swap_source_uv = None  # 添加用于存储要交换的源UV集
+        self.swap_source_obj = None  # 添加用于存储源对象
+        self.swap_mode = None  # 添加用于存储操作模式（swap或reorder）
         self.setup_ui()
         self.create_connections()
 
@@ -239,80 +266,31 @@ class UVSetList_Module_UI(QtWidgets.QDialog):
         toolbar_layout = QtWidgets.QHBoxLayout()
         toolbar_layout.setSpacing(4)
         
-        # UV Set Editor按钮
-        self.editor_btn = QtWidgets.QPushButton()
-        self.editor_btn.setIcon(QtGui.QIcon(":polyUVSetEditor.png"))
-        self.editor_btn.setFixedSize(24, 24)
-        self.editor_btn.setToolTip("Open UV Set Editor")
-        self.editor_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #353535;
-                border: 1px solid #555555;
-                border-radius: 12px;
-            }
-            QPushButton:hover {
-                background-color: #404040;
-                border-color: #666666;
-            }
-            QPushButton:pressed {
-                background-color: #303030;
-                border-color: #777777;
-            }
-        """)
+        # Maya UV Set Editor按钮
+        self.editor_btn = RoundedButton(" UV Set Editor", QtGui.QIcon(":polyUVSetEditor.png"), is_toolbar=True)
+        self.editor_btn.setToolTip("Open Maya UV Set Editor")
         self.editor_btn.clicked.connect(self.open_editor)
         
         # UV Editor按钮
-        self.uv_editor_btn = QtWidgets.QPushButton()
-        self.uv_editor_btn.setIcon(QtGui.QIcon(":textureEditor.png"))
-        self.uv_editor_btn.setFixedSize(24, 24)
+        self.uv_editor_btn = RoundedButton("UV Editor", QtGui.QIcon(":textureEditor.png"), is_toolbar=True)
         self.uv_editor_btn.setToolTip("Open UV Editor")
-        self.uv_editor_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #353535;
-                border: 1px solid #555555;
-                border-radius: 12px;
-            }
-            QPushButton:hover {
-                background-color: #404040;
-                border-color: #666666;
-            }
-            QPushButton:pressed {
-                background-color: #303030;
-                border-color: #777777;
-            }
-        """)
         self.uv_editor_btn.clicked.connect(self.open_uv_editor)
         
+        # Transfer Attributes按钮
+        self.transfer_btn = RoundedButton("Transfer", QtGui.QIcon(":polyTransfer.png"), is_toolbar=True)
+        self.transfer_btn.setToolTip("Open Transfer Attributes")
+        self.transfer_btn.clicked.connect(self.open_TransferAttributes)
+        
         # 语言切换按钮
-        self.lang_btn = QtWidgets.QPushButton()
-        self.lang_btn.setFixedSize(24, 24)
-        self.lang_btn.setToolTip(self.texts["tooltip_language"] if "tooltip_language" in self.texts else "Switch Language")
-        self.lang_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #353535;
-                color: #999999;
-                border: 1px solid #555555;
-                border-radius: 12px;
-                font-weight: bold;
-                font-size: 10px;
-            }
-            QPushButton:hover {
-                background-color: #404040;
-                border-color: #666666;
-            }
-            QPushButton:pressed {
-                background-color: #303030;
-                border-color: #777777;
-            }
-        """)
-        self.update_language_button()
-        self.lang_btn.clicked.connect(self.toggle_language)
+        self.lang_btn = RoundedButton("CN/EN", None, is_toolbar=True)
+        self.lang_btn.setToolTip(self.texts["tooltip_language"])
         
         # 添加按钮到工具栏
         toolbar_layout.addWidget(self.editor_btn)
         toolbar_layout.addWidget(self.uv_editor_btn)
-        toolbar_layout.addStretch()  # 添加弹性空间
-        toolbar_layout.addWidget(self.lang_btn)  # 语言切换按钮放在最右边
+        toolbar_layout.addWidget(self.transfer_btn)
+        toolbar_layout.addStretch()
+        toolbar_layout.addWidget(self.lang_btn)
         
         # 将工具栏添加到主布局
         main_layout.addLayout(toolbar_layout)
@@ -405,23 +383,25 @@ class UVSetList_Module_UI(QtWidgets.QDialog):
         help_btn = QtWidgets.QPushButton()
         help_btn.setIcon(QtGui.QIcon(":help.png"))
         help_btn.setFixedSize(24, 24)
+        help_btn.setToolTip(self.texts["label_help_tooltip"])
+        help_btn.setCheckable(True)
         help_btn.setStyleSheet("""
             QPushButton {
-                background-color: #353535;
-                border: 1px solid #555555;
-                border-radius: 12px;
+                background-color: transparent;
+                border: none;
             }
             QPushButton:hover {
-                background-color: #404040;
-                border-color: #666666;
+                background-color: rgba(255, 255, 255, 20);
+                border-radius: 12px;
             }
             QPushButton:pressed {
-                background-color: #303030;
-                border-color: #777777;
+                background-color: rgba(255, 255, 255, 10);
+            }
+            QPushButton:checked {
+                background-color: rgba(255, 255, 255, 30);
+                border-radius: 12px;
             }
         """)
-        help_btn.setCheckable(True)
-        help_btn.setToolTip(self.texts["label_help_tooltip"])
         mode_layout.addWidget(help_btn)
         mode_layout.addStretch()
         list_layout.addLayout(mode_layout)
@@ -481,27 +461,111 @@ class UVSetList_Module_UI(QtWidgets.QDialog):
         # Set window size
         self.resize(640, 480)
         
-        # Set group box style
-        style = """
-        QGroupBox {
-            font-weight: bold;
-            border: 1px solid #666666;
-            border-radius: 2px;
-            margin-top: 0.4em;
-            padding-top: 0.4em;
-            font-size: 11px;
-        }
-        QGroupBox::title {
-            subcontrol-origin: margin;
-            left: 8px;
-            padding: 0 2px 0 2px;
-        }
+        # 更新列表样式
+        list_style = """
+            QListWidget {
+                background-color: #2B2B2B;
+                color: #CCCCCC;
+                border: 1px solid #555555;
+                border-radius: 5px;
+            }
+            QListWidget::item:selected {
+                background-color: #4B4B4B;
+            }
+            QListWidget::item:hover {
+                background-color: #3B3B3B;
+            }
         """
         
-        # Apply style to all group boxes
-        for group in [left_group, right_group, uv_set_group, list_group, table_group]:
-            group.setStyleSheet(style)
+        self.set_list.setStyleSheet(list_style)
+        self.equal_list.setStyleSheet(list_style)
+        self.not_list.setStyleSheet(list_style)
+
+        # 更新表格样式
+        self.object_table.setStyleSheet("""
+            QTableWidget {
+                background-color: #2B2B2B;
+                color: #CCCCCC;
+                gridline-color: #444444;
+                border: 1px solid #555555;
+                border-radius: 5px;
+            }
+            QTableWidget::item:selected {
+                background-color: #3A7CA8;
+            }
+            QHeaderView::section {
+                background-color: #353535;
+                color: #CCCCCC;
+                border: 1px solid #444444;
+                padding: 4px;
+            }
+        """)
+
+        # 更新分组框样式
+        group_style = """
+            QGroupBox {
+                font-weight: bold;
+                border: 1px solid #666666;
+                border-radius: 5px;
+                margin-top: 0.5em;
+                padding-top: 0.5em;
+                font-size: 11px;
+                color: #CCCCCC;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 3px;
+            }
+        """
+
+        # 更新单选按钮样式
+        radio_style = """
+            QRadioButton {
+                color: #CCCCCC;
+                spacing: 5px;
+            }
+            QRadioButton::indicator {
+                width: 13px;
+                height: 13px;
+            }
+            QRadioButton::indicator:unchecked {
+                border: 2px solid #555555;
+                background-color: #2B2B2B;
+                border-radius: 7px;
+            }
+            QRadioButton::indicator:checked {
+                border: 2px solid #555555;
+                background-color: #FFFFFF;
+                border-radius: 7px;
+            }
+        """
         
+        self.and_radio.setStyleSheet(radio_style)
+        self.or_radio.setStyleSheet(radio_style)
+
+        # 更新帮助文本样式
+        self.help_text.setStyleSheet("""
+            QLabel {
+                background-color: #2B2B2B;
+                color: #CCCCCC;
+                padding: 8px;
+                border-radius: 5px;
+                border: 1px solid #555555;
+                font-size: 11px;
+            }
+        """)
+
+        # 设置窗口整体样式
+        self.setStyleSheet("""
+            QDialog {
+                background-color: #373737;
+            }
+            QLabel {
+                color: #CCCCCC;
+            }
+        """)
+
         # Set table properties
         self.object_table.setSortingEnabled(False)
         self.object_table.setAlternatingRowColors(True)
@@ -510,26 +574,10 @@ class UVSetList_Module_UI(QtWidgets.QDialog):
         self.object_table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectItems)
         self.object_table.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
         
-        # Set table style
-        self.object_table.setStyleSheet("""
-            QTableWidget {
-                background-color: #2b2b2b;
-                gridline-color: #444444;
-                color: #cccccc;
-            }
-            QTableWidget::item:selected {
-                background-color: #3a7ca8;
-            }
-            QHeaderView::section {
-                background-color: #353535;
-                color: #cccccc;
-                border: 1px solid #444444;
-                padding: 4px;
-            }
-        """)
-        
-        # Add right-click menu to header
-        self.object_table.horizontalHeader().setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+        # 确保表头也设置了上下文菜单策略
+        header = self.object_table.horizontalHeader()
+        header.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+        header.customContextMenuRequested.connect(self.show_header_context_menu)
 
 #====== UI and Function Connections ======
 
@@ -953,38 +1001,97 @@ class UVSetList_Module_UI(QtWidgets.QDialog):
 #====== Context Menu Functions ======
 
     def show_context_menu(self, pos):
-        """Show right-click menu"""
+        """Show right-click menu for table cells"""
         item = self.object_table.itemAt(pos)
         if not item:
             return
         
-        if item.column() == 0:  # Object column does not show menu
-            return
-            
         menu = QtWidgets.QMenu(self)
-        
-        # Get current object and UV set name
         obj_name = self.object_table.item(item.row(), 0).text()
-        uv_set = self.object_table.horizontalHeaderItem(item.column()).text()
         
-        # Add menu items
-        new_action = menu.addAction(self.texts["menu_new"])
-        copy_action = menu.addAction(self.texts["menu_copy"])
-        rename_action = menu.addAction(self.texts["menu_rename"])
-        menu.addSeparator()
-        delete_action = menu.addAction(self.texts["menu_delete"])
+        if item.column() == 0:  # 对象名称列
+            # 添加新建UV set选项
+            new_action = menu.addAction(self.texts["menu_new"])
+            action = menu.exec_(self.object_table.viewport().mapToGlobal(pos))
+            if action == new_action:
+                menu.hide()
+                self.create_new_uv_set_for_object(obj_name)
+        else:  # UV set列
+            uv_set = self.object_table.horizontalHeaderItem(item.column()).text()
+            
+            if self.swap_source_uv is None:
+                # 如果没有选择源UV集，按照新的顺序显示菜单项：
+                new_action = menu.addAction(self.texts["menu_new"])         # 1. 新建
+                copy_action = menu.addAction(self.texts["menu_copy"])       # 2. 复制
+                rename_action = menu.addAction(self.texts["menu_rename"])   # 3. 重命名
+                menu.addSeparator()                                         # 4. [分隔线]
+                get_swap_action = menu.addAction("Get UV Set for Swap")     # 5. 获取交换
+                get_reorder_action = menu.addAction("Get UV Set for Reorder") # 6. 获取重排序
+                menu.addSeparator()                                         # 7. [分隔线]
+                delete_action = menu.addAction(self.texts["menu_delete"])   # 8. 删除
+            else:
+                # 如果已经选择了源UV集，显示交换选项
+                if self.swap_mode == "swap":
+                    swap_action = menu.addAction(f"Swap with '{self.swap_source_uv}'")
+                else:  # reorder mode
+                    swap_action = menu.addAction(f"Reorder with '{self.swap_source_uv}'")
+                menu.addSeparator()
+                cancel_swap_action = menu.addAction("Cancel Operation")
+            
+            action = menu.exec_(self.object_table.viewport().mapToGlobal(pos))
+            
+            if self.swap_source_uv is None:
+                if action == get_swap_action:
+                    menu.hide()
+                    self.swap_source_uv = uv_set
+                    self.swap_source_obj = obj_name
+                    self.swap_mode = "swap"
+                    cmds.inViewMessage(
+                        amg=f'<span style="color:#FFA500;">Selected \'{uv_set}\' for swap. Now select another UV set to swap with.</span>', 
+                        pos='botRight', fade=True, fst=3, fad=1
+                    )
+                elif action == get_reorder_action:  # 新增处理
+                    menu.hide()
+                    self.swap_source_uv = uv_set
+                    self.swap_source_obj = obj_name
+                    self.swap_mode = "reorder"
+                    cmds.inViewMessage(
+                        amg=f'<span style="color:#FFA500;">Selected \'{uv_set}\' for reorder. Now select another UV set to reorder with.</span>', 
+                        pos='botRight', fade=True, fst=3, fad=1
+                    )
+                elif action == new_action:
+                    menu.hide()
+                    self.create_new_uv_set_for_object(obj_name)
+                elif action == copy_action:
+                    menu.hide()
+                    self.copy_uv_set(obj_name, uv_set)
+                elif action == rename_action:
+                    menu.hide()
+                    self.show_rename_dialog(item)
+                elif action == delete_action:
+                    menu.hide()
+                    self.delete_uv_set(item)
+            else:
+                if action == swap_action:
+                    menu.hide()
+                    if self.swap_mode == "swap":
+                        self.swap_uv_sets(self.swap_source_obj, self.swap_source_uv, obj_name, uv_set)
+                    else:  # reorder mode
+                        self.reorder_uv_sets(self.swap_source_obj, self.swap_source_uv, obj_name, uv_set)
+                    self.swap_source_uv = None
+                    self.swap_source_obj = None
+                    self.swap_mode = None
+                elif action == cancel_swap_action:
+                    menu.hide()
+                    self.swap_source_uv = None
+                    self.swap_source_obj = None
+                    self.swap_mode = None
+                    cmds.inViewMessage(
+                        amg='<span style="color:#FFA500;">Operation cancelled</span>', 
+                        pos='botRight', fade=True, fst=3, fad=1
+                    )
         
-        # Execute menu
-        action = menu.exec_(self.object_table.viewport().mapToGlobal(pos))
-        
-        if action == new_action:
-            self.create_new_uv_set(obj_name)
-        elif action == copy_action:
-            self.copy_uv_set(obj_name, uv_set)
-        elif action == rename_action:
-            self.show_rename_dialog(item)
-        elif action == delete_action:
-            self.delete_uv_set(item)
+        menu.deleteLater()
 
     def show_rename_dialog(self, item):
         """Show rename dialog"""
@@ -1072,24 +1179,41 @@ class UVSetList_Module_UI(QtWidgets.QDialog):
     def show_header_context_menu(self, pos):
         """Show right-click menu for header"""
         column = self.object_table.horizontalHeader().logicalIndexAt(pos)
-        if column == 0:  # Object column does not show menu
-            return
         
         menu = QtWidgets.QMenu(self)
-        uv_set = self.object_table.horizontalHeaderItem(column).text()
         
-        # Add menu items
-        rename_column_action = menu.addAction(self.texts["menu_header_rename_format"].format(uv_set))
-        menu.addSeparator()
-        delete_column_action = menu.addAction(self.texts["menu_header_delete_format"].format(uv_set))
+        if column == 0:  # 对象列
+            # 添加新建UV set选项
+            new_action = menu.addAction(self.texts["menu_new"])
+            action = menu.exec_(self.object_table.horizontalHeader().viewport().mapToGlobal(pos))
+            if action == new_action:
+                menu.hide()
+                self.create_new_uv_set_for_selected()
+        else:  # UV set列
+            header_item = self.object_table.horizontalHeaderItem(column)
+            if not header_item:
+                # 空白区域，添加新建UV set选项
+                new_action = menu.addAction(self.texts["menu_new"])
+                action = menu.exec_(self.object_table.horizontalHeader().viewport().mapToGlobal(pos))
+                if action == new_action:
+                    menu.hide()
+                    self.create_new_uv_set_for_selected()
+            else:
+                # 现有UV set，显示重命名和删除选项
+                uv_set = header_item.text()
+                rename_column_action = menu.addAction(self.texts["menu_header_rename_format"].format(uv_set))
+                menu.addSeparator()
+                delete_column_action = menu.addAction(self.texts["menu_header_delete_format"].format(uv_set))
+                
+                action = menu.exec_(self.object_table.horizontalHeader().viewport().mapToGlobal(pos))
+                if action == delete_column_action:
+                    menu.hide()
+                    self.delete_column_uv_sets(column)
+                elif action == rename_column_action:
+                    menu.hide()
+                    self.rename_column_uv_sets(column)
         
-        # Execute menu
-        action = menu.exec_(self.object_table.horizontalHeader().viewport().mapToGlobal(pos))
-        
-        if action == delete_column_action:
-            self.delete_column_uv_sets(column)
-        elif action == rename_column_action:
-            self.rename_column_uv_sets(column)
+        menu.deleteLater()
 
     def delete_column_uv_sets(self, column):
         """Delete all UV sets in the specified column"""
@@ -1234,6 +1358,44 @@ class UVSetList_Module_UI(QtWidgets.QDialog):
         except Exception as e:
             cmds.warning(f"Failed to rename UV sets: {str(e)}")
 
+    def reorder_uv_sets(self, source_obj, source_uv, target_obj, target_uv):
+        """重新排序两个UV集"""
+        try:
+            # 保存当前状态
+            current_objects = self.object_list.copy()
+            selected_objects = cmds.ls(selection=True)
+            
+            # 在源对象上执行重排序
+            cmds.polyUVSet(source_obj, reorder=True, uvSet=source_uv, newUVSet=target_uv)
+            
+            # 如果目标对象与源对象不同，在目标对象上也执行重排序
+            if target_obj != source_obj:
+                cmds.polyUVSet(target_obj, reorder=True, uvSet=source_uv, newUVSet=target_uv)
+            
+            # 临时保存当前选择
+            temp_selection = cmds.ls(selection=True)
+            
+            # 选择所有需要显示的对象以确保get_set_list能获取它们
+            cmds.select(current_objects)
+            
+            # 更新UI - 使用get_set_list而不是update_table_and_lists来确保获取最新的UV集顺序
+            self.get_set_list()  # 这会重新获取所有UV集并按正确顺序显示
+            
+            # 恢复原始选择
+            if selected_objects:
+                cmds.select(selected_objects)
+            
+            cmds.inViewMessage(
+                amg=f'<span style="color:#FFA500;">Reordered UV sets \'{source_uv}\' and \'{target_uv}\'</span>', 
+                pos='botRight', fade=True, fst=3, fad=1
+            )
+            
+        except Exception as e:
+            cmds.inViewMessage(
+                amg=f'<span style="color:#FF0000;">Failed to reorder UV sets: {str(e)}</span>', 
+                pos='botRight', fade=True, fst=3, fad=1
+            )
+
 #====== Utility Functions ======
 
     def open_editor(self):
@@ -1246,6 +1408,12 @@ class UVSetList_Module_UI(QtWidgets.QDialog):
             mel.eval('TextureViewWindow')
         except Exception as e:
             cmds.warning(f"Error opening UV Editor: {str(e)}")
+
+    def open_TransferAttributes(self):
+        """Open performTransferAttributes window"""
+        mel.eval('performTransferAttributes 1;')
+        
+
         
 
     def on_mode_changed(self):
@@ -1335,9 +1503,15 @@ class UVSetList_Module_UI(QtWidgets.QDialog):
                 cmds.select(obj_name)
                 # Switch UV set
                 cmds.polyUVSet(obj_name, currentUVSet=True, uvSet=uv_set)
-                print(f"Switched to UV set: {uv_set}")
+                cmds.inViewMessage(
+                    amg=f'<span style="color:#FFA500;">Switched to UV set: {uv_set}</span>', 
+                    pos='botRight', fade=True, fst=3, fad=1
+                )
             except Exception as e:
-                cmds.warning(f"Failed to switch UV set: {str(e)}")
+                cmds.inViewMessage(
+                    amg=f'<span style="color:#FF0000;">Failed to switch UV set: {str(e)}</span>', 
+                    pos='botRight', fade=True, fst=3, fad=1
+                )
 
     def on_header_clicked(self, column):
         """Handle header click event"""
@@ -1417,10 +1591,123 @@ class UVSetList_Module_UI(QtWidgets.QDialog):
         
         # 更新工具提示
         self.editor_btn.setToolTip(self.texts["tooltip_editor"] if "tooltip_editor" in self.texts else "Open UV Editor")
-        self.uv_editor_btn.setToolTip(self.texts["tooltip_uv_editor"] if "tooltip_uv_editor" in self.texts else "Open UV Editor")
         self.lang_btn.setToolTip(self.texts["tooltip_language"] if "tooltip_language" in self.texts else "Switch Language")
         
         print("Language switch complete")  # 调试信息
+
+    def create_new_uv_set_for_selected(self):
+        """为选中的对象创建新的UV set"""
+        selected_objects = cmds.ls(selection=True)
+        if not selected_objects:
+            # 如果没有选中对象，使用表格中的所有对象
+            selected_objects = [self.object_table.item(row, 0).text() 
+                                  for row in range(self.object_table.rowCount())]
+        
+        dialog = QtWidgets.QInputDialog(self)
+        dialog.setWindowTitle(self.texts["dialog_new_title"])
+        dialog.setLabelText(self.texts["dialog_new_label"])
+        dialog.setTextValue("uvSet1")
+        
+        if dialog.exec_() == QtWidgets.QDialog.Accepted:
+            new_name = dialog.textValue()
+            if new_name:
+                try:
+                    # 保存当前状态
+                    current_objects = self.object_list.copy()
+                    
+                    # 为所有选中对象创建UV set
+                    for obj in selected_objects:
+                        try:
+                            cmds.polyUVSet(obj, create=True, uvSet=new_name)
+                            print(f"Created new UV set: {new_name} on {obj}")
+                        except Exception as e:
+                            print(f"Error creating UV set for {obj}: {str(e)}")
+                    
+                    # 更新UI
+                    self.object_list = current_objects
+                    self.update_table_and_lists()
+                    
+                    # 恢复选择
+                    if selected_objects:
+                        cmds.select(selected_objects)
+                        
+                except Exception as e:
+                    cmds.warning(f"Failed to create UV set: {str(e)}")
+
+    def create_new_uv_set_for_object(self, obj_name):
+        """为指定对象创建新的UV set"""
+        dialog = QtWidgets.QInputDialog(self)
+        dialog.setWindowTitle(self.texts["dialog_new_title"])
+        dialog.setLabelText(self.texts["dialog_new_label"])
+        dialog.setTextValue("uvSet1")
+        
+        if dialog.exec_() == QtWidgets.QDialog.Accepted:
+            new_name = dialog.textValue()
+            if new_name:
+                try:
+                    # 保存当前状态
+                    current_objects = self.object_list.copy()
+                    selected_objects = cmds.ls(selection=True)
+                    
+                    # 创建UV set
+                    cmds.polyUVSet(obj_name, create=True, uvSet=new_name)
+                    print(f"Created new UV set: {new_name} on {obj_name}")
+                    
+                    # 更新UI
+                    self.object_list = current_objects
+                    self.update_table_and_lists()
+                    
+                    # 恢复选择
+                    if selected_objects:
+                        cmds.select(selected_objects)
+                        
+                except Exception as e:
+                    cmds.warning(f"Failed to create UV set: {str(e)}")
+
+    def swap_uv_sets(self, source_obj, source_uv, target_obj, target_uv):
+        """交换两个UV集"""
+        try:
+            # 创建时UV集
+            temp_uv_name = f"TempUV_{int(cmds.timerX() * 1000)}"
+            
+            # 保存当前状态
+            current_objects = self.object_list.copy()
+            selected_objects = cmds.ls(selection=True)
+            
+            # 在源对象上执行交换
+            cmds.polyUVSet(source_obj, create=True, uvSet=temp_uv_name)
+            cmds.polyUVSet(source_obj, copy=True, uvSet=source_uv, newUVSet=temp_uv_name)
+            cmds.polyUVSet(source_obj, copy=True, uvSet=target_uv, newUVSet=source_uv)
+            cmds.polyUVSet(source_obj, copy=True, uvSet=temp_uv_name, newUVSet=target_uv)
+            cmds.polyUVSet(source_obj, delete=True, uvSet=temp_uv_name)
+            
+            # 如果目标对象与源对象不同，在目标对象上也执行交换
+            if target_obj != source_obj:
+                cmds.polyUVSet(target_obj, create=True, uvSet=temp_uv_name)
+                cmds.polyUVSet(target_obj, copy=True, uvSet=source_uv, newUVSet=temp_uv_name)
+                cmds.polyUVSet(target_obj, copy=True, uvSet=target_uv, newUVSet=source_uv)
+                cmds.polyUVSet(target_obj, copy=True, uvSet=temp_uv_name, newUVSet=target_uv)
+                cmds.polyUVSet(target_obj, delete=True, uvSet=temp_uv_name)
+            
+            # 更新UI
+            self.object_list = current_objects
+            self.update_table_and_lists()
+            
+            # 恢复选择
+            if selected_objects:
+                cmds.select(selected_objects)
+            
+            cmds.inViewMessage(
+                amg=f'<span style="color:#FFA500;">Swapped UV sets \'{source_uv}\' and \'{target_uv}\'</span>', 
+                pos='botRight', fade=True, fst=3, fad=1
+            )
+            
+        except Exception as e:
+            cmds.inViewMessage(
+                amg=f'<span style="color:#FF0000;">Failed to swap UV sets: {str(e)}</span>', 
+                pos='botRight', fade=True, fst=3, fad=1
+            )
+
 
 #====== UI Functions ======
 
