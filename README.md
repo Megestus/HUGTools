@@ -2,7 +2,7 @@
 
 ![HUGTool Logo](Icons/HUGlogo.png)
 
-[![开发版本](https://img.shields.io/badge/bata-1.2.5-blue.svg)](https://github.com/Megestus/HUGTool/releases)
+[![开发版本](https://img.shields.io/badge/bata-1.3.0-blue.svg)](https://github.com/Megestus/HUGTool/releases)
 
 
 

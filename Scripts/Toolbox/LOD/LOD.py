@@ -9,47 +9,47 @@ BUTTON_HEIGHT = 32
 WINDOW_MIN_WIDTH = 200
 BUTTON_STYLE = """
     QPushButton {
-        background-color: #2B2B2B;
-        color: #CCCCCC;
+        background-color: #404040;
+        color: #E8E8E8;
         border-radius: 4px;
         padding: 5px;
         font-weight: bold;
         text-align: center;
         font-size: 11px;
-        border: 1px solid #1E1E1E;
+        border: 1px solid #505050;
     }
     QPushButton:hover {
-        background-color: #3D3D3D;
-        border: 1px solid #5A5A5A;
+        background-color: #505050;
+        border: 1px solid #606060;
         color: #FFFFFF;
     }
     QPushButton:pressed {
-        background-color: #232323;
-        border: 1px solid #1E1E1E;
-        color: #A0A0A0;
+        background-color: #353535;
+        border: 1px solid #404040;
+        color: #CCCCCC;
     }
 """
 
 # 添加状态按钮样式
 STATE_BUTTON_STYLE = """
     QPushButton {
-        background-color: #2B2B2B;
-        color: #CCCCCC;
+        background-color: #404040;
+        color: #E8E8E8;
         border-radius: 4px;
         padding: 5px;
         font-weight: bold;
         font-size: 10px;
-        border: 1px solid #1E1E1E;
+        border: 1px solid #505050;
         min-width: 50px;
         max-width: 50px;
         height: 25px;
     }
     QPushButton:hover {
-        background-color: #3D3D3D;
-        border: 1px solid #5A5A5A;
+        background-color: #505050;
+        border: 1px solid #606060;
     }
     QPushButton:pressed {
-        background-color: #232323;
+        background-color: #353535;
     }
 """
 
@@ -148,23 +148,23 @@ class LODToolWindow(QtWidgets.QDialog):
         # Set window background color
         self.setStyleSheet("""
             QDialog {
-                background-color: #383838;
-                color: #CCCCCC;
+                background-color: #454545;
+                color: #E8E8E8;
             }
             QLabel {
-                color: #CCCCCC;
+                color: #E8E8E8;
                 font-size: 11px;
             }
             QComboBox {
-                background-color: #2B2B2B;
-                color: #CCCCCC;
-                border: 1px solid #1E1E1E;
+                background-color: #404040;
+                color: #E8E8E8;
+                border: 1px solid #505050;
                 border-radius: 3px;
                 padding: 3px;
                 min-height: 20px;
             }
             QComboBox:hover {
-                border: 1px solid #5A5A5A;
+                border: 1px solid #606060;
             }
             QComboBox::drop-down {
                 border: none;
@@ -189,10 +189,10 @@ class LODToolWindow(QtWidgets.QDialog):
         self.level_display = QtWidgets.QLabel("1")
         self.level_display.setStyleSheet("""
             QLabel {
-                color: #CCCCCC;
+                color: #E8E8E8;
                 font-size: 11px;
-                background-color: #2B2B2B;
-                border: 1px solid #1E1E1E;
+                background-color: #404040;
+                border: 1px solid #505050;
                 border-radius: 3px;
                 padding: 3px 8px;
                 min-width: 20px;
@@ -207,16 +207,16 @@ class LODToolWindow(QtWidgets.QDialog):
         self.lod_step_slider.setValue(1)
         self.lod_step_slider.setStyleSheet("""
             QSlider::groove:horizontal {
-                border: 1px solid #1E1E1E;
+                border: 1px solid #505050;
                 height: 4px;
-                background: #2B2B2B;
+                background: #404040;
                 margin: 2px 0;
                 border-radius: 2px;
             }
 
             QSlider::handle:horizontal {
-                background: #CCCCCC;
-                border: 1px solid #1E1E1E;
+                background: #E8E8E8;
+                border: 1px solid #505050;
                 width: 12px;
                 margin: -4px 0;
                 border-radius: 6px;
@@ -224,6 +224,7 @@ class LODToolWindow(QtWidgets.QDialog):
 
             QSlider::handle:horizontal:hover {
                 background: #FFFFFF;
+                border: 1px solid #606060;
             }
         """)
 
@@ -301,7 +302,7 @@ class LODToolWindow(QtWidgets.QDialog):
         line = QtWidgets.QFrame()
         line.setFrameShape(QtWidgets.QFrame.HLine)
         line.setFrameShadow(QtWidgets.QFrame.Sunken)
-        line.setStyleSheet("background-color: #2B2B2B;")
+        line.setStyleSheet("background-color: #505050;")
         main_layout.addWidget(line)
         
         # Add main control buttons
@@ -309,13 +310,13 @@ class LODToolWindow(QtWidgets.QDialog):
         main_layout.addWidget(self.use_lods_btn)
         main_layout.addWidget(self.fix_lods_btn)
         main_layout.addWidget(self.display_all_btn)
-        main_layout.addWidget(self.break_lod_btn)  # 添加Break LOD按钮
+        main_layout.addWidget(self.break_lod_btn)  
         
         # Add another spacing line
         line2 = QtWidgets.QFrame()
         line2.setFrameShape(QtWidgets.QFrame.HLine)
         line2.setFrameShadow(QtWidgets.QFrame.Sunken)
-        line2.setStyleSheet("background-color: #2B2B2B;")
+        line2.setStyleSheet("background-color: #505050;")
         main_layout.addWidget(line2)
         
         # Add rename buttons

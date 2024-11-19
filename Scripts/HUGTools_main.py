@@ -69,7 +69,6 @@ def get_script_path():
 import Module.Editor_Rename_Module as Editor_Rename_Module
 import Module.Quick_Rename_Module as Quick_Rename_Module
 import Module.NormalEdit_Module as NormalEdit_Module
-import Module.More_Tools_Module as More_Tools_Module
 import Module.UnBevel_Module as UnBevel_Module
 import Module.UVSetList_Module as UVSetList_Module
 from Toolbox.QuickExport import QuickExport
@@ -234,14 +233,13 @@ class HUGToolsWindow(QtWidgets.QDialog):
                 full_path = full_path.resolve()
                 
                 if full_path.exists():
-                    print(f"Found icon at: {full_path}")
                     return QtGui.QIcon(str(full_path))
                 else:
-                    print(f"Warning: Icon file '{full_path}' does not exist. Using default icon.")
+                    # 静默失败，使用默认图标
                     return QtGui.QIcon(default_icon)
             
         except Exception as e:
-            print(f"Error loading icon: {str(e)}")
+            # 静默失败，使用默认图标
             return QtGui.QIcon(default_icon)
 
     def create_widgets(self):
@@ -532,17 +530,16 @@ class HUGToolsWindow(QtWidgets.QDialog):
         self.open_crease_editor_btn.clicked.connect(self.open_crease_set_editor)
         self.open_uv_editor_btn.clicked.connect(self.open_uv_editor)
 
-
         self.Toolbox_QuickRename_btn.clicked.connect(self.quick_rename)
         self.Toolbox_Rename_btn.clicked.connect(self.rename_edit)
         self.Toolbox_QuickExport_btn.clicked.connect(self.quick_export)
         self.Toolbox_ScreenShot_btn.clicked.connect(self.screen_shot)
         self.Toolbox_UnBevel_btn.clicked.connect(self.unbevel_tool)
-        self.Toolbox_More_btn.clicked.connect(self.show_more_tools)
         self.Toolbox_CalcDistance_btn.clicked.connect(self.calculate_distance)
         self.Toolbox_AriScriptLauncherQt_btn.clicked.connect(self.AriScriptLauncherQt)
         self.Toolbox_MirrorTool_btn.clicked.connect(self.mirrorTool)
         self.Toolbox_LOD_btn.clicked.connect(self.show_lod_tool)
+        
         # connect help button
         self.help_btn.clicked.connect(self.show_help)
 
@@ -1128,9 +1125,6 @@ class HUGToolsWindow(QtWidgets.QDialog):
         except Exception as e:
             cmds.warning(f"Error calculating length: {str(e)}")
 
-    def show_more_tools(self):
-        importlib.reload(More_Tools_Module)
-        More_Tools_Module.show()
 
 
 
@@ -1178,7 +1172,6 @@ class HUGToolsWindow(QtWidgets.QDialog):
         self.Toolbox_QuickExport_btn.setText(LANG[CURRENT_LANG]["QuickExport"])
         self.Toolbox_ScreenShot_btn.setText(LANG[CURRENT_LANG]["ScreenShot"])
         self.Toolbox_UnBevel_btn.setText(LANG[CURRENT_LANG]["UnBevel"])
-        self.Toolbox_More_btn.setText(LANG[CURRENT_LANG]["More"])
         self.Toolbox_CalcDistance_btn.setText(LANG[CURRENT_LANG]["Distance"])
         self.Toolbox_CalcDistance_btn.setToolTip(LANG[CURRENT_LANG]["Distance_tip"])
 
@@ -1194,7 +1187,6 @@ class HUGToolsWindow(QtWidgets.QDialog):
         self.Toolbox_QuickExport_btn.setToolTip(LANG[CURRENT_LANG]["QuickExport_tip"])
         self.Toolbox_ScreenShot_btn.setToolTip(LANG[CURRENT_LANG]["ScreenShot_tip"])
         self.Toolbox_UnBevel_btn.setToolTip(LANG[CURRENT_LANG]["UnBevel_tip"])
-        self.Toolbox_More_btn.setToolTip(LANG[CURRENT_LANG]["More_tip"])
         self.Toolbox_CalcDistance_btn.setToolTip(LANG[CURRENT_LANG]["Distance_tip"])
 
         self.toggle_crease_edge_btn.setText(LANG[CURRENT_LANG]["Crease"])
