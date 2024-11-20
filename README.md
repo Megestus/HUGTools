@@ -70,7 +70,7 @@ HUGTool是一款专为团队设计的高效建模工具集。它集成了一系�
 - 请确保Maya具有Python3.x环境
 
 
-#### 📋 [更新日志](./log.md)
+#### 📋 [更新日志](https://megestus.github.io/HUGTools/Doc/log.html)
 
 
 
