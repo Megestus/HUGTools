@@ -9,12 +9,8 @@ import sys
 import maya.OpenMayaUI as omui
 from shiboken2 import wrapInstance
 from pathlib import Path
-<<<<<<< Updated upstream
-
-=======
 from Toolbox.LOD import LOD
 import subprocess
->>>>>>> Stashed changes
 
 # Define constants
 HUGTOOL_VERSION = "1.3.0 Beta"
@@ -80,7 +76,7 @@ from Toolbox.QuickExport import QuickExport
 from Toolbox.ViewCapture import screen_shot
 from Toolbox.AriScripts import AriScriptLauncherQt
 import Toolbox.MirrorTool as k_mirrorToolStartUI
-import Toolbox.LOD as LOD
+
 
 # based on system encoding, default use english
 CURRENT_LANG = 'en_US'
