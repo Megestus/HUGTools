@@ -9,7 +9,12 @@ import sys
 import maya.OpenMayaUI as omui
 from shiboken2 import wrapInstance
 from pathlib import Path
+<<<<<<< Updated upstream
 
+=======
+from Toolbox.LOD import LOD
+import subprocess
+>>>>>>> Stashed changes
 
 # Define constants
 HUGTOOL_VERSION = "1.3.0 Beta"
@@ -83,112 +88,140 @@ CURRENT_LANG = 'en_US'
 # Language dictionary
 LANG = {
     'en_US': {
+        # Display Control Group
         "Display Control": "Display Control",
         "Normal": "Normal",
         "Normal Size:": "Normal Size:",
+        
+        # Import/Export Group
+        "Import/Export": "Import/Export",
+        "Import OBJ": "Import",
+        "Export OBJ": "Export",
+        "Import FBX": "Import",
+        "Export FBX": "Export",
+        "Import_tip": "Import OBJ file with auto cleanup",
+        "Export_tip": "Export OBJ file with group names",
+        "Switch Format": "Switch Format",
+        "Current Format": "Current Format: {}",
+        
+        # Editor Group
+        "Editor": "Editor",
         "NormalEdit": "NormalEdit",
-        "Edge Display Control": "Edge Display Control",
-        "Soft": "Soft",
-        "Hard": "Hard",
-        "MapBorders": "UV Borders",
+        "Crease Editor": "Crease Editor",
+        "UV Editor": "UV Editor",
+        "UV Editor_tip": "Open UV Editor window",
+        "UV Set List": "UVsL Editor",
+        "UV Set List_tip": "Open UV Set List Editor tool",
+        
+        # Select Control Group
+        "Select Control": "Select Control",
         "Select Hard Edges": "Hard Edges",
         "Select UV Border Edge": "S/H by UvB",
         "Planar Projection": "Planar UV",
         "UV Layout by Hard Edges": "UV Layout",
-        "Editor": "Editor",
-        "Crease Editor": "Crease Editor",
-        "Create Crease Set by Name": "Create Crease Set by Name",
-        "Crease V2": "Crease V2",
-        "Crease V5": "Crease V5",
+        "EdgeToCurve": "Edge2Curve",
+        "EdgeToCurve_tip": "Convert edges to NURBS curves",
+        
+        # Toolbox Group
         "Toolbox": "Toolbox",
         "QuickRename": "QuickRename",
-        "Rename": "Rename",
-        "QuickExport": "QuickExport",
-        "ScreenShot": "ScreenShot",
-        "document": "document",
-        "Help": "Help",
-        "Switch Language": "Switch Language",
-        "More": "More",
-        "More Tools": "More Tools",
         "QuickRename_tip": "Quick rename tool for batch renaming objects",
+        "Rename": "Rename",
         "Rename_tip": "Advanced rename editor with more options",
+        "QuickExport": "QuickExport",
         "QuickExport_tip": "Quick export tool for exporting objects",
+        "ScreenShot": "ScreenShot",
         "ScreenShot_tip": "Capture viewport screenshots",
-        "More_tip": "More independent tools",
-        "Select Control": "Select Control",
-        "Crease": "Crease",
-        "Crease_tip": "Toggle crease edge display",
         "UnBevel": "UnBevel",
         "UnBevel_tip": "Tool for unbeveling edges",
         "Distance": "Distance",
         "Distance_tip": "Calculate edge length",
-        "EdgeToCurve": "Edge2Curve",
-        "EdgeToCurve_tip": "Convert edges to NURBS curves",
-        "UV Editor": "UV Editor",
-        "UV Editor_tip": "Open UV Editor window",
+        "AriScript": "AriScript",
+        "AriScript_tip": "open AriScript tools",
+        
+        # Display Controls
+        "Crease_tip": "Toggle Crease Edge Display\n\nShow/Hide crease edges",
+        "MapBorders": "Toggle UV Border Display\n\nShow/Hide UV borders",
+        "Map Borders On": "UV Borders On",
+        "Map Borders Off": "UV Borders Off",
+        
+        # Measurement
         "Please select edges": "Please select edges",
         "Please select edges to measure": "Please select edges to measure",
         "Length": "Length",
-        "Map Borders On": "UV Borders On",
-        "Map Borders Off": "UV Borders Off",
-        "UV Set List": "UVsL Editor",
-        "UV Set List_tip": "Open UV Set List Editor tool",
-        "AriScript": "AriScript",
-        "AriScript_tip": "open AriScript tools",
+        
+        # Bottom UI Elements
+        "document": "document",
+        "Help": "Help",
+        "Switch Language": "Switch Language"
     },
     'zh_CN': {
+        # 显示控制组
         "Display Control": "显示控制",
         "Normal": "法线",
         "Normal Size:": "法线大小",
+        
+        # 导入导出组
+        "Import/Export": "导入/导出",
+        "Import OBJ": "导入",
+        "Export OBJ": "导出",
+        "Import FBX": "导入",
+        "Export FBX": "导出",
+        "Import_tip": "导入OBJ文件并自动清理",
+        "Export_tip": "导出OBJ文件并保留组名",
+        "Switch Format": "切换格式",
+        "Current Format": "当前格式: {}",
+        
+        # 编辑器组
+        "Editor": "编辑器",
         "NormalEdit": "法线编辑器",
-        "Edge Display Control": "边显示控制",
-        "Soft": "软边",
-        "Hard": "硬边",
-        "MapBorders": "UV边界",
+        "Crease Editor": "折痕编辑器",
+        "UV Editor": "UV编辑器",
+        "UV Editor_tip": "打开UV编辑器窗口",
+        "UV Set List": "UV集列表器",
+        "UV Set List_tip": "打开UV集列表编辑器工具",
+        
+        # 选择控制组
+        "Select Control": "选择控制",
         "Select Hard Edges": "选择硬边",
         "Select UV Border Edge": "UV边界软硬边",
         "Planar Projection": "平面投影",
         "UV Layout by Hard Edges": "硬边UV布局",
-        "Editor": "编辑器",
-        "Crease Editor": "折痕编辑器",
-        "Create Crease Set by Name": "按名称创建折痕集",
-        "Crease V2": "折痕 V2",
-        "Crease V5": "折痕 V5",
+        "EdgeToCurve": "边转曲线",
+        "EdgeToCurve_tip": "将边转换为NURBS曲线",
+        
+        # 工具箱组
         "Toolbox": "工具箱",
         "QuickRename": "快速重命名",
-        "Rename": "重命名",
-        "QuickExport": "快速导出",
-        "ScreenShot": "截图",
-        "document": "文档",
-        "Help": "帮助",
-        "Switch Language": "切换语言",
-        "More": "更多",
-        "More Tools": "更多工具",
         "QuickRename_tip": "批量重命名工具",
+        "Rename": "重命名",
         "Rename_tip": "高级重命名编辑器",
+        "QuickExport": "快速导出",
         "QuickExport_tip": "快速导出工具",
+        "ScreenShot": "截图",
         "ScreenShot_tip": "视口截图工具",
-        "More_tip": "更多工具",
-        "Select Control": "选择控制",
-        "Crease": "折边",
-        "Crease_tip": "切换折边显示",
         "UnBevel": "倒角还原",
         "UnBevel_tip": "边缘倒角还原工具",
         "Distance": "测距",
         "Distance_tip": "计算边长",
-        "EdgeToCurve": "边转曲线",
-        "EdgeToCurve_tip": "将边转换为NURBS曲线",
-        "UV Editor": "UV编辑器",
-        "UV Editor_tip": "打开UV编辑器窗口",
+        "AriScript": "AriScript工具集",
+        "AriScript_tip": "打开AriScript工具集",
+        
+        # 显示控制
+        "Crease_tip": "切换折边显示",
+        "MapBorders": "UV边界",
+        "Map Borders On": "UV边界显示开启",
+        "Map Borders Off": "UV边界显示关闭",
+        
+        # 测量
         "Please select edges": "请选择边",
         "Please select edges to measure": "请选择要测量的边",
         "Length": "长度",
-        "Map Borders On": "UV边界显示开启",
-        "Map Borders Off": "UV边界显示关闭",
-        "UV Set List": "UV集列表器",
-        "UV Set List_tip": "打开UV集列表编辑器工具",
-        "AriScript": "AriScript工具集",
-        "AriScript_tip": "打开AriScript工具集",
+        
+        # 底部UI元素
+        "document": "文档",
+        "Help": "帮助",
+        "Switch Language": "切换语言"
     }
 }
 
@@ -202,19 +235,21 @@ class HUGToolsWindow(QtWidgets.QDialog):
         self.setWindowTitle(HUGTOOL_TITLE)
         self.setMinimumWidth(280)
 
-        # 使用Scripts目录路径获取图标
+        # Get icon from Scripts directory
         icon_path = get_script_path() / "Icons" / HUGTOOL_ICON
         if os.path.exists(icon_path):
             self.setWindowIcon(QtGui.QIcon(str(icon_path)))
         else:
             print(f"Warning: Icon file '{icon_path}' does not exist.")
 
-        # set window flags to always stay on top
+        # Set window flags to always stay on top
         self.setWindowFlags(self.windowFlags() | QtCore.Qt.Tool)
         
-        # initialize toggle_state
+        # Initialize states
         self.toggle_state = False
         self.crease_edge_state = False  
+        
+        self.current_format = "OBJ"  # Track current format state
         
         self.create_widgets()
         self.create_layouts()
@@ -226,20 +261,20 @@ class HUGToolsWindow(QtWidgets.QDialog):
         """
         try:
             if isinstance(icon_path, str):
-                # 所有图标都从Scripts目录下加载
+                # Load all icons from Scripts directory
                 full_path = get_script_path() / icon_path
                 
-                # 确保路径是绝对路径
+                # Ensure path is absolute
                 full_path = full_path.resolve()
                 
                 if full_path.exists():
                     return QtGui.QIcon(str(full_path))
                 else:
-                    # 静默失败，使用默认图标
+                    # Silent fail, use default icon
                     return QtGui.QIcon(default_icon)
             
         except Exception as e:
-            # 静默失败，使用默认图标
+            # Silent fail, use default icon
             return QtGui.QIcon(default_icon)
 
     def create_widgets(self):
@@ -290,21 +325,21 @@ class HUGToolsWindow(QtWidgets.QDialog):
         # Edge display module
         self.toggle_softEdge_btn = RoundedButton("", icon=QtGui.QIcon(":polySoftEdge.png"))
         self.toggle_softEdge_btn.setToolTip("Toggle Soft Edge Display\n\nShow/Hide soft edges")
-        self.toggle_softEdge_btn.setFixedSize(52, 35)  # 设置固定大小的正方形按钮
+        self.toggle_softEdge_btn.setFixedSize(52, 35)  # Set size button
 
         self.toggle_hardedge_btn = RoundedButton("", icon=QtGui.QIcon(":polyHardEdge.png"))
         self.toggle_hardedge_btn.setToolTip("Toggle Hard Edge Display\n\nShow/Hide hard edges")
         self.toggle_hardedge_btn.setFixedSize(52, 35)
 
         self.toggle_crease_edge_btn = RoundedButton("", icon=QtGui.QIcon(":polyCrease.png"))
-        self.toggle_crease_edge_btn.setToolTip("Toggle Crease Edge Display\n\nShow/Hide crease edges")
+        self.toggle_crease_edge_btn.setToolTip(LANG[CURRENT_LANG]["Crease_tip"])
         self.toggle_crease_edge_btn.setFixedSize(52, 35)
 
         self.toggle_set_display_map_borders_btn = RoundedButton("", icon=QtGui.QIcon(":UVEditorTextureBorder.png"))
-        self.toggle_set_display_map_borders_btn.setToolTip("Toggle UV Border Display\n\nShow/Hide UV borders")
+        self.toggle_set_display_map_borders_btn.setToolTip(LANG[CURRENT_LANG]["MapBorders"])
         self.toggle_set_display_map_borders_btn.setFixedSize(52, 35)
 
-        # 修改按钮样式，使其更适合只显示图标
+        # Modify the button style to make it more suitable for displaying only icons
         icon_button_style = """
             QPushButton {
                 background-color: #D0D0D0;
@@ -350,7 +385,7 @@ class HUGToolsWindow(QtWidgets.QDialog):
         #toolbox
         self.Toolbox_group = QtWidgets.QGroupBox(LANG[CURRENT_LANG]["Toolbox"])
         
-        # 首先创建所有按钮
+        # First create all the buttons
         self.Toolbox_QuickRename_btn = RoundedButton(LANG[CURRENT_LANG]["QuickRename"], icon=QtGui.QIcon(":annotation.png"))
         self.Toolbox_Rename_btn = RoundedButton(LANG[CURRENT_LANG]["Rename"], icon=QtGui.QIcon(":quickRename.png"))
         self.Toolbox_QuickExport_btn = RoundedButton(LANG[CURRENT_LANG]["QuickExport"], icon=QtGui.QIcon(":sourceScript.png"))
@@ -359,7 +394,7 @@ class HUGToolsWindow(QtWidgets.QDialog):
         self.Toolbox_More_btn = RoundedButton(LANG[CURRENT_LANG]["More"], icon=QtGui.QIcon(":loadPreset.png"))
         self.Toolbox_CalcDistance_btn = RoundedButton("Distance", icon=QtGui.QIcon(":distanceDim.png"))
 
-        # 使用load_icon方法加载AriScript图标
+        # Load the MirrorTool icon using the load_icon method
         ari_icon = self.load_icon(
             "Toolbox/AriScripts/icons/AriScriptLauncher.png", 
             ":createBinFromSelectedNodes.png"
@@ -369,7 +404,7 @@ class HUGToolsWindow(QtWidgets.QDialog):
             icon=ari_icon
         )
 
-        # 使用load_icon方法加载MirrorTool图标
+        # Load the MirrorTool icon using the load_icon method
         mirror_icon = self.load_icon(
             "Toolbox/MirrorTool/K_Mirror_icons/ShelfIcon.png",
             ":symmetrize.png"
@@ -379,14 +414,14 @@ class HUGToolsWindow(QtWidgets.QDialog):
             icon=mirror_icon
         )
 
-        # 添加LOD工具按钮
+        # Add LOD tool button
         self.Toolbox_LOD_btn = RoundedButton(
             "LOD Tool", 
             icon=QtGui.QIcon(":nodeGrapherModeAllLarge.png")
         )
         self.Toolbox_LOD_btn.setToolTip("Level of Detail Tool")
 
-        # 设置所有按钮的工具提示
+        # Set tooltips for all buttons
         self.Toolbox_QuickRename_btn.setToolTip(LANG[CURRENT_LANG]["QuickRename_tip"])
         self.Toolbox_Rename_btn.setToolTip(LANG[CURRENT_LANG]["Rename_tip"])
         self.Toolbox_QuickExport_btn.setToolTip(LANG[CURRENT_LANG]["QuickExport_tip"])
@@ -398,6 +433,42 @@ class HUGToolsWindow(QtWidgets.QDialog):
         self.Toolbox_MirrorTool_btn.setToolTip("Mirror Objects Tool")
         self.Toolbox_LOD_btn.setToolTip("Level of Detail Tool")
 
+        # Add Import/Export group after display group
+        self.import_export_group = QtWidgets.QGroupBox(LANG[CURRENT_LANG]["Import/Export"])
+        self.import_obj_btn = RoundedButton(LANG[CURRENT_LANG]["Import OBJ"], icon=QtGui.QIcon(":importGeneric.png"))
+        self.import_obj_btn.setToolTip(LANG[CURRENT_LANG]["Import_tip"])
+        
+        self.export_obj_btn = RoundedButton(LANG[CURRENT_LANG]["Export OBJ"], icon=QtGui.QIcon(":exportGeneric.png"))
+        self.export_obj_btn.setToolTip(LANG[CURRENT_LANG]["Export_tip"])
+
+        # Modify the toggle format button style
+        self.switch_format_btn = QtWidgets.QPushButton(self.current_format)
+        self.switch_format_btn.setFixedSize(45, 30)
+        self.switch_format_btn.setToolTip(LANG[CURRENT_LANG]["Switch Format"])
+        self.switch_format_btn.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)  # Enable custom right-click menu
+        self.switch_format_btn.customContextMenuRequested.connect(self.show_format_context_menu)  # Connect right-click menu signal
+        self.switch_format_btn.setStyleSheet("""
+            QPushButton {
+                background-color: transparent;
+                border: 2px solid #aebaca;  /* border */
+                border-radius: 15px;
+                padding: 5px;
+                color: #aebaca;  /* Text color */
+                font-weight: bold;
+                font-size: 11px;
+            }
+            QPushButton:hover {
+                border-color: #3CA0DB; 
+                color: #3CA0DB;
+                background-color: rgba(44, 130, 181, 0.1);  
+            }
+            QPushButton:pressed {
+                border-color: #1C5276; 
+                color: #1C5276;
+                background-color: rgba(44, 130, 181, 0.2);
+            }
+        """)
+
 
 
 
@@ -406,11 +477,23 @@ class HUGToolsWindow(QtWidgets.QDialog):
 
 #======UI layout======
     def create_layouts(self):
+        """
+        Create and organize UI layouts
+        
+        Layout structure:
+        - Main vertical layout
+        - Display control group
+        - Import/Export group
+        - Editor group
+        - Select control group
+        - Toolbox group
+        - Bottom layout with help and language buttons
+        """
         main_layout = QtWidgets.QVBoxLayout(self)
         main_layout.setSpacing(7)
         main_layout.setContentsMargins(10, 10, 10, 10)
 
-        # display control group layout
+        # Display control group layout
         display_layout = QtWidgets.QVBoxLayout()
         
         # Normal controls
@@ -427,11 +510,23 @@ class HUGToolsWindow(QtWidgets.QDialog):
         edge_toggle_layout.addWidget(self.toggle_hardedge_btn)
         edge_toggle_layout.addWidget(self.toggle_crease_edge_btn)
         edge_toggle_layout.addWidget(self.toggle_set_display_map_borders_btn)
-        edge_toggle_layout.setSpacing(4)  # 设置按钮之间的间距
-        edge_toggle_layout.setContentsMargins(0, 0, 0, 0)  # 移除边距
+        edge_toggle_layout.setSpacing(4)  # Set spacing between buttons
+        edge_toggle_layout.setContentsMargins(0, 0, 0, 0)  # Remove margins
         display_layout.addLayout(edge_toggle_layout)
         
         self.display_group.setLayout(display_layout)
+
+        # Add Import/Export group layout
+        import_export_layout = QtWidgets.QVBoxLayout()
+        
+        # Add horizontal layout for buttons and format switcher
+        buttons_layout = QtWidgets.QHBoxLayout()
+        buttons_layout.addWidget(self.export_obj_btn)
+        buttons_layout.addWidget(self.import_obj_btn)
+        buttons_layout.addWidget(self.switch_format_btn)
+        
+        import_export_layout.addLayout(buttons_layout)
+        self.import_export_group.setLayout(import_export_layout)
 
         # select control group layout
         select_layout = QtWidgets.QGridLayout()
@@ -469,6 +564,7 @@ class HUGToolsWindow(QtWidgets.QDialog):
 
         # add groups to main layout
         main_layout.addWidget(self.display_group)
+        main_layout.addWidget(self.import_export_group)  # Add between display and editor
         main_layout.addWidget(self.editor_group)
         main_layout.addWidget(self.select_group)
         main_layout.addWidget(self.Toolbox_group)
@@ -545,6 +641,12 @@ class HUGToolsWindow(QtWidgets.QDialog):
 
         # connect language switch button
         self.lang_btn.clicked.connect(self.toggle_language)
+
+        # Add Import/Export connections
+        self.import_obj_btn.clicked.connect(self.import_obj)
+        self.export_obj_btn.clicked.connect(self.export_obj)
+
+        self.switch_format_btn.clicked.connect(self.switch_format)
 
 
 
@@ -649,16 +751,16 @@ class HUGToolsWindow(QtWidgets.QDialog):
             return
         
         try:
-            # 获取当前状态
+            # Get current status
             current_state = cmds.polyOptions(selection, q=True, displayMapBorder=True)
             if current_state is None:
-                current_state = [False]  # 默认状态
+                current_state = [False]  # Default state
                 
-            # 切换状态
+            # Switching state
             new_state = not current_state[0]
             cmds.polyOptions(selection, displayMapBorder=new_state)
             
-            # 显示消息
+            # Display message
             message = LANG[CURRENT_LANG]["Map Borders On"] if new_state else LANG[CURRENT_LANG]["Map Borders Off"]
             cmds.inViewMessage(
                 amg=f'<span style="color:#FFA500;">{message}</span>', 
@@ -698,20 +800,20 @@ class HUGToolsWindow(QtWidgets.QDialog):
         - Works on all selected objects
         - Selects UV border edges based on UV boundaries
         """
-        # 获取当前选择的对象
+        # Gets the currently selected object
         selection = cmds.ls(selection=True, type="transform")
         if not selection:
             cmds.warning("No object selected!")
             return
             
         try:
-            # 保存当前选择
+            # Save current selection
             cmds.select(clear=True)
             
             for obj in selection:
-                # 选择当前对象
+                # Select current object
                 cmds.select(obj, add=True)
-                # 执行MEL命令
+                
                 mel.eval('''
                     expandPolyGroupSelection;
                     polyUVBorderHard;
@@ -719,7 +821,7 @@ class HUGToolsWindow(QtWidgets.QDialog):
                     polyOptions -softEdge;
                 ''')
                 
-            # 显示简单的成功消息
+            
             message = "已根据UV边界设置软硬边" if CURRENT_LANG == 'zh_CN' else "Soft hard Edges Set by UV Border"
             cmds.inViewMessage(
                 amg=f'<span style="color:#FFA500;">{message}</span>', 
@@ -733,7 +835,7 @@ class HUGToolsWindow(QtWidgets.QDialog):
             error_msg = f"选择UV边界时出错: {str(e)}" if CURRENT_LANG == 'zh_CN' else f"Error selecting UV borders: {str(e)}"
             cmds.warning(error_msg)
         finally:
-            # 确保处于边选择模式
+            # Make sure you are in edge selection mode
             cmds.selectMode(component=True)
             cmds.selectType(edge=True)
 
@@ -787,8 +889,7 @@ class HUGToolsWindow(QtWidgets.QDialog):
                     cmds.xform(curve, pivots=[center_x, center_y, center_z])
                 
                 message = "Converted to curves and centered pivot"
-                cmds.inViewMessage(amg=f'<span style="color:#48AAB5">{message}</span>', 
-                                 pos='topCenter', fade=True, fst=3)
+                cmds.inViewMessage(amg=f'<span style="color:#48AAB5">{message}</span>', pos='topCenter', fade=True, fst=3)
         except Exception as e:
             cmds.warning(f"Error converting edges to curves: {str(e)}")
 
@@ -1022,6 +1123,164 @@ class HUGToolsWindow(QtWidgets.QDialog):
 
     #============input function modules===============
 
+
+    def show_format_context_menu(self, position):
+        """Display context menu for format switch button"""
+        menu = QtWidgets.QMenu()
+        
+        # Add open folder option
+        open_folder_action = menu.addAction("Open Export Folder")
+        open_folder_action.triggered.connect(self.open_export_folder)
+        
+        # Show menu at mouse position
+        menu.exec_(self.switch_format_btn.mapToGlobal(position))
+
+    def open_export_folder(self):
+        """Open export folder in system file browser"""
+        path = "C:/temp"
+        if not os.path.exists(path):
+            os.makedirs(path)  # Create folder if it doesn't exist
+        
+        # Open folder with system default file browser
+        if sys.platform == 'win32':
+            os.startfile(path)
+        elif sys.platform == 'darwin':  # macOS
+            subprocess.Popen(['open', path])
+        else:  # linux
+            subprocess.Popen(['xdg-open', path])
+
+
+
+
+
+
+
+
+    def switch_format(self):
+        """Switch between OBJ and FBX format"""
+        if self.current_format == "OBJ":
+            self.current_format = "FBX"
+            self.import_obj_btn.setText(LANG[CURRENT_LANG]["Import FBX"])
+            self.export_obj_btn.setText(LANG[CURRENT_LANG]["Export FBX"])
+            self.switch_format_btn.setText("FBX")
+        else:
+            self.current_format = "OBJ"
+            self.import_obj_btn.setText(LANG[CURRENT_LANG]["Import OBJ"])
+            self.export_obj_btn.setText(LANG[CURRENT_LANG]["Export OBJ"])
+            self.switch_format_btn.setText("OBJ")
+        
+        # Update button connections
+        self.import_obj_btn.clicked.disconnect()
+        self.export_obj_btn.clicked.disconnect()
+        
+        if self.current_format == "OBJ":
+            self.import_obj_btn.clicked.connect(self.import_obj)
+            self.export_obj_btn.clicked.connect(self.export_obj)
+        else:
+            self.import_obj_btn.clicked.connect(self.import_fbx)
+            self.export_obj_btn.clicked.connect(self.export_fbx)
+
+    def import_fbx(self):
+        """Import FBX file using MEL function"""
+        try:
+            mel_file = get_script_path() / "Toolbox" / "ImportExport" / "ImportExport.mel"
+            if mel_file.exists():
+                mel.eval(f'source "{str(mel_file).replace(os.sep, "/")}"')
+            else:
+                raise FileNotFoundError(f"MEL file not found: {mel_file}")
+            
+            mel.eval('Import_fbx()')
+            
+            message = "FBX导入成功" if CURRENT_LANG == 'zh_CN' else "FBX imported successfully"
+            cmds.inViewMessage(
+                amg=f'<span style="color:#48AAB5">{message}</span>', 
+                pos='topCenter', 
+                fade=True, 
+                fst=3
+            )
+        except Exception as e:
+            error_msg = f"导入FBX时出错: {str(e)}" if CURRENT_LANG == 'zh_CN' else f"Error importing FBX: {str(e)}"
+            cmds.warning(error_msg)
+
+    def export_fbx(self):
+        """Export FBX file using MEL function"""
+        try:
+            mel_file = get_script_path() / "Toolbox" / "ImportExport" / "ImportExport.mel"
+            if mel_file.exists():
+                mel.eval(f'source "{str(mel_file).replace(os.sep, "/")}"')
+            else:
+                raise FileNotFoundError(f"MEL file not found: {mel_file}")
+            
+            mel.eval('Export_fbx()')
+            
+            message = "FBX导出成功" if CURRENT_LANG == 'zh_CN' else "FBX exported successfully"
+            cmds.inViewMessage(
+                amg=f'<span style="color:#48AAB5">{message}</span>', 
+                pos='topCenter', 
+                fade=True, 
+                fst=3
+            )
+        except Exception as e:
+            error_msg = f"导出FBX时出错: {str(e)}" if CURRENT_LANG == 'zh_CN' else f"Error exporting FBX: {str(e)}"
+            cmds.warning(error_msg)
+
+
+
+
+
+
+    def import_obj(self):
+        """Import OBJ file using MEL function"""
+        try:
+            # Source the MEL file first
+            mel_file = get_script_path() / "Toolbox" / "ImportExport" / "ImportExport.mel"
+            if mel_file.exists():
+                mel.eval(f'source "{str(mel_file).replace(os.sep, "/")}"')
+            else:
+                raise FileNotFoundError(f"MEL file not found: {mel_file}")
+            
+            # Call the Import function
+            mel.eval('Import_obj()')
+            
+            message = "OBJ导入成功" if CURRENT_LANG == 'zh_CN' else "OBJ imported successfully"
+            cmds.inViewMessage(
+                amg=f'<span style="color:#48AAB5">{message}</span>', 
+                pos='topCenter', 
+                fade=True, 
+                fst=3
+            )
+        except Exception as e:
+            error_msg = f"导入OBJ时出错: {str(e)}" if CURRENT_LANG == 'zh_CN' else f"Error importing OBJ: {str(e)}"
+            cmds.warning(error_msg)
+
+    def export_obj(self):
+        """Export OBJ file using MEL function"""
+        try:
+            # Source the MEL file first
+            mel_file = get_script_path() / "Toolbox" / "ImportExport" / "ImportExport.mel"
+            if mel_file.exists():
+                mel.eval(f'source "{str(mel_file).replace(os.sep, "/")}"')
+            else:
+                raise FileNotFoundError(f"MEL file not found: {mel_file}")
+            
+            # Call the Export function
+            mel.eval('Export_obj()')
+            
+            message = "OBJ导出成功" if CURRENT_LANG == 'zh_CN' else "OBJ exported successfully"
+            cmds.inViewMessage(
+                amg=f'<span style="color:#48AAB5">{message}</span>', 
+                pos='topCenter', 
+                fade=True, 
+                fst=3
+            )
+        except Exception as e:
+            error_msg = f"导出OBJ时出错: {str(e)}" if CURRENT_LANG == 'zh_CN' else f"Error exporting OBJ: {str(e)}"
+            cmds.warning(error_msg)
+
+
+
+
+
     def show_lod_tool(self):
         """Launch LOD tool"""
         try:
@@ -1031,9 +1290,22 @@ class HUGToolsWindow(QtWidgets.QDialog):
             cmds.warning(f"Error launching LOD tool: {str(e)}")
 
     def mirrorTool(self):
-        mel.eval('source "k_mirrorToolStartUI.mel"')
-        mel.eval('k_mirrorToolStartUI()')
-
+        """Launch Mirror Tool"""
+        try:
+            # Gets the full path to the MEL script
+            scripts_dir = get_script_path()
+            mel_file = scripts_dir / "Toolbox" / "MirrorTool" / "k_mirrorToolStartUI.mel"
+            
+            if not mel_file.exists():
+                cmds.warning(f"Mirror Tool MEL script not found at: {mel_file}")
+                return
+            
+            # Use the full path source MEL script
+            mel.eval(f'source "{str(mel_file).replace(os.sep, "/")}"')
+            mel.eval('k_mirrorToolStartUI()')
+            
+        except Exception as e:
+            cmds.warning(f"Error launching Mirror Tool: {str(e)}")
 
 
     def AriScriptLauncherQt(self):
@@ -1045,11 +1317,11 @@ class HUGToolsWindow(QtWidgets.QDialog):
         try:
             importlib.reload(UVSetList_Module)
             UVSetList_Module.show()
-            print("UV Set List tool launched successfully")  # 调试信息
+            print("UV Set List tool launched successfully")  # Debugging information
         except Exception as e:
             error_msg = f"启动UV Set List工具时出错: {str(e)}" if CURRENT_LANG == 'zh_CN' else f"Error launching UV Set List tool: {str(e)}"
             cmds.warning(error_msg)
-            print(f"Error details: {e}")  # 详细错误信息
+            print(f"Error details: {e}")  
 
     def quick_rename(self):
         importlib.reload(Quick_Rename_Module)
@@ -1132,6 +1404,7 @@ class HUGToolsWindow(QtWidgets.QDialog):
 
 
 
+
     def show_help(self):
         # Specify the URL of the website you want to open
         help_url = "https://megestus.github.io/HUGTools/"
@@ -1162,6 +1435,11 @@ class HUGToolsWindow(QtWidgets.QDialog):
         self.normal_size_label.setText(LANG[CURRENT_LANG]["Normal Size:"])
         self.open_NormalEdit_btn.setText(LANG[CURRENT_LANG]["NormalEdit"])
         
+        # Update tooltips only, do not set button text
+        self.toggle_crease_edge_btn.setToolTip(LANG[CURRENT_LANG]["Crease_tip"])
+        self.toggle_set_display_map_borders_btn.setToolTip(LANG[CURRENT_LANG]["MapBorders"])
+        
+        # Update text for other buttons and components
         self.editor_group.setTitle(LANG[CURRENT_LANG]["Editor"])
         self.open_crease_editor_btn.setText(LANG[CURRENT_LANG]["Crease Editor"])
         self.open_uv_editor_btn.setText(LANG[CURRENT_LANG]["UV Editor"])
@@ -1173,42 +1451,35 @@ class HUGToolsWindow(QtWidgets.QDialog):
         self.Toolbox_ScreenShot_btn.setText(LANG[CURRENT_LANG]["ScreenShot"])
         self.Toolbox_UnBevel_btn.setText(LANG[CURRENT_LANG]["UnBevel"])
         self.Toolbox_CalcDistance_btn.setText(LANG[CURRENT_LANG]["Distance"])
-        self.Toolbox_CalcDistance_btn.setToolTip(LANG[CURRENT_LANG]["Distance_tip"])
-
+        
         self.select_group.setTitle(LANG[CURRENT_LANG]["Select Control"])
         self.select_hardedges_btn.setText(LANG[CURRENT_LANG]["Select Hard Edges"])
         self.select_uvborder_btn.setText(LANG[CURRENT_LANG]["Select UV Border Edge"])
         self.planar_projection_btn.setText(LANG[CURRENT_LANG]["Planar Projection"])
         self.uvlayout_hardedges_btn.setText(LANG[CURRENT_LANG]["UV Layout by Hard Edges"])
-
-        # more controls tooltip
+        self.edge_to_curve_btn.setText(LANG[CURRENT_LANG]["EdgeToCurve"])
+        self.uvset_list_btn.setText(LANG[CURRENT_LANG]["UV Set List"])
+        
+        # Import/Export translations
+        self.import_export_group.setTitle(LANG[CURRENT_LANG]["Import/Export"])
+        self.import_obj_btn.setText(LANG[CURRENT_LANG]["Import OBJ"])
+        self.export_obj_btn.setText(LANG[CURRENT_LANG]["Export OBJ"])
+        
+        # Update button text according to current format
+        if self.current_format == "OBJ":
+            self.import_obj_btn.setText(LANG[CURRENT_LANG]["Import OBJ"])
+            self.export_obj_btn.setText(LANG[CURRENT_LANG]["Export OBJ"])
+        else:
+            self.import_obj_btn.setText(LANG[CURRENT_LANG]["Import FBX"])
+            self.export_obj_btn.setText(LANG[CURRENT_LANG]["Export FBX"])
+        
+        # all tooltips
         self.Toolbox_QuickRename_btn.setToolTip(LANG[CURRENT_LANG]["QuickRename_tip"])
         self.Toolbox_Rename_btn.setToolTip(LANG[CURRENT_LANG]["Rename_tip"])
         self.Toolbox_QuickExport_btn.setToolTip(LANG[CURRENT_LANG]["QuickExport_tip"])
         self.Toolbox_ScreenShot_btn.setToolTip(LANG[CURRENT_LANG]["ScreenShot_tip"])
         self.Toolbox_UnBevel_btn.setToolTip(LANG[CURRENT_LANG]["UnBevel_tip"])
         self.Toolbox_CalcDistance_btn.setToolTip(LANG[CURRENT_LANG]["Distance_tip"])
-
-        self.toggle_crease_edge_btn.setText(LANG[CURRENT_LANG]["Crease"])
-        self.toggle_crease_edge_btn.setToolTip(LANG[CURRENT_LANG]["Crease_tip"])
-
-        self.edge_to_curve_btn.setText(LANG[CURRENT_LANG]["EdgeToCurve"])
-        self.edge_to_curve_btn.setToolTip(LANG[CURRENT_LANG]["EdgeToCurve_tip"])
-
-        self.open_uv_editor_btn.setText(LANG[CURRENT_LANG]["UV Editor"])
-        self.open_uv_editor_btn.setToolTip(LANG[CURRENT_LANG]["UV Editor_tip"])
-
-        self.toggle_set_display_map_borders_btn.setText(LANG[CURRENT_LANG]["MapBorders"])
-        self.toggle_set_display_map_borders_btn.setToolTip(LANG[CURRENT_LANG]["MapBorders"])
-
-        self.uvset_list_btn.setText(LANG[CURRENT_LANG]["UV Set List"])
-        self.uvset_list_btn.setToolTip(LANG[CURRENT_LANG]["UV Set List_tip"])
-
-        self.Toolbox_MirrorTool_btn.setText("MirrorTool")
-        self.Toolbox_MirrorTool_btn.setToolTip("Mirror Objects Tool")
-        self.Toolbox_LOD_btn.setText("LOD Tool")
-        self.Toolbox_LOD_btn.setToolTip("Level of Detail Tool")
-
 
 
 

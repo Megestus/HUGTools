@@ -1,6 +1,6 @@
 # Quick_Rename_Module.py
 # Contains custom layer related UI and function functions
-
+import maya.mel as mel
 import re
 import maya.cmds as cmds
 from functools import partial
@@ -97,6 +97,13 @@ class Quick_Rename_Module_UI(QtWidgets.QWidget):
             RoundedButton("Mesh")
         ]
 
+        
+        self.bottom_group = QtWidgets.QGroupBox("Quick Tools")
+        self.bottom_buttons = [
+            RoundedButton("Remove pasted__"),
+            RoundedButton("Mirror L_R"),
+        ]
+
 #====== UI Layout ======
 
     def create_layouts(self):
@@ -137,6 +144,13 @@ class Quick_Rename_Module_UI(QtWidgets.QWidget):
         main_layout.addWidget(self.quick_group_group)
         main_layout.addWidget(self.quick_layer_group)
 
+        
+        bottom_layout = QtWidgets.QHBoxLayout()
+        bottom_layout.addWidget(self.bottom_buttons[0])
+        bottom_layout.addWidget(self.bottom_buttons[1])
+        self.bottom_group.setLayout(bottom_layout)
+        main_layout.addWidget(self.bottom_group)
+
 #====== UI and Function Connections ======
 
     def create_connections(self):
@@ -156,7 +170,12 @@ class Quick_Rename_Module_UI(QtWidgets.QWidget):
             else:  # Otherwise consider it as a prefix
                 btn.clicked.connect(partial(add_prefix_or_suffix, text, False))
 
+        # Add connections for bottom buttons
+        self.bottom_buttons[0].clicked.connect(pasted_Del)  # Connect "Remove pasted__" button
+        self.bottom_buttons[1].clicked.connect(L_R)         # Connect "L_R" button
+
 #====== Functions ======
+
 
 def add_prefix_or_suffix(text, is_suffix):
     """
@@ -257,6 +276,38 @@ def sanitize_name(name):
     """
     # Name cleaning logic can be added here if needed
     return name
+
+def pasted_Del():
+    mel.eval('searchReplaceNames "pasted__" "/" "hierarchy"')
+
+
+def L_R():
+    """
+    Duplicate and mirror selected objects with '_L_' to create '_R_' versions
+    
+    Functions:
+    - Freeze transformations
+    - Duplicate selected objects
+    - Mirror on X axis
+    - Rename to '_R_' version
+    """
+    # Use semicolons to separate multiple MEL commands
+    mel.eval('FreezeTransformations;' 
+            'makeIdentity -apply true -t 1 -r 1 -s 1 -n 0 -pn 1;'
+            'ResetTransformations;'
+            'duplicate -rr;'
+            'scale -r -1 1 1;'
+            'FreezeTransformations;'
+            'makeIdentity -apply true -t 1 -r 1 -s 1 -n 0 -pn 1;'
+            'searchReplaceNames "_L_" "_R_" "hierarchy";')
+
+
+
+
+
+
+
+
 
 #====== UI Functions ======
 

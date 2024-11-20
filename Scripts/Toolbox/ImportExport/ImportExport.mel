@@ -1,0 +1,140 @@
+global proc Import_obj()
+{
+string $justDagNodes[];
+
+string $allNodes[] = `file -import -type "OBJ" -returnNewNodes -ra true -mergeNamespacesOnClash true -namespace ":" -options "mo=1;lo=0" -pr "C:/temp/exported.obj"` ;
+for ($node in $allNodes)
+	{
+		string $shapes[] = `listRelatives -type "mesh" -shapes $node`;
+		if ( nodeType($node)=="transform" && size($shapes) )
+		{
+			$justDagNodes[size($justDagNodes)] = $node;
+		}
+		//rotate -r -ws -fo -90 0 0 $node;
+	
+	}
+//rotate -r -ws -fo -90 0 0;
+select -r $justDagNodes[0];
+sets -e -forceElement initialShadingGroup;
+polySoftEdge -a 180 -ch 1 $justDagNodes[0];
+DeleteHistory;
+select -cl  ;
+select -r $justDagNodes[0];
+hyperShadePanelMenuCommand("hyperShadePanel1", "deleteUnusedNodes");
+
+}
+
+
+global proc Export_obj()
+{
+
+//doGroup 0 1 1;
+//rotate -r -ws -fo -90 0 0;
+
+file -force -options "groups=0;ptgroups=0;materials=0;smoothing=0;normals=1" -typ "OBJexport" -pr -es "C:/temp/exported.obj";
+
+string $filePath = "C:/temp/info.txt" ;  
+$fileId = `fopen $filePath "w"` ;  
+string $groupNames[]=`ls -sl`;
+int $groupSize=`size $groupNames`;
+for($line in $groupNames){  
+    fprint $fileId ($line+"\n") ; 	
+}
+fclose $fileId ;
+
+
+string $fileInfo = "C:/temp/exported.OBJ" ;  
+string $fileTemp = "C:/temp/temp.OBJ" ;  
+ 
+string $objFile[];
+string $group;
+string $tarol1;
+string $tarol2;
+int $i=0;
+int $talalat=0;
+int $n=0;
+int $x=0;
+
+
+
+$fileId = `fopen $fileInfo "r"` ; 
+string $input = `fgetline $fileId`;
+
+
+while ( size( $input ) > 0 ) {
+    $objFile[$i]=  $input ;
+	$input = `fgetline $fileId`;
+	$i++;
+	
+}
+fclose $fileId;
+
+
+
+$fileId = `fopen $fileTemp "w"` ;  
+
+
+for($n=0;$n<$i;$n++){
+    $tarol1=`match "^vn (.*)" $objFile[$n]`;
+    $tarol2=`match "^f (.*)" $objFile[$n+1]`;
+    if (size ($tarol1) >0) {
+        
+		if (size ($tarol2) >0){
+		   print("talalat\n");
+		   fprint $fileId ("g "+ $groupNames[$x] +"\n") ;
+		   $x++; 		    
+		} 
+        
+        
+    }
+    else fprint $fileId ($objFile[$n]) ;
+         
+}
+
+
+fclose $fileId;
+
+
+$fileId = `fopen $fileTemp "r"` ; 
+$input = `fgetline $fileId`;
+$i=0;
+while ( size( $input ) > 0 ) {
+    $objFile[$i]=  $input ;
+	$input = `fgetline $fileId`;
+	$i++;
+}
+fclose $fileId;
+
+
+$fileId = `fopen $fileInfo "w"` ;  
+for($n=0;$n<$i;$n++){
+        fprint $fileId ($objFile[$n]);
+                
+}
+fclose $fileId;
+
+}
+
+
+
+
+global proc Import_fbx()
+{
+    string $fbx_file = "C:/temp/exported.fbx";  // 使用与OBJ相同的目录
+    FBXResetExport;
+    FBXImportMode -v add;
+    FBXImportHardEdges -v false;
+    FBXImportUnlockNormals -v true;
+    FBXImport -f $fbx_file;
+}
+
+
+global proc Export_fbx()
+{
+    string $fbx_file = "C:/temp/exported.fbx";  // 使用与OBJ相同的目录
+    FBXResetExport;
+    FBXExportSmoothingGroups -v true;
+    FBXExportHardEdges -v false;
+    FBXExportTriangulate -v false;
+    FBXExport -f $fbx_file -s;
+}
