@@ -149,7 +149,7 @@ LANG = {
         # Bottom UI Elements
         "document": "document",
         "Help": "Help",
-        "Switch Language": "Switch Language"
+        "Switch Language": "Switch Language",
     },
     'zh_CN': {
         # 显示控制组
@@ -217,7 +217,7 @@ LANG = {
         # 底部UI元素
         "document": "文档",
         "Help": "帮助",
-        "Switch Language": "切换语言"
+        "Switch Language": "切换语言",
     }
 }
 
@@ -387,7 +387,6 @@ class HUGToolsWindow(QtWidgets.QDialog):
         self.Toolbox_QuickExport_btn = RoundedButton(LANG[CURRENT_LANG]["QuickExport"], icon=QtGui.QIcon(":sourceScript.png"))
         self.Toolbox_UnBevel_btn = RoundedButton(LANG[CURRENT_LANG]["UnBevel"], icon=QtGui.QIcon(":polyBevel.png"))
         self.Toolbox_ScreenShot_btn = RoundedButton(LANG[CURRENT_LANG]["ScreenShot"], icon=QtGui.QIcon(":out_snapshot.png"))
-        self.Toolbox_More_btn = RoundedButton(LANG[CURRENT_LANG]["More"], icon=QtGui.QIcon(":loadPreset.png"))
         self.Toolbox_CalcDistance_btn = RoundedButton("Distance", icon=QtGui.QIcon(":distanceDim.png"))
 
         # Load the MirrorTool icon using the load_icon method
@@ -423,7 +422,6 @@ class HUGToolsWindow(QtWidgets.QDialog):
         self.Toolbox_QuickExport_btn.setToolTip(LANG[CURRENT_LANG]["QuickExport_tip"])
         self.Toolbox_UnBevel_btn.setToolTip(LANG[CURRENT_LANG]["UnBevel_tip"])
         self.Toolbox_ScreenShot_btn.setToolTip(LANG[CURRENT_LANG]["ScreenShot_tip"])
-        self.Toolbox_More_btn.setToolTip(LANG[CURRENT_LANG]["More_tip"])
         self.Toolbox_CalcDistance_btn.setToolTip(LANG[CURRENT_LANG]["Distance_tip"])
         self.Toolbox_AriScriptLauncherQt_btn.setToolTip(LANG[CURRENT_LANG]["AriScript_tip"])
         self.Toolbox_MirrorTool_btn.setToolTip("Mirror Objects Tool")
