@@ -104,17 +104,19 @@ class ScreenCaptureUI(QtWidgets.QDialog):
         """设置UI布局"""
         self._setup_menu()
         layout = QtWidgets.QVBoxLayout(self)
-        layout.setContentsMargins(10, 10, 10, 10)  # 减小外边距
-        layout.setSpacing(8)  # 减小组件间距
+        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setSpacing(8)
         
-        layout.addLayout(self._create_camera_layout())
+        # 修改这里，创建一个空的相机布局，但不立即加载预设
+        self.camera_layout = self._create_camera_layout(load_presets=False)
+        layout.addLayout(self.camera_layout)
+        
         layout.addLayout(self._create_path_layout())
         layout.addLayout(self._create_name_layout())
         layout.addLayout(self._create_resolution_layout())
-        layout.addSpacing(3)  # 减小底部按钮前的额外间距
+        layout.addSpacing(3)
         layout.addLayout(self._create_button_layout())
         
-        # 连接信号
         self._connect_signals()
         
         self.reload_path()
@@ -232,7 +234,7 @@ class ScreenCaptureUI(QtWidgets.QDialog):
         return layout
 
     def _create_button_layout(self):
-        """创建按钮行布局"""
+        """创建按钮行布���"""
         layout = QtWidgets.QHBoxLayout()
         layout.setSpacing(8)  # 减小按钮之间的间距
         
@@ -244,7 +246,7 @@ class ScreenCaptureUI(QtWidgets.QDialog):
         
         return layout
 
-    def _create_camera_layout(self):
+    def _create_camera_layout(self, load_presets=True):
         """创建相机预设切换滑条布局"""
         layout = QtWidgets.QVBoxLayout()
         layout.setSpacing(5)
@@ -280,7 +282,7 @@ class ScreenCaptureUI(QtWidgets.QDialog):
                 background: #E0E0E0;
             }
         """)
-        control_layout.addWidget(self.camera_slider, stretch=1)  # 添加拉伸因子
+        control_layout.addWidget(self.camera_slider, stretch=1)
         
         # 添加预设名称标签
         self.camera_label = QtWidgets.QLabel()
@@ -295,15 +297,30 @@ class ScreenCaptureUI(QtWidgets.QDialog):
         self.camera_label.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
         control_layout.addWidget(self.camera_label)
         
-        # 添加设置按钮
+        # 添加应用按钮和设置按钮
+        self.apply_preset_btn = ModItButton("Apply", icon=QtGui.QIcon(":checkboxOn.png"))
+        self.apply_preset_btn.setEnabled(False)  # 初始禁用
+        self.apply_preset_btn.clicked.connect(self.apply_camera_preset)
+        control_layout.addWidget(self.apply_preset_btn)
+        
         settings_btn = ModItButton("Settings", icon=QtGui.QIcon(":gear.png"))
-        settings_btn.clicked.connect(self.open_camera_settings)
+        settings_btn.clicked.connect(self._on_settings_clicked)
         control_layout.addWidget(settings_btn)
         
         layout.addWidget(control_container)
         
-        # 更新相机预设列表并设置滑条范围
-        self.update_camera_presets()
+        # 初始化空的预设列表
+        self.camera_presets = []
+        self.preset_names = []
+        self.current_preset_index = -1
+        
+        # 只在需要时加载预设
+        if load_presets:
+            self.update_camera_presets()
+        else:
+            # 设置初始状态
+            self.camera_slider.setEnabled(False)
+            self.camera_label.setText("未加载预设")
         
         # 连接滑条值变化信号
         self.camera_slider.valueChanged.connect(self.on_camera_preset_changed)
@@ -398,8 +415,14 @@ class ScreenCaptureUI(QtWidgets.QDialog):
         else:
             subprocess.Popen(['xdg-open', path])
 
-    def open_camera_settings(self):
-        """打开相机预设窗口"""
+    def _on_settings_clicked(self):
+        """处理设置按钮点击事件"""
+        # 首次点击时加载预设
+        if not self.camera_presets:
+            self.update_camera_presets()
+            self.camera_slider.setEnabled(True)
+        
+        # 打开设置窗口
         try:
             self.camera_preset_window = CameraPresetWindow(self)
             self.camera_preset_window.show()
@@ -451,22 +474,43 @@ class ScreenCaptureUI(QtWidgets.QDialog):
     def on_camera_preset_changed(self, value):
         """处理相机预设切换"""
         if 0 <= value < len(self.camera_presets):
-            preset_data = self.camera_presets[value]
             preset_name = self.preset_names[value]
+            self.current_preset_index = value
             
-            # 更新标签显示
+            # 只更新标签显示
             self.camera_label.setText(preset_name)
             
-            # 切换当前视图相机位置
-            panel = cmds.getPanel(withFocus=True)
-            if cmds.getPanel(typeOf=panel) == 'modelPanel':
-                try:
-                    camera = cmds.modelPanel(panel, query=True, camera=True)
-                    # 设置相机位置和旋转
-                    cmds.xform(camera, worldSpace=True, translation=preset_data["position"])
-                    cmds.xform(camera, worldSpace=True, rotation=preset_data["rotation"])
-                except Exception as e:
-                    cmds.warning(f"Failed to switch camera preset: {str(e)}")
+            # 启用应用按钮
+            self.apply_preset_btn.setEnabled(True)
+
+    def apply_camera_preset(self):
+        """应用当前选中的相机预设"""
+        if self.current_preset_index < 0 or self.current_preset_index >= len(self.camera_presets):
+            return
+        
+        preset_data = self.camera_presets[self.current_preset_index]
+        panel = cmds.getPanel(withFocus=True)
+        
+        if cmds.getPanel(typeOf=panel) == 'modelPanel':
+            try:
+                camera = cmds.modelPanel(panel, query=True, camera=True)
+                # 设置相机位置和旋转
+                cmds.xform(camera, worldSpace=True, translation=preset_data["position"])
+                cmds.xform(camera, worldSpace=True, rotation=preset_data["rotation"])
+                
+                # 显示提示信息
+                preset_name = self.preset_names[self.current_preset_index]
+                cmds.inViewMessage(
+                    amg=f'<span style="color:#98FB98;">Applied camera preset: {preset_name}</span>',
+                    pos='topCenter',
+                    fade=True,
+                    fst=1000,
+                    fet=250
+                )
+            except Exception as e:
+                cmds.warning(f"Failed to apply camera preset: {str(e)}")
+        else:
+            cmds.warning("Please select a viewport first")
 
 #====== UI Functions ======
 def maya_main_window():

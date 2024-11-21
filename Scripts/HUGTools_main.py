@@ -75,7 +75,6 @@ import Module.UVSetList_Module as UVSetList_Module
 from Toolbox.QuickExport import QuickExport
 from Toolbox.ViewCapture import screen_shot
 from Toolbox.AriScripts import AriScriptLauncherQt
-import Toolbox.MirrorTool as k_mirrorToolStartUI
 
 
 # based on system encoding, default use english
@@ -95,8 +94,8 @@ LANG = {
         "Export OBJ": "Export",
         "Import FBX": "Import",
         "Export FBX": "Export",
-        "Import_tip": "Import OBJ file with auto cleanup",
-        "Export_tip": "Export OBJ file with group names",
+        "Import_tip": "Import OBJ/FBX file with auto cleanup",
+        "Export_tip": "Export OBJ/FBX file with group names",
         "Switch Format": "Switch Format",
         "Current Format": "Current Format: {}",
         
@@ -163,8 +162,8 @@ LANG = {
         "Export OBJ": "导出",
         "Import FBX": "导入",
         "Export FBX": "导出",
-        "Import_tip": "导入OBJ文件并自动清理",
-        "Export_tip": "导出OBJ文件并保留组名",
+        "Import_tip": "导入OBJ/FBX文件并自动清理",
+        "Export_tip": "导出OBJ/FBX文件并保留组名",
         "Switch Format": "切换格式",
         "Current Format": "当前格式: {}",
         
@@ -245,7 +244,7 @@ class HUGToolsWindow(QtWidgets.QDialog):
         self.toggle_state = False
         self.crease_edge_state = False  
         
-        self.current_format = "OBJ"  # Track current format state
+        self.current_format = "ZBR"  # Toggle default display
         
         self.create_widgets()
         self.create_layouts()
@@ -399,16 +398,6 @@ class HUGToolsWindow(QtWidgets.QDialog):
             icon=ari_icon
         )
 
-        # Load the MirrorTool icon using the load_icon method
-        mirror_icon = self.load_icon(
-            "Toolbox/MirrorTool/K_Mirror_icons/ShelfIcon.png",
-            ":symmetrize.png"
-        )
-        self.Toolbox_MirrorTool_btn = RoundedButton(
-            "MirrorTool",
-            icon=mirror_icon
-        )
-
         # Add LOD tool button
         self.Toolbox_LOD_btn = RoundedButton(
             "LOD Tool", 
@@ -424,7 +413,6 @@ class HUGToolsWindow(QtWidgets.QDialog):
         self.Toolbox_ScreenShot_btn.setToolTip(LANG[CURRENT_LANG]["ScreenShot_tip"])
         self.Toolbox_CalcDistance_btn.setToolTip(LANG[CURRENT_LANG]["Distance_tip"])
         self.Toolbox_AriScriptLauncherQt_btn.setToolTip(LANG[CURRENT_LANG]["AriScript_tip"])
-        self.Toolbox_MirrorTool_btn.setToolTip("Mirror Objects Tool")
         self.Toolbox_LOD_btn.setToolTip("Level of Detail Tool")
 
         # Add Import/Export group after display group
@@ -525,10 +513,10 @@ class HUGToolsWindow(QtWidgets.QDialog):
         # select control group layout
         select_layout = QtWidgets.QGridLayout()
         select_layout.addWidget(self.select_hardedges_btn, 0, 0)
-        select_layout.addWidget(self.select_uvborder_btn, 0, 1)
-        select_layout.addWidget(self.planar_projection_btn, 1, 0)
-        select_layout.addWidget(self.uvlayout_hardedges_btn, 1, 1)
-        select_layout.addWidget(self.edge_to_curve_btn, 2, 0)
+        select_layout.addWidget(self.select_uvborder_btn, 1, 0)
+        select_layout.addWidget(self.planar_projection_btn, 0, 1)
+        select_layout.addWidget(self.uvlayout_hardedges_btn, 2, 0)
+        select_layout.addWidget(self.edge_to_curve_btn, 1, 1)
         select_layout.addWidget(self.Toolbox_UnBevel_btn, 2, 1)
         self.select_group.setLayout(select_layout)
 
@@ -536,8 +524,8 @@ class HUGToolsWindow(QtWidgets.QDialog):
         editor_layout = QtWidgets.QGridLayout()
         editor_layout.addWidget(self.open_NormalEdit_btn, 0, 0)
         editor_layout.addWidget(self.open_crease_editor_btn, 0, 1)
-        editor_layout.addWidget(self.open_uv_editor_btn, 1, 0)
-        editor_layout.addWidget(self.uvset_list_btn, 1, 1)
+        editor_layout.addWidget(self.open_uv_editor_btn, 1, 1)
+        editor_layout.addWidget(self.uvset_list_btn, 1, 0)
         self.editor_group.setLayout(editor_layout)
 
         #toolbox group layout
@@ -547,9 +535,8 @@ class HUGToolsWindow(QtWidgets.QDialog):
         Toolbox_layout.addWidget(self.Toolbox_QuickExport_btn, 1, 0)
         Toolbox_layout.addWidget(self.Toolbox_AriScriptLauncherQt_btn, 1, 1)
         Toolbox_layout.addWidget(self.Toolbox_LOD_btn, 2, 0)  
-        Toolbox_layout.addWidget(self.Toolbox_ScreenShot_btn, 3, 1)
+        Toolbox_layout.addWidget(self.Toolbox_ScreenShot_btn, 3, 0)
         Toolbox_layout.addWidget(self.Toolbox_CalcDistance_btn, 2, 1)
-        Toolbox_layout.addWidget(self.Toolbox_MirrorTool_btn, 3, 0)
 
 
         # Toolbox_layout.addWidget(self.Toolbox_More_btn, 3, 0)
@@ -627,7 +614,6 @@ class HUGToolsWindow(QtWidgets.QDialog):
         self.Toolbox_UnBevel_btn.clicked.connect(self.unbevel_tool)
         self.Toolbox_CalcDistance_btn.clicked.connect(self.calculate_distance)
         self.Toolbox_AriScriptLauncherQt_btn.clicked.connect(self.AriScriptLauncherQt)
-        self.Toolbox_MirrorTool_btn.clicked.connect(self.mirrorTool)
         self.Toolbox_LOD_btn.clicked.connect(self.show_lod_tool)
         
         # connect help button
@@ -1151,23 +1137,23 @@ class HUGToolsWindow(QtWidgets.QDialog):
 
 
     def switch_format(self):
-        """Switch between OBJ and FBX format"""
-        if self.current_format == "OBJ":
-            self.current_format = "FBX"
+        """Switch between ZBrush and Houdini format"""
+        if self.current_format == "ZBR":
+            self.current_format = "HDN"
             self.import_obj_btn.setText(LANG[CURRENT_LANG]["Import FBX"])
             self.export_obj_btn.setText(LANG[CURRENT_LANG]["Export FBX"])
-            self.switch_format_btn.setText("FBX")
+            self.switch_format_btn.setText("HDN")
         else:
-            self.current_format = "OBJ"
+            self.current_format = "ZBR"
             self.import_obj_btn.setText(LANG[CURRENT_LANG]["Import OBJ"])
             self.export_obj_btn.setText(LANG[CURRENT_LANG]["Export OBJ"])
-            self.switch_format_btn.setText("OBJ")
+            self.switch_format_btn.setText("ZBR")
         
         # Update button connections
         self.import_obj_btn.clicked.disconnect()
         self.export_obj_btn.clicked.disconnect()
         
-        if self.current_format == "OBJ":
+        if self.current_format == "ZBR":
             self.import_obj_btn.clicked.connect(self.import_obj)
             self.export_obj_btn.clicked.connect(self.export_obj)
         else:
@@ -1282,25 +1268,6 @@ class HUGToolsWindow(QtWidgets.QDialog):
             LOD.show_lod_window()
         except Exception as e:
             cmds.warning(f"Error launching LOD tool: {str(e)}")
-
-    def mirrorTool(self):
-        """Launch Mirror Tool"""
-        try:
-            # Gets the full path to the MEL script
-            scripts_dir = get_script_path()
-            mel_file = scripts_dir / "Toolbox" / "MirrorTool" / "k_mirrorToolStartUI.mel"
-            
-            if not mel_file.exists():
-                cmds.warning(f"Mirror Tool MEL script not found at: {mel_file}")
-                return
-            
-            # Use the full path source MEL script
-            mel.eval(f'source "{str(mel_file).replace(os.sep, "/")}"')
-            mel.eval('k_mirrorToolStartUI()')
-            
-        except Exception as e:
-            cmds.warning(f"Error launching Mirror Tool: {str(e)}")
-
 
     def AriScriptLauncherQt(self):
         importlib.reload(AriScriptLauncherQt)
@@ -1460,7 +1427,7 @@ class HUGToolsWindow(QtWidgets.QDialog):
         self.export_obj_btn.setText(LANG[CURRENT_LANG]["Export OBJ"])
         
         # Update button text according to current format
-        if self.current_format == "OBJ":
+        if self.current_format == "ZBR":
             self.import_obj_btn.setText(LANG[CURRENT_LANG]["Import OBJ"])
             self.export_obj_btn.setText(LANG[CURRENT_LANG]["Export OBJ"])
         else:
