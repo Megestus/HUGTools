@@ -5,7 +5,7 @@
 
 ![](Icons/HUGlogo.png)
 
-[![](https://img.shields.io/badge/版本_1.3.0-blue.svg)](https://github.com/Megestus/HUGTool/releases)
+[![](https://img.shields.io/badge/版本_1.3.0_alpha-blue.svg)](https://github.com/Megestus/HUGTool/releases)
 
 </div>
 
