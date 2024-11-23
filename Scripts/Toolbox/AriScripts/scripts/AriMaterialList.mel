@@ -1,0 +1,1488 @@
+//--------------------------------------------------------------------------
+//
+// ScriptName : AriMaterialList
+// Contents   : マテリアルとそれにつながるノードを一覧します
+// Author     : Ari
+// Since      : 2020/03/
+// LastUpdate : 2024/08/25 リファレンスを別階層に表示等
+// Help       : http://cgjishu.net/blog-entry-298.html
+// Note       :
+//
+//--------------------------------------------------------------------------
+
+proc string[] settingTextLoad(){
+	string $allText[];
+	string $scriptPath = `internalVar -usd`;
+	string $LoadPath=$scriptPath+"AriMaterialList";
+	if(`filetest -f $LoadPath`){
+		int $fpid = `fopen $LoadPath "r"`;
+		string $get;
+		int $i=0;
+		do{
+			$get = `fgetline $fpid`;
+			$allText[$i]= startString($get,size($get)-1);
+			$i++;
+		}
+		while(size($get));
+		fclose $fpid;
+	}
+	else print (" Non");	
+	return $allText;
+}
+proc string [] getFaceWithMaterials(string $faceList[], string $materialList[]){
+	string $selectFaceList[];
+	string $matToMeshList[];
+	clear $matToMeshList;
+	int $i=0;
+	for($mat in $materialList){
+		hyperShade -objects $mat;
+		string $selects[]  = `ls -sl`;
+		string $selfaces[] = `polyListComponentConversion -tf $selects`;
+		$selfaces = `filterExpand -selectionMask 34 $selfaces`;
+		$matToMeshList = stringArrayCatenate($matToMeshList, $selfaces);
+	}
+	string $diff[] = stringArrayRemove($faceList, $matToMeshList);
+	$selectFaceList = stringArrayRemove($diff,     $matToMeshList);
+	return $selectFaceList;
+}
+proc string[] AriObjectsWithMaterials(string $objectList[],string $materialList[]){
+	string $selectObjects[];
+	if(!size($materialList))return $selectObjects;
+	string $matToMeshList[];
+	clear $matToMeshList;
+	int $i=0;
+	for($mat in $materialList){
+		hyperShade -objects $mat;
+		string $selects[]=`ls -sl`;
+		$matToMeshList = stringArrayCatenate($matToMeshList, $selects);
+	}
+	if(size($objectList)){
+		$i=0;
+		string $shapeAndMeshList[];
+		for($obj in $objectList){
+			$shapeAndMeshList[$i]=$obj+".";
+			$i++;
+		}
+		string $meshList[] = `listRelatives -pa -c -s $objectList`;
+		$shapeAndMeshList = stringArrayCatenate($shapeAndMeshList, $meshList);
+		$i=0;
+		string $selectList[];
+		for($matToMesh in $matToMeshList){
+			string $sepa[];
+			tokenize $matToMesh "." $sepa;
+			if(size($sepa)==1){
+				for($shapeAndMesh in $shapeAndMeshList){
+					if($matToMesh==$shapeAndMesh){
+						$selectList[$i]=$matToMesh;
+						$i++;
+						break;
+					}
+				}
+			}
+			if(size($sepa)>1){
+				for($shapeAndMesh in $shapeAndMeshList){
+					if(startsWith($matToMesh,$shapeAndMesh)){
+						$selectList[$i]=$matToMesh;
+						$i++;
+						break;
+					}
+				}
+			}
+		}
+		return $selectList;
+	}
+	else{	
+		return $matToMeshList;
+	}
+}
+global proc AriMaterialList_CheckSave(){
+	global string $AriMaterialList_UI_SelectAutoCB;
+	global string $AriMaterialList_UI_ViewAttrAutoCB;
+	global string $AriMaterialList_UI_SelectMI[];
+	global string $AriMaterialList_UI_SortMI[];  
+	global string $AriMaterialList_UI_SwatchCB;
+	global string $AriMaterialList_UI_AdvancedCB;
+	global string $AriMaterialList_UI_DepthIF;
+	int $selectTrue   = `checkBox -q -v $AriMaterialList_UI_SelectAutoCB`;
+	int $viewAttrTrue = `checkBox -q -v $AriMaterialList_UI_ViewAttrAutoCB`;
+	int $swatchTrue   = `checkBox -q -v $AriMaterialList_UI_SwatchCB`;
+	int $advancedTrue = `checkBox -q -v $AriMaterialList_UI_AdvancedCB`;
+	int $depth        = `intSliderGrp -q -v $AriMaterialList_UI_DepthIF`;
+	int $sortMode=0;
+	if(`menuItem -q -radioButton $AriMaterialList_UI_SortMI[0]`)$sortMode=0;
+	if(`menuItem -q -radioButton $AriMaterialList_UI_SortMI[1]`)$sortMode=1;
+	if(`menuItem -q -radioButton $AriMaterialList_UI_SortMI[2]`)$sortMode=2;
+	checkBox -e -en (!$selectTrue) $AriMaterialList_UI_ViewAttrAutoCB;
+	menuItem -e -en (!$selectTrue)   $AriMaterialList_UI_SelectMI[0];
+	menuItem -e -en (!$viewAttrTrue) $AriMaterialList_UI_SelectMI[1];
+	optionVar -iv "AriMaterialList_selectCB"   $selectTrue;
+	optionVar -iv "AriMaterialList_viewAttrCB" $viewAttrTrue;
+	optionVar -iv "AriMaterialList_sort" $sortMode; 
+	optionVar -intValue  "AriMaterialList_swatch"   $swatchTrue;
+	optionVar -intValue  "AriMaterialList_advanced" $advancedTrue;
+	optionVar -intValue  "AriMaterialList_depth"    $depth;
+}
+global proc AriMaterialList_CheckLoad(){
+	global string $AriMaterialList_UI_SelectAutoCB;
+	global string $AriMaterialList_UI_ViewAttrAutoCB;
+	global string $AriMaterialList_UI_SelectMI[];
+	global string $AriMaterialList_UI_SortMI[];  
+	global string $AriMaterialList_UI_SwatchCB;
+	global string $AriMaterialList_UI_AdvancedCB;
+	global string $AriMaterialList_UI_DepthIF;
+	int $selectTrue   = false;
+	int $viewAttrTrue = false;
+	if(`optionVar -exists "AriMaterialList_selectCB"`)   $selectTrue   = `optionVar -q "AriMaterialList_selectCB"`;
+	if(`optionVar -exists "AriMaterialList_viewAttrCB"`) $viewAttrTrue = `optionVar -q "AriMaterialList_viewAttrCB"`;
+	int $sortMode=0;
+	if(`optionVar -exists "AriMaterialList_sort"`) $sortMode = `optionVar -q "AriMaterialList_sort"`;
+	int $swatchTrue = true;
+	int $advancedTrue = false;
+	int $depth = 2;
+	if(`optionVar -exists "AriMaterialList_swatch"`)   $swatchTrue   = `optionVar -q  "AriMaterialList_swatch"`;
+	if(`optionVar -exists "AriMaterialList_advanced"`) $advancedTrue = `optionVar -q  "AriMaterialList_advanced"`;
+	if(`optionVar -exists "AriMaterialList_depth"`)    $depth        = `optionVar -q  "AriMaterialList_depth"`;
+	checkBox -e -en (!$selectTrue) $AriMaterialList_UI_ViewAttrAutoCB;
+	checkBox -e -v  $selectTrue   $AriMaterialList_UI_SelectAutoCB;
+	checkBox -e -v  $viewAttrTrue $AriMaterialList_UI_ViewAttrAutoCB;
+	menuItem -e -en (!$selectTrue)   $AriMaterialList_UI_SelectMI[0];
+	menuItem -e -en (!$viewAttrTrue) $AriMaterialList_UI_SelectMI[1];
+	menuItem -e -radioButton true $AriMaterialList_UI_SortMI[$sortMode];
+	checkBox     -e -v $swatchTrue   $AriMaterialList_UI_SwatchCB;  
+	checkBox     -e -v $advancedTrue $AriMaterialList_UI_AdvancedCB;
+	intSliderGrp -e -v $depth        $AriMaterialList_UI_DepthIF;   
+}
+global proc AriMaterialList_CopyAttr(string $node, string $type, string $attr, int $mode){
+	global string $AriMaterialList_UI_NodeNameTF[];
+	global string $AriMaterialList_UI_NodeTypeTF[];
+	global string $AriMaterialList_UI_ColorSpaceOM[];
+	string $attrType = `getAttr -typ ($node+"."+$attr)`;
+	//print ($attrType+"\n");
+	int    $getValInt;
+	float  $getValFloat;
+	string $getValString;
+	float  $getValFloat2[];
+	float  $getValFloat3[];
+	if($attrType=="bool" || $attrType=="enum"){
+		$getValInt = `getAttr ($node+"."+$attr)`;
+	}
+	if($attrType=="string"){
+		$getValString = `getAttr ($node+"."+$attr)`;
+		//print $getValString;
+	}
+	if($attrType=="float2"){
+		$getValFloat2 = `getAttr ($node+"."+$attr)`;
+	}
+	if($attrType=="float3"){
+		$getValFloat3 = `getAttr ($node+"."+$attr)`;
+	}
+	string $selectNodeList[];
+	if($mode==1){
+		$selectNodeList = `ls -sl -type $type -objectsOnly`;
+	}
+	for($ii=0; $ii<size($AriMaterialList_UI_NodeTypeTF); $ii++){
+		if(!`textField -ex $AriMaterialList_UI_NodeTypeTF[$ii]`)continue;
+		string $getType = `textField -q -text $AriMaterialList_UI_NodeTypeTF[$ii]`;
+		if($getType == $type){
+			string $nodeName = `textField -q -text $AriMaterialList_UI_NodeNameTF[$ii]`;
+			if($mode==1 && !stringArrayContains($nodeName,$selectNodeList) && size($selectNodeList)!=0)continue;
+			//print ($nodeName+" "+$getType+"\n");
+			//print ("\""+$nodeName+"."+$attr+"\" "+$getValInt);
+			if(attributeExists($attr,$nodeName)){
+				if(`getAttr -settable ($nodeName+"."+$attr)`){
+					if($attrType=="bool" || $attrType=="enum"){
+						setAttr ($nodeName+"."+$attr) $getValInt;
+					}
+					if($attrType=="string"){
+						setAttr -type "string" ($nodeName+"."+$attr) $getValString;
+					}
+					if($attrType=="float2"){
+						setAttr -type "double2" ($nodeName+"."+$attr) $getValFloat2[0] $getValFloat2[1] ;
+					}
+					if($attrType=="float3"){
+						setAttr -type "double3" ($nodeName+"."+$attr) $getValFloat3[0] $getValFloat3[1] $getValFloat3[2];
+					}
+				}
+			}
+			if($attr == "colorSpace"){
+				optionMenu -e -value $getValString $AriMaterialList_UI_ColorSpaceOM[$ii];
+				AriMaterialList_ChangeColorSpace($ii);
+			}
+		}
+	}
+}
+global proc AriMaterialList_RenamerDialog(){
+	global int $AriMaterialList_jpTrue;
+	string $labelInfo = "You can work with a script called AriRenamer.";
+	if($AriMaterialList_jpTrue){
+		$labelInfo = "AriRenamer というスクリプトをインポートすると連携できます";
+	}
+	columnLayout -w 400 -adj true;
+	text -l "";
+	text -l $labelInfo;
+	text -l "";
+	text -l "";
+	string $form = `formLayout`;
+	string $okButton   = `button -l "OK" -c "layoutDialog -dismiss \"OK\""`;
+	string $waveButton = `button -l "WEB" -c "launch -web \"http://cgjishu.net/blog-entry-42.html\"; layoutDialog -dismiss \"Web\""`;	
+	setParent..;
+	formLayout -edit
+		-af $okButton "left"   0
+		-ap $okButton "right"  0 50
+		-af $okButton "bottom" 0 
+		-ac $waveButton "left"   0 $okButton
+		-af $waveButton "right"  0
+		-af $waveButton "bottom" 0 
+	$form;
+}
+global proc AriMaterialList_Renamer(int $mode, string $type){
+	global string $AriMaterialList_UI_NodeNameTF[];
+	global string $AriMaterialList_UI_NodeTypeTF[];
+	if(!startsWith(`whatIs "AriRenamer"`,"Mel")){
+		layoutDialog -ui "AriMaterialList_RenamerDialog()";
+		return;
+	}
+	if($mode==0) AriMaterialList_ListToSelectMat(0);
+	if($mode==1){
+		string $selectNodes[] = `ls -sl -type $type`;
+		string $targetNodes[];
+		string $targetAllNodes[];
+		for($ii=0; $ii<size($AriMaterialList_UI_NodeTypeTF); $ii++){
+			if(!`textField -ex $AriMaterialList_UI_NodeTypeTF[$ii]`)continue;
+			$typeName = `textField -q -text $AriMaterialList_UI_NodeTypeTF[$ii]`;
+			if($typeName == $type){
+				string $nodeName = `textField -q -text $AriMaterialList_UI_NodeNameTF[$ii]`;
+				$targetAllNodes[size($targetAllNodes)] = $nodeName;
+				if(stringArrayContains($nodeName,$selectNodes)){
+					$targetNodes[size($targetNodes)] = $nodeName;
+				}
+			}
+		}
+		if(size($targetNodes)==0)$targetNodes=$targetAllNodes;
+		select $targetNodes;
+	}
+	AriRenamer;
+}
+global proc AriMaterialList_RenamerReresult(){
+	global string $AriMaterialList_UI_matListTreeView;
+	AriMaterialList_GetMatList(1);
+	string $SelectMatList[] = `ls -sl -mat`;
+	for($mat in $SelectMatList){
+		treeView -e -selectItem $mat 1 $AriMaterialList_UI_matListTreeView;
+	}
+	AriMaterialList_MatSCC();
+}
+global proc AriMaterialList_FileNameRenameTexName(int $mode, int $num){
+	global string $AriMaterialList_UI_NodeNameTF[];
+	global string $AriMaterialList_UI_NodeTypeTF[];
+	global string $AriMaterialList_UI_FileTextureTF[];
+	string $fileSelects[] = `ls -sl -type "file"`;
+	string $thisName = `textField -q -text $AriMaterialList_UI_NodeNameTF[$num]`;
+	int $thisOnlyTrue = false;
+	if(!stringArrayContains($thisName, $fileSelects)){
+		$thisOnlyTrue = true;
+	}
+	if($mode==1)$thisOnlyTrue = false;
+	for($ii=0; $ii<size($AriMaterialList_UI_NodeTypeTF); $ii++){
+		if(!`textField -ex $AriMaterialList_UI_NodeNameTF[$ii]`)continue;
+		string $fileName = `textField -q -text $AriMaterialList_UI_NodeNameTF[$ii]`;
+		string $type     = `textField -q -text $AriMaterialList_UI_NodeTypeTF[$ii]`;
+		if($type    != "file")continue;
+		print $thisOnlyTrue;
+		if($thisOnlyTrue == true && $fileName != $thisName )continue; 
+		string $texPath  = `textField -q -text $AriMaterialList_UI_FileTextureTF[$ii]`;
+		if($texPath == "")    continue;
+		if(    $mode==0 
+			&& !stringArrayContains($fileName, $fileSelects)
+		    && $thisOnlyTrue == false)continue;
+		string $sepa[];
+		tokenize $texPath "/" $sepa;
+		string $texName = $sepa[size($sepa)-1];
+		tokenize $texName "." $sepa;
+		$texName = $sepa[0];
+		print ($fileName + "  > "+ $texName +"\n");
+		textField -e -text $texName $AriMaterialList_UI_NodeNameTF[$ii];
+		AriMaterialList_NodeRename($fileName,$ii);
+	}
+}
+global proc AriMaterialList_AriSelectNodeCheck(){
+	global string $AriMaterialList_UI_NodeNameTF[];
+	global string $AriMaterialList_UI_SelectCheckColumn[];
+	global string $AriMaterialList_UI_SelectCheckButton[];
+	string $SelectList[] = `ls -sl -objectsOnly`;
+	//print $SelectList;
+	for($ii=0 ; $ii < size($AriMaterialList_UI_NodeNameTF) ; $ii++){
+		if(!`textField -q -ex $AriMaterialList_UI_NodeNameTF[$ii]`)continue;
+		string $nodeName = `textField -q -text $AriMaterialList_UI_NodeNameTF[$ii]`;
+		if(stringArrayContains($nodeName,$SelectList)){
+			//print ($nodeName+"------------\n"+$ii+"\n");
+			columnLayout   -e -bgc 1 0.5 0 $AriMaterialList_UI_SelectCheckColumn[$ii];
+			iconTextButton -e -bgc 1 0.5 0 $AriMaterialList_UI_SelectCheckButton[$ii];
+		}
+		else{
+			columnLayout   -e -bgc 0 0 0 $AriMaterialList_UI_SelectCheckColumn[$ii];
+			iconTextButton -e -bgc 0 0 0 $AriMaterialList_UI_SelectCheckButton[$ii];
+		}
+	}
+}
+global proc AriMaterialList_AriSelectMatCheck(){
+	global string $AriMaterialList_UI_matListTreeView;
+	string $SelectMatList[] = `ls -sl -mat`;
+	string $allMatList[] = `treeView -q -ch "" $AriMaterialList_UI_matListTreeView`;
+	for($mat in $allMatList){
+		treeView -e -bst $mat 1 "buttonUp" $AriMaterialList_UI_matListTreeView;
+		if(stringArrayContains($mat, $SelectMatList)){
+			treeView -e -btc $mat 1 1.0 0.5 0 $AriMaterialList_UI_matListTreeView;
+		}
+		else{
+			if($mat != "Scene;" && $mat != "Reference;"){
+				treeView -e -btc $mat 1 0.3 0.3 0.3 $AriMaterialList_UI_matListTreeView;
+			}
+		}
+	}
+	AriMaterialList_AriSelectNodeCheck();
+}
+global proc AriMaterialList_SelectMaterialToObject(string $materialList[]){
+	if(size($materialList)!=0){
+		select $materialList;
+		hyperShade -objects "";
+	}
+}
+global proc AriMaterialList_AriSelectMaterialAndObject(string $materialList[]){
+	string $allSelectsList[] = `ls -sl`;
+	string $shapeList[]     = `polyListComponentConversion $allSelectsList`;
+	string $transformList[] = `ls -sl -tr`;
+	string $faceList[] = `filterExpand -selectionMask 34 $allSelectsList`;
+	int $shapeSize     = size($shapeList);
+	int $transformSize = size($transformList);
+	int $matSize       = size($materialList);
+	int $faceSize      = size($faceList);
+	//print ("shapeSize "+ $shapeSize+"\n");
+	//print ("transformSize "+ $transformSize+"\n");
+	//print ("matSize "+ $matSize+"\n");
+	//print ("faceSize "+ $faceSize+"\n");
+	if($shapeSize>0 && $matSize==0){
+		hyperShade -smn "";
+		string $matSelect[]=`ls -sl -mat`;
+		select $matSelect;
+	}
+	if($shapeSize==0 && $matSize>0){
+		select $materialList;
+		hyperShade -objects "";
+	}
+	string $resultList[];
+	if($transformSize > 0 && $matSize > 0){
+		//print ("obj mat-----------------------------------\n");
+		$resultList = AriObjectsWithMaterials($transformList,$materialList);
+	}
+	if($faceSize > 0 && $matSize > 0){
+		//print ("face mat-------------------------------\n");
+		string $getFaceList[] = getFaceWithMaterials($faceList, $materialList);
+		$resultList = stringArrayCatenate($resultList, $getFaceList);
+	}
+	if($matSize > 0){
+		if($transformSize > 0 || $faceSize > 0){
+			select $resultList;
+		}
+	}
+}
+global proc AriMaterialList_SelectObjFromMaterial(string $material){
+	string $materialList[] = {$material};
+	AriMaterialList_AriSelectMaterialAndObject($materialList);
+}
+global proc AriMaterialList_KeepUnusedNodes(){
+	global string $AriMaterialList_UI_matListTreeView;
+	string $selectsWork[] = `treeView -q -selectItem $AriMaterialList_UI_matListTreeView`; 
+	string $materialList[] = $selectsWork;
+	if(!size($materialList)){
+		hyperShadePanelMenuCommand("hyperShadePanel1", "deleteUnusedNodes");
+		AriMaterialList_MatViewReload(0);
+		return;
+	}
+	string $cubeList[];
+	int $i=0;
+	for($mat in $materialList){
+		string $polyCube[]=`polyCube -w 1 -h 1 -d 1 -sx 1 -sy 1 -sz 1 -ax 0 1 0 -cuv 4 -ch 1 -name ("matcube_"+$mat)`;
+		$cubeList[$i]=$polyCube[0];
+		hyperShade -assign $mat $cubeList[$i];
+		$i++;
+	}
+	hyperShadePanelMenuCommand("hyperShadePanel1", "deleteUnusedNodes");
+	delete $cubeList;
+	AriMaterialList_MatViewReload(0);
+}
+global proc AriMaterialList_Dialog(int $num){
+	global string $AriMaterialList_UI_FileTextureTF[];
+	string $defPath = `textField -q -text $AriMaterialList_UI_FileTextureTF[$num]`;
+	string $path[] =`fileDialog2 -cap "select texture" -dir $defPath -ds 2 -fm 1 -okc "Texture"`;
+	if($path[0]!=""){
+		textField -e -text $path[0] $AriMaterialList_UI_FileTextureTF[$num];
+	}
+	AriMaterialList_ChangeTexture($num);
+}
+proc AriMaterialList_CheckTexture(int $num){
+	global string $AriMaterialList_UI_NodeNameTF[];
+	global string $AriMaterialList_UI_FileTextureTF[];
+	global string $AriMaterialList_UI_LockIcon[];
+	global string $AriMaterialList_UI_AlphaTF[];
+	global string $AriMaterialList_UI_TextureSizeTF[];
+	string $file = `textField -q -text $AriMaterialList_UI_NodeNameTF[$num]`;
+	string $texturePath = `textField -q -text $AriMaterialList_UI_FileTextureTF[$num]`;
+	int $lockIconTrue   = true;
+	int $lockButtonTrue = false;
+	string $iconImage = "mmEmpty.png";
+	if(`filetest -f $texturePath`) $fileTrue  = true;
+	 $fileWrite = true;
+	vector $rgb = <<0,0,0>>;
+	if(`filetest -f $texturePath`){
+		$rgb = <<0,0,0>>;
+		if(!`filetest -w $texturePath`){
+			$iconImage = "Lock_ON.png";
+		}
+		float $size[] = `getAttr ($file + ".outSize")`;
+		textField -e -text ($size[0]+" "+$size[1]) $AriMaterialList_UI_TextureSizeTF[$num];
+		int  $alpaTrue = false;
+		if(`getAttr ( $file + ".fileHasAlpha" )`)$alpaTrue = true;
+		textField -e -vis $alpaTrue -text "A" $AriMaterialList_UI_AlphaTF[$num];
+	}
+	else{
+		$rgb = <<1,0,0>>;
+	}
+	iconTextButton -e -bgc ($rgb.x) ($rgb.y) ($rgb.z) -i $iconImage $AriMaterialList_UI_LockIcon[$num];
+}
+global proc AriMaterialList_ChangeTexture(int $num){
+	global string $AriMaterialList_UI_NodeNameTF[];
+	global string $AriMaterialList_UI_FileTextureTF[];
+	string $texturePath = `textField -q -text $AriMaterialList_UI_FileTextureTF[$num]`;
+	string $file = `textField -q -text $AriMaterialList_UI_NodeNameTF[$num]`;
+	string $changeString;
+	$changeString = substituteAllString($texturePath, "\\", "/");
+	textField -e -text $changeString $AriMaterialList_UI_FileTextureTF[$num];
+	setAttr -type "string" ($file+".fileTextureName ") $changeString;
+	AriMaterialList_CheckTexture($num);
+}
+global proc AriMaterialList_ChangeColorSpace(int $num){
+	global string $AriMaterialList_UI_NodeNameTF[];
+	global string $AriMaterialList_UI_ColorSpaceOM[];
+	string $file = `textField -q -text $AriMaterialList_UI_NodeNameTF[$num]`;
+	string $nowColorSpace = `optionMenu -q -value $AriMaterialList_UI_ColorSpaceOM[$num]`;
+	vector $col = <<0.4, 0.4, 0.4>>;
+	if($nowColorSpace == "Raw")$col =  <<0.3, 0.3, 0.3>>;
+	if($nowColorSpace == "sRGB")$col = <<0.5, 0.5, 0.5>>;
+	optionMenu -e -bgc ($col.x) ($col.y) ($col.z) $AriMaterialList_UI_ColorSpaceOM[$num];
+	setAttr -type "string" ($file+".colorSpace ") $nowColorSpace;
+}
+global proc AriMaterialList_UpdateSwatch(int $num){
+	global string $AriMaterialList_UI_NodeNameTF[];
+	if($num != 99999){
+		string $node = `textField -q -text $AriMaterialList_UI_NodeNameTF[$num]`;
+		//print ("Refresh "+$node+"\n");
+		updateFileNodeSwatch($node);
+	}
+	else{
+		for($nodeNameNF in $AriMaterialList_UI_NodeNameTF){
+			if($nodeNameNF == "")continue;
+			string $node = `textField -q -text $nodeNameNF`;
+			string $nodeType = `nodeType $node`;
+			//print ("Refresh "+$node+"\n");
+			updateFileNodeSwatch($node);
+		}
+	}
+}
+proc int AriMaterialList_ConnectListPanel_Refresh(){
+	global string $AriMaterialList_UI_MainPanelPane;
+	global string $AriMaterialList_UI_RightPanelButton;
+	int $size[] = `paneLayout -q  -ps  $AriMaterialList_UI_MainPanelPane`;
+	int $rightWith = $size[2];
+	if($rightWith==0){
+		button -e -l ">" $AriMaterialList_UI_RightPanelButton;
+	}
+	else{
+		button -e -l "<" $AriMaterialList_UI_RightPanelButton;
+	}
+	optionVar -intValue  "AriMaterialList_rightPanel" $rightWith;
+	//print("Save "+$rightWith+"-----------------\n");
+	return $rightWith;
+}
+global proc AriMaterialList_ConnectListPanel(){
+	global string $AriMaterialList_UI_MainPanelPane;
+	int $size[] = `paneLayout -q  -ps  $AriMaterialList_UI_MainPanelPane`;
+	int $rightWith = $size[2];
+	int $windowWith = `window -q -w AriMaterialList`;
+	int $setWindowWith = 800;
+	if($rightWith != 0){
+		$setWindowWith = $windowWith * ((100-$rightWith)/100.0);
+		window -e -w $setWindowWith AriMaterialList;
+		paneLayout -e  -ps 2 0 100  $AriMaterialList_UI_MainPanelPane;
+	}
+	else{
+		$setWindowWith = $windowWith * 3;
+		window -e -w $setWindowWith AriMaterialList;
+		paneLayout -e  -ps 1 33 100  $AriMaterialList_UI_MainPanelPane;
+	}
+	//print $setWindowWith;
+	AriMaterialList_MatSCC();
+	AriMaterialList_ConnectListPanel_Refresh;
+}
+proc string[] existsNode(string $nodeList[]){
+	string $existsList[];
+	for($node in $nodeList){
+		if( `objExists $node` ){
+			$existsList[size($existsList)] = $node;
+		}
+	}
+	return $existsList;
+}
+proc writingTreeViewList(string $matList[],int $mode){
+	global string $AriMaterialList_UI_matListTreeView;
+	global string $AriMaterialList_shaderIconList[];
+	string $selectsWork[] = `treeView -q -selectItem $AriMaterialList_UI_matListTreeView`; 
+	string $selects[];
+	for($sel in $selectsWork){
+		if( `objExists $sel` ){
+			$selects[size($selects)] = $sel;
+		}
+	}
+	//print ("writing----\n");
+	//print $matList;
+	treeView -e -ra $AriMaterialList_UI_matListTreeView;
+	string $typeList[];
+	for($ii=0; $ii<size($matList); $ii++){
+		string $mat = $matList[$ii];
+		if( `objExists $mat` ){
+			string $type = `nodeType $mat`;
+			$typeList[$ii] = $type;
+		}
+	}
+	int $exRef = false;
+	for($ii=0; $ii<size($matList); $ii++){
+		string $mat  = $matList[$ii];
+		if( `objExists $mat` ){
+			if(`referenceQuery -inr $mat`){
+				$exRef = true;
+				break;
+			}
+		}
+	}
+	string $scene = "Scene;";
+	string $ref   = "Reference;";
+	if($exRef){
+		treeView -e -addItem  $scene "" $AriMaterialList_UI_matListTreeView;
+		treeView -e -addItem  $ref "" $AriMaterialList_UI_matListTreeView;
+		treeView -e -dl  $scene "Scene" $AriMaterialList_UI_matListTreeView;
+		treeView -e -lbc $scene 0.3 0.3 0.3 -btc $scene 1 0.2 0.2 0.2 $AriMaterialList_UI_matListTreeView;
+		treeView -e -dl $ref "Reference" -textColor $ref 0.6 0.6 0.6 $AriMaterialList_UI_matListTreeView;
+		treeView -e -lbc $ref 0.3 0.3 0.3   -btc $ref 1 0.2 0.2 0.2 $AriMaterialList_UI_matListTreeView;
+	}
+	for($ii=0; $ii<size($matList); $ii++){
+		string $mat  = $matList[$ii];
+		string $type = $typeList[$ii];
+		if( `objExists $mat` ){
+			string $iconName = ("render_"+ $type +".png");
+			int $refTrue = `referenceQuery -inr $mat`;
+			string $parent = $scene;
+			if($refTrue) $parent = $ref;
+			if($exRef==false) $parent = "";
+			treeView -e -addItem  $mat $parent $AriMaterialList_UI_matListTreeView; 
+			if(stringArrayContains($iconName, $AriMaterialList_shaderIconList)){
+				treeView -e -image $mat 1 $iconName $AriMaterialList_UI_matListTreeView;
+			}
+			else{
+				treeView -e -image $mat 1 "render_unknown.png" $AriMaterialList_UI_matListTreeView;
+			}
+			if($refTrue){
+				treeView -e -textColor $mat 0.5 0.5 0.5 $AriMaterialList_UI_matListTreeView;
+			}
+		}
+		else{
+			if($mode==1){
+				treeView -e -addItem   $mat "" $AriMaterialList_UI_matListTreeView; 
+				treeView -e -textColor $mat 1 0 0 $AriMaterialList_UI_matListTreeView;
+			}
+		}
+	}
+	for($sel in $selects){
+		treeView -e -selectItem $sel true $AriMaterialList_UI_matListTreeView; 
+	}
+}
+global proc AriMaterialList_MatViewReload(int $mode){
+	global string $AriMaterialList_UI_matListTreeView;
+	string $allMatList[] = `treeView -q -ch "" $AriMaterialList_UI_matListTreeView`;
+	writingTreeViewList($allMatList,$mode);
+}
+global proc AriMaterialList_frameOpenClose(int $num, int $mode){
+	global string $AriMaterialList_UI_TypeFrameList[];
+	string $type = `frameLayout -q -l $AriMaterialList_UI_TypeFrameList[$num]`;
+	string $saveName = ("AriMaterialList_Frame_" + $type);
+	optionVar -iv $saveName $mode;
+	print ("Save " + $saveName +"\n");
+	if($mode==0)AriMaterialList_MatSCC();
+}
+global proc AriMaterialList_SelectNode(int $num,int $mode){
+	global string $AriMaterialList_UI_NodeNameTF[];
+	global int    $AriMaterialList_LastSelect;
+	string $nodeName = `textField -q -text $AriMaterialList_UI_NodeNameTF[$num]`;
+	print ("nodeName "+$nodeName + " " +$mode +"---------------------\n");
+	if($mode==0)select $nodeName;
+	if($mode==1)select -tgl $nodeName;
+	if($mode==2){
+		if($AriMaterialList_LastSelect!=-1){
+			string $selectList[] = `ls -sl -objectsOnly`;
+			string $lastSelectObj = `textField -q -text $AriMaterialList_UI_NodeNameTF[$AriMaterialList_LastSelect]`;
+			int $addSelectTrue = false;
+			if(stringArrayContains($lastSelectObj,$selectList)){
+				$addSelectTrue = true;
+			}
+			string $targetList[];
+			int $startNum;
+			int $endNum;
+			if($num < $AriMaterialList_LastSelect){
+				$startNum = $num;
+				$endNum   = $AriMaterialList_LastSelect;
+			}
+			else{
+				$startNum = $AriMaterialList_LastSelect;
+				$endNum   = $num;
+			}
+			int $counter=0;
+			for($ii=$startNum; $ii<=$endNum; $ii++){
+				$targetList[$counter] = `textField -q -text $AriMaterialList_UI_NodeNameTF[$ii]`;
+				$counter++;
+			}
+			if($addSelectTrue)	select -add $targetList;
+			else				select -d   $targetList;
+		}
+	}
+	$AriMaterialList_LastSelect = $num;
+}
+global proc AriMaterialList_CreateDefAttrControl(int $num){
+	global string $AriMaterialList_UI_DefAttrColumn[];
+	global string $AriMaterialList_UI_NodeNameTF[];
+	global string $AriMaterialList_UI_NodeTypeTF[];
+	global string $AriMaterialList_UI_ColorSpaceOM[];
+	global string $AriMaterialList_attrSettingList[];
+	string $nodeAndAttrList[] = {
+		"lambert : color",
+		"blinn : color",
+		"file : colorSpace",
+		"file : alphaIsLuminance",
+		"file : uvTilingMode",
+		"place2dTexture : offset",
+		"bump2d : bumpInterp",
+		"bump2d : aiFlipR",
+		"bump2d : aiFlipG"
+	};
+	if(size($AriMaterialList_attrSettingList)>0){
+		$nodeAndAttrList = $AriMaterialList_attrSettingList;
+	}
+	int $jpTrue = false;
+	string $changeToList = "Change this value to list";
+	if($jpTrue){
+		string $changeToList = "リストを同じ値に変更";
+	}
+	string $childList[] = `columnLayout -q -childArray $AriMaterialList_UI_DefAttrColumn[$num]`;
+	string $nodeName = `textField -q -text $AriMaterialList_UI_NodeNameTF[$num]`;
+	string $nodeType = `textField -q -text $AriMaterialList_UI_NodeTypeTF[$num]`;
+	string $nodeList[];
+	string $attrList[];
+	int $j=0;
+	for($i=0; $i<size($nodeAndAttrList); $i++){
+		string $sepa[];
+		tokenize $nodeAndAttrList[$i] " :" $sepa;
+		if($nodeType==$sepa[0]){
+			$attrList[$j] = $sepa[1];
+			$j++;
+		}
+	}
+	for($child in $childList){
+		deleteUI $child;
+	}
+	columnLayout -p $AriMaterialList_UI_DefAttrColumn[$num] -adj true;
+	for($attr in $attrList){
+		if(attributeExists ($attr, $nodeName)){
+			if($attr != "colorSpace"){
+				attrControlGrp -po true -attribute ($nodeName+"."+$attr);
+				popupMenu -button 3;
+				menuItem -l ($changeToList) -c ("AriMaterialList_CopyAttr(\""+$nodeName+"\",\""+$nodeType+"\",\""+$attr+"\",1)");
+			}	
+			else{
+				string $nowColorSpace = `getAttr ($nodeName+".colorSpace")`;
+				string $colorSpaceList[] = getInputColorSpaceNames();
+				string $label = (uiRes("m_colorSpaceProcedures.kColorSpaceLabel"));
+				rowLayout -nc 2 -bgc 0.2 0.2 0.2;
+				text -w 140 -al "right" -l $label;
+				$AriMaterialList_UI_ColorSpaceOM[$num] = `optionMenu -bgc 0.4 0.4 0.4 -cc ("AriMaterialList_ChangeColorSpace("+$num+")")`;
+				for($colorSpace in $colorSpaceList){
+					menuItem -label $colorSpace;
+				}
+				popupMenu -button 3;
+				menuItem -l ($changeToList) -c ("AriMaterialList_CopyAttr(\""+$nodeName+"\",\""+$nodeType+"\",\""+$attr+"\",1)");
+				vector $col = <<0.4, 0.4, 0.4>>;
+				if($nowColorSpace == "Raw")$col =  <<0.3, 0.3, 0.3>>;
+				if($nowColorSpace == "sRGB")$col = <<0.5, 0.5, 0.5>>;
+				if(!stringArrayContains($nowColorSpace,$colorSpaceList)){
+					menuItem -parent $AriMaterialList_UI_ColorSpaceOM[$num] -label $nowColorSpace;
+					$col = <<1, 0, 0>>;
+				}
+				optionMenu -e -value $nowColorSpace $AriMaterialList_UI_ColorSpaceOM[$num];
+				optionMenu -e -bgc ($col.x) ($col.y) ($col.z) $AriMaterialList_UI_ColorSpaceOM[$num];
+				setParent..;
+			}
+		}
+	}
+	setParent..;
+}
+global proc AriMaterialList_NodeRename(string $beforeName, int $num){
+	global string $AriMaterialList_UI_MatNameTF;
+	global string $AriMaterialList_UI_NodeNameTF[];
+	global string $AriMaterialList_UI_matListTreeView;
+	global string $AriMaterialList_UI_AdvancedCB;
+	string $newName = `textField -q -text $AriMaterialList_UI_NodeNameTF[$num]`;
+	string $resultName = `rename $beforeName $newName`;
+	print ("Rename " + $num +" "+ $beforeName + " > " + $resultName +"\n");
+	textField -e -text $resultName 
+		-cc ("AriMaterialList_NodeRename(\""+$resultName+"\","+$num+")")
+		$AriMaterialList_UI_NodeNameTF[$num];
+	string $allMatList[] = `treeView -q -ch "" $AriMaterialList_UI_matListTreeView`;
+	string $allAfterList[];
+	int $listTrue = false;
+	for($mat in $allMatList){
+		if($mat == $beforeName){
+			$allAfterList[size($allAfterList)] = $resultName;
+			$listTrue = true;
+		}
+		else{
+			$allAfterList[size($allAfterList)] = $mat;
+		}
+	}
+	int $advTrue    = `checkBox -q -v $AriMaterialList_UI_AdvancedCB`;
+	if($advTrue){
+		AriMaterialList_CreateDefAttrControl($num);
+	}
+	if($listTrue){
+		writingTreeViewList($allAfterList,1);
+		treeView -e -selectItem $resultName true $AriMaterialList_UI_matListTreeView; 
+	}
+	string $upName = `textField -q -text $AriMaterialList_UI_MatNameTF`;
+	if($upName == $beforeName){
+		textField -e -text $resultName $AriMaterialList_UI_MatNameTF;
+	}
+	AriMaterialList_AriSelectMatCheck();
+}
+global proc AriMaterialList_MaterialRename(){
+	global string $AriMaterialList_UI_MatNameTF;
+	global string $AriMaterialList_UI_matListTreeView;
+	string $selects[] = `treeView -q -selectItem $AriMaterialList_UI_matListTreeView`; 
+	string $newName   = `textField -q -text $AriMaterialList_UI_MatNameTF`;
+	$selects = existsNode($selects);
+	string $beforeName = $selects[0];
+	string $resultName = `rename $beforeName $newName`;
+	print ("Rename "+ $beforeName + " > " + $resultName +"\n");
+	textField -e -text $resultName $AriMaterialList_UI_MatNameTF;
+	string $allMatList[] = `treeView -q -ch "" $AriMaterialList_UI_matListTreeView`;
+	string $allAfterList[];
+	int $listTrue = false;
+	for($mat in $allMatList){
+		if($mat == $beforeName){
+			$allAfterList[size($allAfterList)] = $resultName;
+			$listTrue = true;
+		}
+		else{
+			$allAfterList[size($allAfterList)] = $mat;
+		}
+	}
+	writingTreeViewList($allAfterList,1);
+	treeView -e -selectItem $resultName true $AriMaterialList_UI_matListTreeView; 
+	AriMaterialList_MatSCC();
+	AriMaterialList_AriSelectMatCheck();
+}
+proc getFileAttr(string $matList[]){
+	global string $AriMaterialList_UI_matListTreeView;
+	global string $AriMaterialList_UI_ConneColumPare;
+	global string $AriMaterialList_UI_ConneColum;
+	global string $AriMaterialList_UI_MatSwatch;
+	global string $AriMaterialList_UI_MatNameTF;
+	global string $AriMaterialList_UI_MatTypeTF;
+	global string $AriMaterialList_UI_FileTextureTF[];
+	global string $AriMaterialList_UI_NodeNameTF[];
+	global string $AriMaterialList_UI_NodeNameNF[];
+	global string $AriMaterialList_UI_NodeTypeTF[];
+	global string $AriMaterialList_UI_TextureSizeTF[];
+	global string $AriMaterialList_UI_ColorSpaceOM[];
+	global string $AriMaterialList_UI_SelectCheckColumn[];
+	global string $AriMaterialList_UI_SelectCheckButton[];
+	global string $AriMaterialList_UI_SwatchCB;
+	global string $AriMaterialList_UI_AdvancedCB;
+	global string $AriMaterialList_UI_DefAttrColumn[];
+	global string $AriMaterialList_UI_AlphaTF[];
+	global string $AriMaterialList_UI_LockIcon[];
+	global string $AriMaterialList_UI_DepthIF;
+	global string $AriMaterialList_UI_MainPanelPane;
+	global string $AriMaterialList_shaderIconList[];
+	clear $AriMaterialList_UI_NodeNameTF;
+	clear $AriMaterialList_UI_NodeNameNF;
+	textField -e -bgc 0 0 0 -text $matList[0] $AriMaterialList_UI_MatNameTF;  
+	textField -e -text ""  $AriMaterialList_UI_MatTypeTF;
+	swatchDisplayPort -e -vis false $AriMaterialList_UI_MatSwatch;
+	if(`columnLayout -ex $AriMaterialList_UI_ConneColum`)deleteUI $AriMaterialList_UI_ConneColum;
+	$AriMaterialList_UI_ConneColum = `columnLayout -p $AriMaterialList_UI_ConneColumPare -adj true `;
+	int $advTrue    = `checkBox -q -v $AriMaterialList_UI_AdvancedCB`;
+	int $swatchTrue = `checkBox -q -v $AriMaterialList_UI_SwatchCB`;
+	string $workMatList[];
+	int $nonTrue = false;
+	for($mat in $matList){
+		if(objExists($mat)){
+			$workMatList[size($workMatList)] = $mat;
+		}
+		else{
+			$nonTrue = true;
+		}
+	}
+	if($nonTrue){
+		AriMaterialList_MatViewReload(1);
+	}
+	$matList = $workMatList;
+	if(size($matList)==0){
+		return;
+	}
+	string $matType = `nodeType $matList[0]`;
+	swatchDisplayPort -e -vis true -sn $matList[0] $AriMaterialList_UI_MatSwatch;
+	textField -e -text $matType       $AriMaterialList_UI_MatTypeTF;
+	string $nowNodeList[];
+	string $nextNodeList[];
+	string $baseAttrList[];
+	string $conneNodeList[];
+	string $conneAttrList[];
+	int $baseAttrCount  = 0;
+	int $conneNodeCount = 0;
+	$nowNodeList   = $matList;
+	$conneNodeList = $matList;
+	for($mat in $matList){
+		$baseAttrList[size($baseAttrList)]="";
+	}
+	string $allNextNodeList[];
+	int $allNextNodeCount = 0;
+	int $depth = `intSliderGrp -q -v $AriMaterialList_UI_DepthIF`;
+	int $depthCount = 0;
+	int $size[] = `paneLayout -q  -ps  $AriMaterialList_UI_MainPanelPane`;
+	int $rightWith = $size[2];
+	if($rightWith==0){
+		return;
+	}
+	while($depthCount < $depth){
+		clear $nextNodeList;
+		for($nowNode in $nowNodeList){
+			string $conneList[] = `listConnections -d false -s true -connections true -plugs true $nowNode`;
+			string $getBaseAttrList[];
+			string $getNextNodeList[];
+			string $getNextAttrList[];
+			clear $getBaseAttrList;
+			clear $getNextNodeList;
+			clear $getNextAttrList;
+			for($conne in $conneList){
+				string $sepa[];
+				tokenize $conne "." $sepa;
+				if($sepa[0] == $nowNode){
+					$getBaseAttrList[size($getBaseAttrList)] = $conne;
+				}
+				else{
+					$getNextNodeList[size($getNextNodeList)] = $sepa[0];
+					$getNextAttrList[size($getNextAttrList)] = $sepa[1];
+					if(!stringArrayContains($sepa[0] , $allNextNodeList)){
+						$nextNodeList[size($nextNodeList)] = $sepa[0];
+						$allNextNodeList[size($allNextNodeList)] = $sepa[0];
+					}
+				}
+			}
+			for($ii=0; $ii<size($getNextNodeList); $ii++){
+				int $listNum = 0;
+				int $existsTrue = false;
+				for($jj=0; $jj<size($conneNodeList); $jj++){
+					if($conneNodeList[$jj] == $getNextNodeList[$ii]){
+						$existsTrue = true;
+						$listNum = $jj;
+						break;
+					}
+				}
+				if($existsTrue == false){
+					$conneNodeList[size($conneNodeList)] = $getNextNodeList[$ii];
+					$baseAttrList[size($baseAttrList)]   = $getBaseAttrList[$ii];
+				}
+				else{
+					$baseAttrList[$listNum] = ($baseAttrList[$listNum] + " , " + $getBaseAttrList[$ii]);
+				}
+			}
+		}
+		$nowNodeList = $nextNodeList;
+		$depthCount++;
+	}
+	string $conneNodeList_work[] = $conneNodeList;
+	string $baseAttrList_work[]  = $baseAttrList;
+	string $nodeTypeList_work[];
+	clear $conneNodeList;
+	clear $baseAttrList;
+	string $typeList[];
+	clear $typeList;
+	int $typeSizeList[];
+	int $typeCounter;
+	for($ii=0; $ii<size($conneNodeList_work); $ii++){
+		string $nodeType = `nodeType $conneNodeList_work[$ii]`;
+		$nodeTypeList_work[size($nodeTypeList_work)] = $nodeType;
+		if(!stringArrayContains($nodeType,$typeList)){
+			$typeList[$typeCounter] = $nodeType;
+			$typeCounter++;
+		}
+	}
+	for($jj=0; $jj<size($typeList); $jj++){
+		for($ii=0; $ii<size($conneNodeList_work); $ii++){
+			if($typeList[$jj] == $nodeTypeList_work[$ii] ){
+				$conneNodeList[size($conneNodeList)]   = $conneNodeList_work[$ii];
+				$baseAttrList[size($baseAttrList)]     = $baseAttrList_work[$ii];
+			}
+		}
+	}
+	string $matTypeList[];
+	for($mat in $matList){
+		string $nodeType = `nodeType $mat`;
+		if(!stringArrayContains($nodeType,$matTypeList)){
+			$matTypeList[size($matTypeList)] = $nodeType;
+		}
+	}
+	global string $AriMaterialList_UI_TypeFrameList[];
+	string $typeColumnList[];
+	for($jj=0; $jj<size($typeList); $jj++){
+		string $type = $typeList[$jj];
+		int $closeTrue = true;
+		if($typeList[$jj]=="file" || $typeList[$jj]=="bump2d")$closeTrue = false;
+		string $saveName = ("AriMaterialList_Frame_" + $type);
+		if(`optionVar -exists $saveName`) $closeTrue = `optionVar -q $saveName`;
+		$AriMaterialList_UI_TypeFrameList[$jj] = `frameLayout -l ($typeList[$jj]) -cll true -cl $closeTrue 
+													-cc ("AriMaterialList_frameOpenClose("+$jj+","+ 1 +")")
+													-ec ("AriMaterialList_frameOpenClose("+$jj+","+ 0 +")")`;
+		popupMenu -button 3;
+			menuItem -l "Renamer" -c ("AriMaterialList_Renamer(1,\""+$type+"\")");
+		if(stringArrayContains($type,$matTypeList)){
+			frameLayout -e -bgc 0.1 0.1 0.1 $AriMaterialList_UI_TypeFrameList[$jj];
+		}
+		$typeColumnList[$jj] = `columnLayout -w 50 -adj true`;
+		setParent..;
+		setParent..;
+	}
+	clear $AriMaterialList_UI_NodeTypeTF;
+	for($ii=0; $ii<size($conneNodeList); $ii++){
+		string $nodeName = $conneNodeList[$ii];
+		string $nodeType = `nodeType $nodeName`;
+		int $nodeNum;
+		for($jj=0; $jj<size($typeList); $jj++){
+			if($typeList[$jj]==$nodeType){
+				$nodeNum = $jj;
+				break;
+			}
+		}
+		int $closeTrue = `frameLayout -q -cl $AriMaterialList_UI_TypeFrameList[$nodeNum]`;
+		if($closeTrue == true)continue;
+		columnLayout -p $typeColumnList[$nodeNum] -adj true ;
+		rowLayout -nc 3 -adj 2;
+		$AriMaterialList_UI_SelectCheckColumn[$ii] = `columnLayout  -adj true -bgc 0.2 0.2 0.2`; 
+		if($swatchTrue){
+			text -h 2 -l "";
+			swatchDisplayPort -w 72 -h 72 -rs 72 -sn $nodeName ;
+			popupMenu -button 3;
+			menuItem -l "Refresh"     -c ("AriMaterialList_UpdateSwatch("+ $ii +");");
+			menuItem -l "Refresh All" -c ("AriMaterialList_UpdateSwatch(99999);");
+			menuItem -divider true;
+			menuItem -l "Renamer" -c ("AriMaterialList_Renamer(1,\""+$nodeType+"\")");
+			popupMenu -button 1           -pmc ("AriMaterialList_SelectNode("+$ii+",0)");
+			popupMenu -button 1 -ctl true -pmc ("AriMaterialList_SelectNode("+$ii+",1)");
+			popupMenu -button 1 -sh  true -pmc ("AriMaterialList_SelectNode("+$ii+",2)");
+			text -h 2 -l "";
+		}
+		else{
+		}
+		setParent..;
+		columnLayout -adj true ;
+		rowLayout -nc 4 -adj 2;
+		string $iconName = ("render_"+ $nodeType +".png");
+		if(stringArrayContains($iconName, $AriMaterialList_shaderIconList)){
+			$AriMaterialList_UI_SelectCheckButton[$ii] = `iconTextButton -h 24 -w 24 -image $iconName -bgc 1 0 0`;
+		}
+		else{
+			$AriMaterialList_UI_SelectCheckButton[$ii] = `iconTextButton -h 24 -w 24 -image "rvGrabSwatch.png" -bgc 1 0 0`;
+		}
+		popupMenu -button 3;
+		menuItem -l "Renamer" -c ("AriMaterialList_Renamer(1,\""+$nodeType+"\")");
+		popupMenu -button 1           -pmc ("AriMaterialList_SelectNode("+$ii+",0)");
+		popupMenu -button 1 -ctl true -pmc ("AriMaterialList_SelectNode("+$ii+",1)");
+		popupMenu -button 1 -sh  true -pmc ("AriMaterialList_SelectNode("+$ii+",2)");
+		global int $AriMaterialList_jpTrue;
+		string $label_renameFileFromTex     = "Rename this to the name of the texture";
+		string $label_renameListFileFromTex = "Rename the list to the name of the texture";
+		if($AriMaterialList_jpTrue){
+			$label_renameFileFromTex     = "テクスチャ名に変更";
+			$label_renameListFileFromTex = "リストをテクスチャ名に変更";
+		}
+		$AriMaterialList_UI_NodeNameTF[$ii] = `textField -text $nodeName -cc ("AriMaterialList_NodeRename(\""+$nodeName+"\","+$ii+")")`;
+		popupMenu -button 3;
+		if($nodeType=="file"){
+			menuItem -l ($label_renameFileFromTex)               -c ("AriMaterialList_FileNameRenameTexName(0,"+$ii+")");
+			menuItem -l ($label_renameListFileFromTex) -c ("AriMaterialList_FileNameRenameTexName(1,"+$ii+")");
+			menuItem -divider true;	
+		}
+		menuItem -l "Renamer" -c ("AriMaterialList_Renamer(1,\""+$nodeType+"\")");
+		if($nodeType=="file"){
+			button -l "< Texture" -bgc 0 0 0 -h 20 -c ("AriMaterialList_FileNameRenameTexName(0,"+$ii+")");
+			popupMenu -button 3;
+			menuItem -l ($label_renameListFileFromTex) -c ("AriMaterialList_FileNameRenameTexName(1,"+$ii+")");
+		}
+		$AriMaterialList_UI_NodeTypeTF[$ii] = `textField -w 120 -ed false -text ($nodeType) -bgc 0.3 0.3 0.3`;
+		setParent..;
+		if(!stringArrayContains($nodeType,$matTypeList)){
+			textField -ed false -text $baseAttrList[$ii]; 
+		}
+		else{
+			rowLayout -nc 2;
+			button -h 20 -l "SelectObj"  -c ("AriMaterialList_SelectObjFromMaterial(\""+$nodeName+"\");");
+			button -h 20 -w 48 -bgc 1 0.5 0.5 -l "Assign"  -c ("AriMaterialList_AssignMaterial(\""+$nodeName+"\");");
+			setParent..;
+		}
+		if(attributeExists ("fileTextureName", $nodeName)){
+			string $texture;
+			$texture= `getAttr ($nodeName+".fileTextureName")`;
+			rowLayout -nc 7 -adj 2;
+			text -w 54 -l "Texture:";
+			$AriMaterialList_UI_FileTextureTF[$ii] = `textField -bgc 0 0 0 -text $texture -cc ("AriMaterialList_ChangeTexture(" + $ii + ")")`;	
+			button -h 16 -l ".." -c ("AriMaterialList_Dialog("+$ii+")");
+			iconTextButton -i "SP_DirOpenIcon.png" -c ("AriMaterialList_DirectoryOpen("+$ii+")");
+			setParent..;
+			rowLayout -nc 5;
+			if($nodeType == "file")	$AriMaterialList_UI_TextureSizeTF[$ii] = `textField -bgc 0.1 0.1 0.1 -w 76 -ed false`;
+			$AriMaterialList_UI_AlphaTF[$ii]    = `textField  -ed false -bgc 0 0 0 -h 20 -w 20 -text ""`;
+			$AriMaterialList_UI_LockIcon[$ii]   = `iconTextButton -bgc 0 0 0 -h 20 -w 20 -image "Lock_ON.png"`;
+			setParent..;
+			AriMaterialList_CheckTexture($ii);
+		}
+		$AriMaterialList_UI_DefAttrColumn[$ii] = `columnLayout -adj true -bgc 0.2 0.2 0.2`;
+		setParent..;
+		setParent..;
+		setParent..;
+		separator -h 20;
+		setParent..;
+		if($advTrue){
+			AriMaterialList_CreateDefAttrControl($ii);
+		}
+	}
+	setParent..;
+	/*
+	if(`columnLayout -ex $AriMaterialList_UI_ConneColum`)deleteUI $AriMaterialList_UI_ConneColum;
+	$AriMaterialList_UI_ConneColum = `columnLayout -p $AriMaterialList_UI_ConneColumPare -adj true`;
+	string $connectNameF[];
+	string $nodeNameList[];
+	clear $nodeNameList;
+	int $nodeNameCounter=0;
+	int $counter = 0;
+	while($counter < 3){
+		clear $workNodeList;
+		int $workCounter;
+		for($nowNode in $nowNodeList){
+			string $conneList[] = `listConnections -d false -s true -connections true -plugs true $nowNode`;
+			string $matAttrList[];
+			string $coneNodeList[];
+			string $fileAttrList[];
+			int $i=0,$j=0,$k=0;
+			for($conne in $conneList){
+				string $sepa[];
+				tokenize $conne "." $sepa;
+				if($sepa[0] == $nowNode){
+					$matAttrList[$i] = $sepa[1];
+					$i++;
+				}
+				else{
+					$coneNodeList[$j] = $sepa[0];
+					$fileAttrList[$j] = $sepa[1];
+					$j++;
+					$workNodeList[$workCounter] = $sepa[0];
+					$workCounter++;
+				}
+			}
+			print "----------------------------\n";
+			print $coneNodeList;
+			print "\n\n";
+			print $fileAttrList;
+			print "\n";
+			print (size($matAttrList));
+			$j=0;
+			for($i=0; $i<size($matAttrList); $i++){
+				int $continueTrue = false;
+				for($k=0; $k<size($nodeNameList) ; $k++){
+					if($nodeNameList[$k] == $coneNodeList[$i]){
+						string $attrName = `textField -q -text $connectNameF[$k]`; 
+						$attrName = ($attrName+" , "+$matAttrList[$i]);
+						textField -e -text $attrName $connectNameF[$k];
+						$continueTrue = true;
+						break;
+					}
+				}
+				if($continueTrue == true) continue;
+				$nodeNameList[$nodeNameCounter] = $coneNodeList[$i];
+				string $nodeType = `nodeType $coneNodeList[$i]`;
+				rowLayout -nc 2 -adj 2;
+				swatchDisplayPort -w 64 -h 64 -rs 64 -sn $coneNodeList[$i] -pc ("select "+$coneNodeList[$i]);
+				columnLayout -adj true -bgc 0 0 0.2;
+				rowLayout -nc 2 -adj 2;
+				textField -w 120 -ed false -text ($nodeType + ":");
+				nameField  -object $coneNodeList[$i];
+				setParent..;
+				rowLayout -nc 2 -adj 2;
+				text -w 60 -l "Attr: ";
+				$connectNameF[$nodeNameCounter] = `textField -ed false -text $matAttrList[$i]`; 
+				setParent..;
+				rowLayout -nc 4;
+				setParent..;
+				if(attributeExists ("fileTextureName", $coneNodeList[$i])){
+					string $texture;
+					$texture= `getAttr ($coneNodeList[$i]+".fileTextureName")`;
+					rowLayout -nc 2 -adj 2;
+					text -w 60 -l "Texture: ";
+					$AriMaterialList_UI_FileTextureTF[$nodeNameCounter] = `textField -text $texture -cc ("AriMaterialList_ChangeTexture(\""+ $coneNodeList[$i] + "\" , " + $nodeNameCounter + ")")`;	
+					setParent..;
+				}
+				setParent..;
+				setParent..;
+				separator -h 10;
+				$nodeNameCounter++;
+				$j++;
+				if($j>100)break;
+			}
+		}
+		print ($counter+"------------------------\n");
+		print $workNodeList;
+		$nowNodeList = $workNodeList;
+		$counter++;
+	}
+	*/
+	setParent;
+	AriMaterialList_AriSelectNodeCheck;
+}
+global proc AriMaterialList_DirectoryOpen(int $num){
+	global string $AriMaterialList_UI_FileTextureTF[];
+	string $directory = `textField -q -text $AriMaterialList_UI_FileTextureTF[$num]`;
+	$directory = substituteAllString($directory, "/", "\\");
+	system ("explorer.exe /select,"+$directory);
+}
+global proc AriMaterialList_NonSelectHide(){
+	global string $AriMaterialList_UI_matListTreeView;
+	string $matList[] = `treeView -q -selectItem $AriMaterialList_UI_matListTreeView`; 
+	writingTreeViewList($matList,1);
+}
+global proc AriMaterialList_GetMatList(int $mode){
+	global string $AriMaterialList_UI_matListTreeView;
+	global int    $AriMaterialList_Val_SortTrue;
+	global string $AriMaterialList_UI_SortMI[];
+	string $beforeSelect[] = `ls -sl`;
+	string $matList[];
+	if($mode==0 || $mode==1){
+		$matList = `ls -sl -mat`;
+	}
+	if($mode==0 || $mode==2){
+		if(size($matList)<=0){
+			hyperShade -smn "";
+			$matList = `ls -sl -mat`;
+		}
+		if(size($matList)<=0){
+			$matList = `ls -mat`;
+		}
+	}
+	if($mode==1){
+		$matList = `ls -mat`;
+	}
+	int $sortMode=0;
+	if(`menuItem -q -radioButton $AriMaterialList_UI_SortMI[0]`)$sortMode=0;
+	if(`menuItem -q -radioButton $AriMaterialList_UI_SortMI[1]`)$sortMode=1;
+	if(`menuItem -q -radioButton $AriMaterialList_UI_SortMI[2]`)$sortMode=2;
+	if($sortMode==0) $matList = $matList;
+	if($sortMode==1) $matList = `sort $matList`;
+	if($sortMode==2) {
+		$matList = `sort $matList`;
+		string $typeList[];
+		for($ii=0; $ii<size($matList); $ii++){
+			$typeList[$ii] = `nodeType $matList[$ii]`;
+		}
+		string $oneTypeList[] = stringArrayRemoveDuplicates($typeList);
+		string $sortMat[];
+		for($nowType in $oneTypeList){
+			for($ii=0; $ii<size($matList); $ii++){
+				if($nowType==$typeList[$ii]){
+					$sortMat[size($sortMat)] = $matList[$ii];
+				}
+			}
+		}
+		$matList = $sortMat;
+	}
+	if($mode==0 || $mode==1){
+		writingTreeViewList($matList,1);
+	}
+	select $beforeSelect;
+}
+global proc AriMaterialList_Forcus(){
+	global string $AriMaterialList_UI_matListTreeView;
+	string $beforeSelect[] = `ls -sl`;
+	string $matList[];
+	hyperShade -smn "";
+	$matList = `ls -sl -mat`;
+	select $beforeSelect;
+	string $allMatList[] = `treeView -q -ch "" $AriMaterialList_UI_matListTreeView`;
+	treeView -e -cs $AriMaterialList_UI_matListTreeView;
+	for($mat in $matList){
+		if(!stringArrayContains($mat, $allMatList))treeView -e -addItem  $mat ""  $AriMaterialList_UI_matListTreeView; 
+		treeView -e -selectItem $mat true $AriMaterialList_UI_matListTreeView;
+	}
+	AriMaterialList_MatSCC();
+}
+global proc AriMaterialList_ListToSelectMat(int $mode){
+	global string  $AriMaterialList_UI_matListTreeView;
+	string $selects[] = `treeView -q -selectItem $AriMaterialList_UI_matListTreeView`; 
+	$selects = existsNode($selects);
+	if($mode == 0){
+		select $selects;
+	}
+	if($mode == 1){
+		updateAE ( $selects[0] );
+	}
+}
+global proc AriMaterialList_MatSCC(){
+	global string $AriMaterialList_UI_matListTreeView;
+	global string $AriMaterialList_UI_SelectAutoCB;
+	global string $AriMaterialList_UI_ViewAttrAutoCB;
+	string $selects[] = `treeView -q -selectItem $AriMaterialList_UI_matListTreeView`; 
+	string $exSelects[];
+	for($sel in $selects){
+		if($sel != "Scene;" && $sel != "Reference;"){
+			$exSelects[size($exSelects)] = $sel;
+		}
+	}
+	$selects = $exSelects;
+	getFileAttr($selects);
+	int $selectTrue   = `checkBox -q -v $AriMaterialList_UI_SelectAutoCB`;
+	int $AttrViewTrue = `checkBox -q -v $AriMaterialList_UI_ViewAttrAutoCB`;
+	$selects = existsNode($selects);
+	if($selectTrue){
+		select $selects;
+	}
+	else{
+		if($AttrViewTrue){
+			updateAE ( $selects[0] );
+		}
+	}
+}
+global proc AriMaterialList_MatDblC(string $aa){
+}
+global proc AriMaterialList_AssignMaterial(string $material){
+	string $sg[] = `listConnections -d true -s false -type "shadingEngine" $material`;
+	sets -e -forceElement $sg[size($sg)-1];
+}
+global proc AriMaterialList_SelectMatButton(int $mode){
+	global string $AriMaterialList_UI_matListTreeView;
+	string $selectsWork[] = `treeView -q -selectItem $AriMaterialList_UI_matListTreeView`; 
+	string $selectsList[];
+	for($sel in $selectsWork){
+		if( `objExists $sel` ){
+			$selectsList[size($selectsList)] = $sel;
+		}
+	}
+	if($mode==0)select $selectsList;			
+	if($mode==1)updateAE ( $selectsList[0] );	
+	if($mode==2){
+		AriMaterialList_AriSelectMaterialAndObject($selectsList);
+	}
+	if($mode==3){
+		AriMaterialList_SelectMaterialToObject($selectsList);
+	}
+	if($mode==9){
+		string $sg[] = `listConnections -d true -s false -type "shadingEngine" $selectsList[0] `;
+		sets -e -forceElement $sg[size($sg)-1];
+	}
+}
+global proc AriMaterialList_ButtonPress(string $mat, int $onoff){
+	if (`objExists $mat`){
+		select -tgl $mat;
+	}
+}
+global proc AriMaterialList(){
+	global string $AriMaterialList_UI_matListTreeView;
+	global string $AriMaterialList_UI_ConneColumPare;
+	global string $AriMaterialList_UI_ConneColum;
+	global string $AriMaterialList_UI_MatSwatch;
+	global string $AriMaterialList_UI_MatNameTF;
+	global string $AriMaterialList_UI_MatTypeTF;
+	global string $AriMaterialList_UI_DepthIF;
+	global string $AriMaterialList_UI_SwatchCB;
+	global string $AriMaterialList_UI_AdvancedCB;
+	global string $AriMaterialList_UI_MainPanelPane;
+	global string $AriMaterialList_UI_RightPanelButton;
+	global string $AriMaterialList_UI_SelectMI[];
+	global string $AriMaterialList_shaderIconList[];
+	global string $AriMaterialList_attrSettingList[];
+	global string $AriMaterialList_UI_NodeNameTF[];
+	global string $AriMaterialList_UI_SortMI[];
+	global int $AriMaterialList_jpTrue;
+	float $nowTime = `timerX`;
+	if(`about -uil`=="ja_JP")	$AriMaterialList_jpTrue = true;
+	else						$AriMaterialList_jpTrue = false;
+	clear $AriMaterialList_UI_NodeNameTF;
+	$AriMaterialList_shaderIconList = `resourceManager -nameFilter ("render_*.png")`;
+	int $rightWith = 70;
+	if(`optionVar -exists "AriMaterialList_rightPanel"`)   $rightWith = `optionVar -q "AriMaterialList_rightPanel"`;
+	if((`window -ex  AriMaterialList`)==true)deleteUI AriMaterialList;
+	window -title "AriMaterialList"  -w 600 -h 400 AriMaterialList;
+	string $mainForm = `formLayout`;
+	string $pane = `paneLayout -w 60 -ps 2 $rightWith 100 -cn "vertical2"`;
+	$AriMaterialList_UI_MainPanelPane = $pane;
+	string $formLeft = `formLayout -w 60`;
+	string $upColumn   = `columnLayout -adj true`;
+	rowLayout -nc 2 -adj 2;
+	$AriMaterialList_UI_MatSwatch = `swatchDisplayPort -w 64 -h 64 -rs 64 -pc "AriMaterialList_SelectMatButton(0)"`;
+		popupMenu -button 3;
+		menuItem -l "Select Objects" -i "out_polySphere.png" -c "AriMaterialList_SelectMatButton(3);";
+		menuItem -l "Assign Objects" -i "brush.png"          -c "AriMaterialList_SelectMatButton(9);";
+	columnLayout -adj true;
+	rowLayout -nc 2 -adj 1;
+	$AriMaterialList_UI_MatNameTF = `textField  -ed true -text "" -cc "AriMaterialList_MaterialRename()"`;
+	setParent..;
+	rowLayout -nc 2 -adj 1;
+	$AriMaterialList_UI_MatTypeTF = `textField -ed false -text ""`;
+	button -h 20 -w 48 -bgc 1 0.5 0.5 -l "Assign"  -c "AriMaterialList_SelectMatButton(9);";
+	setParent..;
+	rowLayout -nc 2 -adj 1;
+	setParent..;
+	setParent..;
+	setParent..;
+	setParent..;
+	$AriMaterialList_UI_matListTreeView = `treeView
+					-enk true -nb 1 
+					-pressCommand 1 "AriMaterialList_ButtonPress"
+					-itemDblClickCommand "AriMaterialList_MatDblC"
+					-scc "AriMaterialList_MatSCC"
+					-adr false`;
+		popupMenu -button 3;
+		menuItem -l "Select Objects" -i "out_polySphere.png" -c "AriMaterialList_SelectMatButton(2);";
+		$AriMaterialList_UI_SelectMI[0] = `menuItem -l "Select Material" -i "render_lambert.png" -c "AriMaterialList_ListToSelectMat(0);"`;
+		$AriMaterialList_UI_SelectMI[1] = `menuItem -l "Attribute View"  -i "out_bifrostAttrNotifier.png" -c "AriMaterialList_ListToSelectMat(0);"`;
+		menuItem -divider true;
+		menuItem -l "Rename" -c "AriMaterialList_Renamer(0,0)";
+		menuItem -divider true;
+		menuItem -l "Delete Unused Nodes"  -c "AriMaterialList_KeepUnusedNodes()";
+	global string $AriMaterialList_UI_SelectAutoCB;
+	global string $AriMaterialList_UI_ViewAttrAutoCB;
+	string $underColumn = `columnLayout -adj true `;
+	/*
+	rowLayout -nc 2 -adj 1;
+	button -l "Select Mat" -c "AriMaterialList_SelectMatButton(0)";
+	$AriMaterialList_UI_SelectAutoCB = `checkBox -w 60 -l "SelectMat Auto" -v true`;
+	setParent..;
+	rowLayout -nc 2 -adj 1;
+	button -l "View Attrbute" -c "AriMaterialList_SelectMatButton(1)";
+	$AriMaterialList_UI_ViewAttrAutoCB = `checkBox -w 60 -l "ViewAttr Auto" -v true`;
+	setParent..;
+	*/
+	string $formDownA = `formLayout`;
+	$AriMaterialList_UI_SelectAutoCB   = `checkBox -l "Select Mat Auto" -cc "AriMaterialList_CheckSave(); AriMaterialList_MatSCC();"`;
+	$AriMaterialList_UI_ViewAttrAutoCB = `checkBox -l "View Attr Auto"  -cc "AriMaterialList_CheckSave(); AriMaterialList_MatSCC();"`;
+	$AriMaterialList_UI_RightPanelButton = `button -l ">" -h 38 -c "AriMaterialList_ConnectListPanel()"`;
+	string $sortButton = `iconTextButton -h 38 -i "sortName.png"`;
+	popupMenu -button 1;
+	radioMenuItemCollection;
+	$AriMaterialList_UI_SortMI[0] = `menuItem -l "ID"   -radioButton true  -c "AriMaterialList_CheckSave(); AriMaterialList_GetMatList(1);"`;
+	$AriMaterialList_UI_SortMI[1] = `menuItem -l "Name" -radioButton false -c "AriMaterialList_CheckSave(); AriMaterialList_GetMatList(1);"`;
+	$AriMaterialList_UI_SortMI[2] = `menuItem -l "Type" -radioButton false -c "AriMaterialList_CheckSave(); AriMaterialList_GetMatList(1);"`;
+	setParent..;
+	formLayout -e
+	-af $AriMaterialList_UI_RightPanelButton "right" 0
+	-ac $sortButton "right" 0 $AriMaterialList_UI_RightPanelButton
+	-af $AriMaterialList_UI_SelectAutoCB "left" 0
+	-af $AriMaterialList_UI_ViewAttrAutoCB "left" 0
+	-ac $AriMaterialList_UI_ViewAttrAutoCB "top"  0 $AriMaterialList_UI_SelectAutoCB
+	$formDownA;
+	columnLayout -adj true ;
+	string $hideForcusForm = `formLayout -w 20 -bgc 0.2 0.2 0.2`;
+	string $Button_SelMat  = `button -w 20 -h 26 -l "Mat" -c "AriMaterialList_Forcus()"`;
+	string $Button_SelObj  = `button -w 20 -h 26 -l "Obj" -c "AriMaterialList_SelectMatButton(3);"`;
+	popupMenu -button 3;
+		menuItem -l "from selected objects" -i "out_polySphere.png" -c "AriMaterialList_SelectMatButton(2);";
+	string $SelectLabel = `rowLayout -nc 3 -w 120 -bgc 0.2 0.2 0.2`;
+	iconTextButton -w 24 -h 24 -st "iconAndTextHorizontal" -i "out_lambert" -c "AriMaterialList_Forcus()";
+	text -l "<-Select->";
+	iconTextButton -w 24 -h 24 -st "iconAndTextHorizontal" -i "out_polyCube" ;
+		popupMenu -button 1;
+		menuItem -l "All" -i "out_polySphere.png" -c "AriMaterialList_SelectMatButton(3);";
+		menuItem -l "From selected objects" -i "out_polySphere.png" -c "AriMaterialList_SelectMatButton(2);";
+	setParent..;
+	setParent..;
+	formLayout -edit
+		-ap $SelectLabel "right"  -60 50
+		-af $SelectLabel "bottom" 0 
+		-af $Button_SelMat "left"   0
+		-ac $Button_SelMat "right"  0 $SelectLabel
+		-af $Button_SelMat "bottom" 0 
+		-ac $Button_SelObj "left"   0 $SelectLabel
+		-af $Button_SelObj "right"  0
+		-af $Button_SelObj "bottom" 0 
+	$hideForcusForm;
+	rowLayout -nc 2 -adj 2;
+	string $HideButton    = `button -h 26 -l "Hide"   -c "AriMaterialList_NonSelectHide()"`;
+	string $AllGetButton  = `button -h 30 -l "Reload"   -c "AriMaterialList_GetMatList(1)" -bgc 0.5 0.5 1`;
+	setParent..;
+	setParent..;
+	setParent..; 
+	setParent..;
+	formLayout -edit
+		-af $upColumn "top" 0
+		-af $upColumn "left" 0
+		-af $upColumn "right" 0
+		-af $underColumn "bottom" 0
+		-af $underColumn "left" 0
+		-af $underColumn "right" 0
+		-ac $AriMaterialList_UI_matListTreeView "top"    0 $upColumn
+		-af $AriMaterialList_UI_matListTreeView "left"   0
+		-af $AriMaterialList_UI_matListTreeView "right"  0
+		-ac $AriMaterialList_UI_matListTreeView "bottom" 0 $underColumn
+	$formLeft;
+	string $formRight = `formLayout`;
+	string $nodeListSL = `scrollLayout -cr true`;
+	$AriMaterialList_UI_ConneColumPare = `columnLayout -adj true `;
+	setParent..;
+	setParent..;
+	string $settingColm = `columnLayout -adj true`;
+	rowLayout -nc 4 -adj 1;
+	$AriMaterialList_UI_DepthIF = `intSliderGrp -cw 1 30 -w 80 -ann "Depth" -min 0 -max 10 -fmx 50 -field true -v 2 -cc "AriMaterialList_CheckSave; AriMaterialList_MatSCC();"`;
+	$AriMaterialList_UI_SwatchCB   = `checkBox -l "Swatch"   -v true -cc "AriMaterialList_CheckSave; AriMaterialList_MatSCC();"`;
+	$AriMaterialList_UI_AdvancedCB = `checkBox -l "Advanced" -v true -cc "AriMaterialList_CheckSave; AriMaterialList_MatSCC();"`;
+	button -l "Reload" -c "AriMaterialList_MatSCC()";
+	setParent..;
+	setParent..;
+	setParent..;
+	formLayout -e
+		-af $settingColm "bottom" 0
+		-af $settingColm "left" 0
+		-af $settingColm "right" 0
+		-af $nodeListSL "top"    0
+		-ac $nodeListSL "bottom" 0 $settingColm
+		-af $nodeListSL "left"   0
+		-af $nodeListSL "right"  0
+	$formRight;
+	setParent..;
+	setParent..;
+	formLayout -edit
+		-af $pane "top"    0
+		-af $pane "left"   0
+		-af $pane "right"  0
+		-af $pane "bottom" 0
+	$mainForm;
+	showWindow;
+	AriMaterialList_CheckLoad();
+	AriMaterialList_GetMatList(1);
+	$AriMaterialList_attrSettingList = settingTextLoad();
+	AriMaterialList_ConnectListPanel_Refresh();
+	print `timerX -st $nowTime`;
+	scriptJob -p "AriMaterialList" -event "SelectionChanged" "AriMaterialList_AriSelectMatCheck()";
+	AriMaterialList_AriSelectMatCheck();
+}

@@ -13,7 +13,7 @@ from Toolbox.LOD import LOD
 import subprocess
 
 # Define constants
-HUGTOOL_VERSION = "1.3.0 Beta"
+HUGTOOL_VERSION = "1.3.0"
 HUGTOOL_ICON = "HUG3.png"
 HUGTOOL_TITLE = "HUGTOOL"
 HUGTOOL_HELP_URL = "https://megestus.github.io/HUGTools/"

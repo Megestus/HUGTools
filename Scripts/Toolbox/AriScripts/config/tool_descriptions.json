@@ -130,6 +130,12 @@
             "中文描述": "可以将UV精确重叠对齐到指定位置。支持注册多个UV矩形位置,一键将选中UV重叠到目标位置。支持U/V单向对齐和均等缩放。",
             "英文描述": "Precisely align and overlap UVs to registered positions. Support multiple UV rectangle positions, one-click UV overlapping, U/V direction alignment and uniform scaling.",
             "URL": "http://cgjishu.net/blog-entry-294.html"
+        },
+        "AriMaterialList": {
+            "提示名称": "材质管理器",
+            "中文描述": "强大的材质管理工具。可以列出场景中所有材质并进行编辑，支持材质重命名、快速指定和选择使用该材质的物体。可查看和编辑材质相连的节点(如贴图节点)的属性。支持按名称排序和材质显示/隐藏功能。",
+            "英文描述": "Powerful material manager. List and edit all materials in scene, support material renaming, quick assignment and selection of objects using the material. View and edit properties of connected nodes (like texture nodes). Features material sorting and visibility toggle.",
+            "URL": "http://cgjishu.net/blog-entry-298.html"
         }
     }
 } 
