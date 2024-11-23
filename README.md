@@ -1,14 +1,29 @@
 # 🚀 HUGTool 
 
-![HUGTool Logo](Icons/HUGlogo.png)
 
-[![开发版本](https://img.shields.io/badge/1.3.0-blue.svg)](https://github.com/Megestus/HUGTool/releases)
+<div style="width: 250px; margin: 0 auto; text-align: center">
+
+![](Icons/HUGlogo.png)
+
+[![](https://img.shields.io/badge/版本_1.3.0-blue.svg)](https://github.com/Megestus/HUGTool/releases)
+
+</div>
+
 
 
 
 ## 🌟 简介
 
 HUGTool是一款专为团队设计的高效建模工具集。它集成了一系列实用的建模、UV和工作流优化功能，致力于提升3D艺术家的日常工作效率。
+
+
+<div style="width: 90%; margin: 0 auto; text-align: center;">
+
+  <img src="Icons/toolshot.png" style="border-radius: 15px; border: 2px solid #ddd;">
+
+</div>
+
+
 
 ## ✨ 主要功能
 
