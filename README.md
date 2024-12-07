@@ -5,7 +5,7 @@
 
 ![](Icons/HUGlogo.png)
 
-[![](https://img.shields.io/badge/版本_1.3.0_alpha-blue.svg)](https://github.com/Megestus/HUGTool/releases)
+  [![](https://img.shields.io/badge/版本_1.3.1_alpha-blue.svg)](https://github.com/Megestus/HUGTool/releases)
 
 </div>
 
@@ -33,11 +33,12 @@ HUGTool是一款专为团队设计的高效建模工具集。它集成了一系�
 - 折痕模式显示切换
 - Uv边界边显示切换
 
-### 🛠️ 编辑器 （wip）
+### 🛠️ 编辑器 
 - 顶点法线编辑工具
 - 折痕编辑器
-- UV编辑器
 - UV set List 编辑器
+- CreaseSet 编辑器
+
 
 ### 🎯 选择控制工具
 - 硬边选择 
