@@ -13,7 +13,7 @@ from Toolbox.LOD import LOD
 import subprocess
 
 # Define constants
-HUGTOOL_VERSION = "1.3.0"
+HUGTOOL_VERSION = "1.3.1 alpha"
 HUGTOOL_ICON = "HUG3.png"
 HUGTOOL_TITLE = "HUGTOOL"
 HUGTOOL_HELP_URL = "https://megestus.github.io/HUGTools/"
@@ -75,7 +75,7 @@ import Module.UVSetList_Module as UVSetList_Module
 from Toolbox.QuickExport import QuickExport
 from Toolbox.ViewCapture import screen_shot
 from Toolbox.AriScripts import AriScriptLauncherQt
-
+from Toolbox.CreaseSet import CreaseSetEditor
 
 # based on system encoding, default use english
 CURRENT_LANG = 'en_US'
@@ -133,6 +133,7 @@ LANG = {
         "Distance_tip": "Calculate edge length",
         "AriScript": "AriScript",
         "AriScript_tip": "open AriScript tools",
+        "CreaseSetEditor": "CreaseSet Clean",
         
         # Display Controls
         "Crease_tip": "Toggle Crease Edge Display\n\nShow/Hide crease edges",
@@ -201,6 +202,7 @@ LANG = {
         "Distance_tip": "计算边长",
         "AriScript": "AriScript工具集",
         "AriScript_tip": "打开AriScript工具集",
+        "CreaseSetEditor": "CreaseSet Clean",
         
         # 显示控制
         "Crease_tip": "切换折边显示",
@@ -368,14 +370,21 @@ class HUGToolsWindow(QtWidgets.QDialog):
         self.uvset_list_btn = RoundedButton(LANG[CURRENT_LANG]["UV Set List"], icon=QtGui.QIcon(":pasteUV.png"))
         self.uvset_list_btn.setToolTip(LANG[CURRENT_LANG]["UV Set List_tip"])
 
-        # crease module
+        # Editor group
         self.editor_group = QtWidgets.QGroupBox(LANG[CURRENT_LANG]["Editor"])
         self.open_NormalEdit_btn = RoundedButton(LANG[CURRENT_LANG]["NormalEdit"], icon=QtGui.QIcon(":nodeGrapherModeAllLarge.png"))
         self.open_NormalEdit_btn.setToolTip("Open Normal Edit window")
         self.open_crease_editor_btn = RoundedButton(LANG[CURRENT_LANG]["Crease Editor"], icon=QtGui.QIcon(":polyCrease.png"))
         self.open_crease_editor_btn.setToolTip(LANG[CURRENT_LANG]["Crease Editor"])
-        self.open_uv_editor_btn = RoundedButton(LANG[CURRENT_LANG]["UV Editor"], icon=QtGui.QIcon(":textureEditor.png"))
-        self.open_uv_editor_btn.setToolTip(LANG[CURRENT_LANG]["UV Editor_tip"])
+
+        
+        # 注释掉 UV Editor 的按钮
+        # self.open_uv_editor_btn = RoundedButton(LANG[CURRENT_LANG]["UV Editor"], icon=QtGui.QIcon(":textureEditor.png"))
+        # self.open_uv_editor_btn.setToolTip(LANG[CURRENT_LANG]["UV Editor_tip"])
+
+        # 将 CreaseSet Clean 移动到 UV Editor 的位置
+        self.Toolbox_CreaseSetEditor_btn = RoundedButton("CreaseSet Clean", icon=QtGui.QIcon(":pruneWire.png"))
+        self.Toolbox_CreaseSetEditor_btn.setToolTip("CreaseSetEditor Tool")
 
         #toolbox
         self.Toolbox_group = QtWidgets.QGroupBox(LANG[CURRENT_LANG]["Toolbox"])
@@ -387,6 +396,7 @@ class HUGToolsWindow(QtWidgets.QDialog):
         self.Toolbox_UnBevel_btn = RoundedButton(LANG[CURRENT_LANG]["UnBevel"], icon=QtGui.QIcon(":polyBevel.png"))
         self.Toolbox_ScreenShot_btn = RoundedButton(LANG[CURRENT_LANG]["ScreenShot"], icon=QtGui.QIcon(":out_snapshot.png"))
         self.Toolbox_CalcDistance_btn = RoundedButton("Distance", icon=QtGui.QIcon(":distanceDim.png"))
+        # self.Toolbox_CreaseSetEditor_btn = RoundedButton("CreaseSet Clean", icon=QtGui.QIcon(":pruneWire.png"))
 
         # Load the MirrorTool icon using the load_icon method
         ari_icon = self.load_icon(
@@ -414,6 +424,9 @@ class HUGToolsWindow(QtWidgets.QDialog):
         self.Toolbox_CalcDistance_btn.setToolTip(LANG[CURRENT_LANG]["Distance_tip"])
         self.Toolbox_AriScriptLauncherQt_btn.setToolTip(LANG[CURRENT_LANG]["AriScript_tip"])
         self.Toolbox_LOD_btn.setToolTip("Level of Detail Tool")
+        self.Toolbox_CreaseSetEditor_btn.setToolTip("CreaseSetEditor Tool")
+
+
 
         # Add Import/Export group after display group
         self.import_export_group = QtWidgets.QGroupBox(LANG[CURRENT_LANG]["Import/Export"])
@@ -520,12 +533,13 @@ class HUGToolsWindow(QtWidgets.QDialog):
         select_layout.addWidget(self.Toolbox_UnBevel_btn, 2, 1)
         self.select_group.setLayout(select_layout)
 
-        # crease control group layout
+        # Editor group layout
         editor_layout = QtWidgets.QGridLayout()
         editor_layout.addWidget(self.open_NormalEdit_btn, 0, 0)
         editor_layout.addWidget(self.open_crease_editor_btn, 0, 1)
-        editor_layout.addWidget(self.open_uv_editor_btn, 1, 1)
         editor_layout.addWidget(self.uvset_list_btn, 1, 0)
+        # editor_layout.addWidget(self.open_uv_editor_btn, 1, 1)
+        editor_layout.addWidget(self.Toolbox_CreaseSetEditor_btn, 1, 1)
         self.editor_group.setLayout(editor_layout)
 
         #toolbox group layout
@@ -537,7 +551,7 @@ class HUGToolsWindow(QtWidgets.QDialog):
         Toolbox_layout.addWidget(self.Toolbox_LOD_btn, 2, 0)  
         Toolbox_layout.addWidget(self.Toolbox_ScreenShot_btn, 3, 0)
         Toolbox_layout.addWidget(self.Toolbox_CalcDistance_btn, 2, 1)
-
+        # Toolbox_layout.addWidget(self.Toolbox_CreaseSetEditor_btn, 3, 1)
 
         # Toolbox_layout.addWidget(self.Toolbox_More_btn, 3, 0)
 
@@ -605,7 +619,8 @@ class HUGToolsWindow(QtWidgets.QDialog):
         self.edge_to_curve_btn.clicked.connect(self.convert_edge_to_curve)
 
         self.open_crease_editor_btn.clicked.connect(self.open_crease_set_editor)
-        self.open_uv_editor_btn.clicked.connect(self.open_uv_editor)
+        # 注释掉 UV Editor 的连接
+        # self.open_uv_editor_btn.clicked.connect(self.open_uv_editor)
 
         self.Toolbox_QuickRename_btn.clicked.connect(self.quick_rename)
         self.Toolbox_Rename_btn.clicked.connect(self.rename_edit)
@@ -615,7 +630,7 @@ class HUGToolsWindow(QtWidgets.QDialog):
         self.Toolbox_CalcDistance_btn.clicked.connect(self.calculate_distance)
         self.Toolbox_AriScriptLauncherQt_btn.clicked.connect(self.AriScriptLauncherQt)
         self.Toolbox_LOD_btn.clicked.connect(self.show_lod_tool)
-        
+        self.Toolbox_CreaseSetEditor_btn.clicked.connect(self.show_CreaseSetEditor_tool)
         # connect help button
         self.help_btn.clicked.connect(self.show_help)
 
@@ -1258,7 +1273,13 @@ class HUGToolsWindow(QtWidgets.QDialog):
             cmds.warning(error_msg)
 
 
-
+    def show_CreaseSetEditor_tool(self):
+        """Launch CreaseSetEditor tool"""
+        try:
+            importlib.reload(CreaseSetEditor)
+            CreaseSetEditor.show()
+        except Exception as e:
+            cmds.warning(f"Error launching CreaseSetEditor tool: {str(e)}")
 
 
     def show_lod_tool(self):
@@ -1368,8 +1389,8 @@ class HUGToolsWindow(QtWidgets.QDialog):
 
     def show_help(self):
         # Specify the URL of the website you want to open
-        help_url = "https://megestus.github.io/HUGTools/"
-        webbrowser.open(help_url)
+        # help_url = "https://megestus.github.io/HUGTools/"
+        webbrowser.open(HUGTOOL_HELP_URL)
 
     def toggle_language(self):
         global CURRENT_LANG
