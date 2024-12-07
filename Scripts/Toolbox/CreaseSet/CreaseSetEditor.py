@@ -21,7 +21,7 @@ class CreaseSetEditor(QtWidgets.QDialog):
             "crease_set_EdgeNumber": "Edge N",
             "quick_execute": "Quick Execute",
             "quick_set_btn": "Quick Set Crease Level",
-            "select_edges_btn": "Select CreaseSet Edges",
+            "select_edges_btn": "Select CreaseSet Edges to Soft/Hard Edge",
             "prefix_merge_btn": "Merge by Prefix",
             "prefix_rename_btn": "Rename by Prefix",
             "split_crease_set_btn": "Split CreaseSet",
@@ -41,7 +41,7 @@ class CreaseSetEditor(QtWidgets.QDialog):
             "crease_set_EdgeNumber": "边数量",
             "quick_execute": "快捷执行",
             "quick_set_btn": "一键设置折痕级别",
-            "select_edges_btn": "选择CreaseSet边",
+            "select_edges_btn": "选择CreaseSet边进行软硬边",
             "prefix_merge_btn": "根据前缀合并",
             "prefix_rename_btn": "根据前缀重命名",
             "split_crease_set_btn": "拆分CreaseSet",
@@ -336,34 +336,74 @@ class CreaseSetEditor(QtWidgets.QDialog):
                 cmds.warning(f"处理CreaseSet {cs} 时出错: {str(e)}")
 
     def select_crease_edges(self):
-        """选择当前CreaseSet中的边"""
+        """选择当前CreaseSet中的边并设置硬边/软边"""
+
+        # 获取当前选定的对象
+        selected_objects = cmds.ls(sl=True, long=True)
+        selected_object_names = {obj.split("|")[-1] for obj in selected_objects}
+
+        # 自动选择与选定对象相关的CreaseSet节点
+        if not self.crease_set_tree.selectedItems():
+            all_crease_sets = cmds.ls(type='objectSet') or []
+            for cs in all_crease_sets:
+                if not cmds.attributeQuery('creaseLevel', node=cs, exists=True):
+                    continue
+
+                members = cmds.sets(cs, q=True) or []
+                related = any(member.split('.')[0] in selected_object_names for member in members)
+                if related:
+                    # 自动选择相关的CreaseSet节点
+                    for i in range(self.crease_set_tree.topLevelItemCount()):
+                        item = self.crease_set_tree.topLevelItem(i)
+                        if item.data(0, QtCore.Qt.UserRole) == cs:
+                            item.setSelected(True)
+                            break
+
+        # 继续执行原有逻辑
         selected_items = self.crease_set_tree.selectedItems()
         if not selected_items:
             cmds.inViewMessage(amg='<span style="color:#fbca82;">请先选择CreaseSet节点</span>', pos='botRight', fade=True)
-            return
-
-        selection = cmds.ls(sl=True, long=True)
-        if not selection:
-            cmds.inViewMessage(amg='<span style="color:#fbca82;">请先选择物体</span>', pos='botRight', fade=True)
             return
 
         try:
             cmds.undoInfo(openChunk=True)
             cmds.select(clear=True)
             all_edges_to_select = []
-            
+
+            # 获取所有模型对象
+            all_objects = cmds.ls(type='mesh', long=True)
+            all_object_edges = cmds.polyListComponentConversion(all_objects, toEdge=True)
+            all_object_edges = cmds.ls(all_object_edges, flatten=True)
+
+            # 将所有边设置为软边
+            cmds.polySoftEdge(all_object_edges, angle=180, ch=True)
+
             for item in selected_items:
                 crease_set = item.data(0, QtCore.Qt.UserRole)
                 all_members = cmds.sets(crease_set, q=True) or []
-                
-                for obj in selection:
-                    obj_name = obj.split("|")[-1]
-                    edges = [edge for edge in all_members if edge.startswith(obj_name + ".")]
+
+                # 从成员中提取对象名称并选择相关边
+                for member in all_members:
+                    obj_name = member.split('.')[0]
+                    if ':' in member:
+                        # 解析范围
+                        base, indices = member.split('[')
+                        start, end = map(int, indices[:-1].split(':'))
+                        edges = [f"{base}[{i}]" for i in range(start, end + 1)]
+                    else:
+                        edges = [member]
                     all_edges_to_select.extend(edges)
 
             if all_edges_to_select:
                 cmds.select(all_edges_to_select, replace=True)
                 cmds.selectType(edge=True)
+
+                # 打印选中的边
+                print("选中的边:", all_edges_to_select)
+
+                # 设置选中边为硬边
+                cmds.polySoftEdge(all_edges_to_select, angle=0, ch=True)
+
             else:
                 cmds.inViewMessage(amg='<span style="color:#fbca82;">未找到相关的边</span>', pos='botRight', fade=True)
 
@@ -525,6 +565,7 @@ class CreaseSetEditor(QtWidgets.QDialog):
 
     def select_merged_objects(self, edges):
         """选择合并后的模型对象"""
+        
         # 提取对象名称
         objects = list(set(edge.split('.')[0] for edge in edges))
         cmds.select(objects, replace=True)
