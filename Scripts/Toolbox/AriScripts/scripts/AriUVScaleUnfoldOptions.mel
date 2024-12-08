@@ -1,0 +1,142 @@
+//--------------------------------------------------------------------------
+//
+// ScriptName : AriUVScaleUnfoldOptions
+// Contents   : AriUVScaleUnfoldのオプション
+// Author     : Ari
+// URL        : http://cgjishu.net/
+// Since      : 2023/03
+// Update     : 2023/05/07 裏向きで展開機能追加
+// Help       : http://cgjishu.net/blog-entry-378.html
+//
+//--------------------------------------------------------------------------
+
+
+
+
+
+
+global proc AriUVScaleUnfoldOptions_Load(){
+	global string $AriUVScaleUnfoldOptions_UI_Scalefloat;
+	global string $AriUVScaleUnfoldOptions_UI_VerHor[];
+	global string $AriUVScaleUnfoldOptions_UI_Select[];
+	global string $AriUVScaleUnfoldOptions_UI_Reverse[];
+	global string $AriUVScaleUnfoldOptions_UI_CheckIF;
+	float $scaleValue = 100;
+	if(`optionVar -exists "AriUVScaleUnfold_Scale"`)	$scaleValue = `optionVar -q "AriUVScaleUnfold_Scale"`;
+	floatField -e -v $scaleValue $AriUVScaleUnfoldOptions_UI_Scalefloat;
+	int $verhorMode = 0;
+	if(`optionVar -exists "AriUVScaleUnfold_VerHor"`)	$verhorMode = `optionVar -q "AriUVScaleUnfold_VerHor"`;
+	radioButton -e -sl $AriUVScaleUnfoldOptions_UI_VerHor[$verhorMode];
+	int $select = 0;
+	if(`optionVar -exists "AriUVScaleUnfold_Select"`)	$select = `optionVar -q "AriUVScaleUnfold_Select"`;
+	radioButton -e -sl $AriUVScaleUnfoldOptions_UI_Select[$select];
+	int $reverseTrue = 2;
+	if(`optionVar -exists "AriUVScaleUnfold_Reverse"`)	$select = `optionVar -q "AriUVScaleUnfold_Reverse"`;
+	radioButton -e -sl $AriUVScaleUnfoldOptions_UI_Reverse[$select];
+	int $checkTotal = 10;
+	if(`optionVar -exists "AriUVScaleUnfold_Check"`)	$checkTotal  = `optionVar -q "AriUVScaleUnfold_Check"`;
+	intField -e -v $checkTotal $AriUVScaleUnfoldOptions_UI_CheckIF;
+}
+global proc AriUVScaleUnfoldOptions_Save(){
+	global string $AriUVScaleUnfoldOptions_UI_Scalefloat;
+	global string $AriUVScaleUnfoldOptions_UI_VerHor[];
+	global string $AriUVScaleUnfoldOptions_UI_Select[];
+	global string $AriUVScaleUnfoldOptions_UI_Reverse[];
+	global string $AriUVScaleUnfoldOptions_UI_CheckIF;
+	float $scaleValue = `floatField -q -v $AriUVScaleUnfoldOptions_UI_Scalefloat`;
+	optionVar -floatValue  "AriUVScaleUnfold_Scale" $scaleValue;
+	int $verhorMode = 0;
+	if(`radioButton -q -sl $AriUVScaleUnfoldOptions_UI_VerHor[1]`)	$verhorMode = 1;
+	if(`radioButton -q -sl $AriUVScaleUnfoldOptions_UI_VerHor[2]`)	$verhorMode = 2;
+	optionVar -intValue "AriUVScaleUnfold_VerHor" $verhorMode;
+	int $select = 0;
+	if(`radioButton -q -sl $AriUVScaleUnfoldOptions_UI_Select[1]`)	$select = 1;
+	optionVar -intValue "AriUVScaleUnfold_Select" $select;
+	int $reverseMode = 0;
+	if(`radioButton -q -sl $AriUVScaleUnfoldOptions_UI_Reverse[1]`)	$reverseMode = 1;
+	if(`radioButton -q -sl $AriUVScaleUnfoldOptions_UI_Reverse[2]`)	$reverseMode = 2;
+	optionVar -intValue "AriUVScaleUnfold_Reverse" $reverseMode;
+	int $checkTotal = `intField -q -v $AriUVScaleUnfoldOptions_UI_CheckIF`;
+	optionVar -intValue "AriUVScaleUnfold_Check" $checkTotal;
+}
+global proc AriUVScaleUnfoldOptions_ChangeUI(){
+	global string $AriUVScaleUnfoldOptions_UI_CheckIF;
+	global string $AriUVScaleUnfoldOptions_UI_Reverse[];
+	int $fieldTrue = false;
+	if(`radioButton -q -sl $AriUVScaleUnfoldOptions_UI_Reverse[2]`)	$fieldTrue = true;
+	intField -e -en $fieldTrue $AriUVScaleUnfoldOptions_UI_CheckIF;
+}
+global proc AriUVScaleUnfoldOptions_Go(){
+	AriUVScaleUnfoldOptions_Save();
+	AriUVScaleUnfold();
+}
+global proc AriUVScaleUnfoldOptions(){
+	global string $AriUVScaleUnfoldOptions_UI_Scalefloat;
+	global string $AriUVScaleUnfoldOptions_UI_VerHor[];
+	global string $AriUVScaleUnfoldOptions_UI_Select[];
+	global string $AriUVScaleUnfoldOptions_UI_Reverse[];
+	global string $AriUVScaleUnfoldOptions_UI_CheckIF;
+	if((`window -ex  AriUVScaleUnfoldOptions`)==true)deleteUI AriUVScaleUnfoldOptions;
+	window -title "AriUVScaleUnfoldOptions" -tlb true -w 300 -h 50 AriUVScaleUnfoldOptions;
+	string $form   = `formLayout`;
+	string $column = `columnLayout -adj true`;
+	rowLayout -nc 3 -adj 2;
+	text -l "Scale";
+	$AriUVScaleUnfoldOptions_UI_Scalefloat = `floatField -v 100 -min 1 -pre 2`;
+	setParent..;
+	separator -h 4 -st "in";
+	rowLayout -nc 3;
+	radioCollection;
+	$AriUVScaleUnfoldOptions_UI_VerHor[0] = `radioButton -l "None"`;
+	$AriUVScaleUnfoldOptions_UI_VerHor[1] = `radioButton -l "Vertical"`;
+	$AriUVScaleUnfoldOptions_UI_VerHor[2] = `radioButton -l "Horizontal"`;
+	setParent..;
+	separator -h 4 -st "in";
+	rowLayout -nc 3;
+	radioCollection;
+	$AriUVScaleUnfoldOptions_UI_Select[0] = `radioButton -l "Selected"`;
+	$AriUVScaleUnfoldOptions_UI_Select[1] = `radioButton -l "Unselected"`;
+	setParent..;
+	separator -h 4 -st "in";
+	rowLayout -nc 4;
+	radioCollection;
+	$AriUVScaleUnfoldOptions_UI_Reverse[2] = `radioButton -l "Auto "    -onc "AriUVScaleUnfoldOptions_ChangeUI()"`;
+	$AriUVScaleUnfoldOptions_UI_CheckIF    = `intField -w 40 -v 10 -ann "Number of faces to check front and back"`;
+	$AriUVScaleUnfoldOptions_UI_Reverse[0] = `radioButton -l "Front "   -onc "AriUVScaleUnfoldOptions_ChangeUI()"`;
+	$AriUVScaleUnfoldOptions_UI_Reverse[1] = `radioButton -l "Reverse " -onc "AriUVScaleUnfoldOptions_ChangeUI()" `;
+	setParent..;
+	separator -h 4 -st "in";
+	setParent..;
+	$buttonform = `formLayout`;
+	string $buttonSave       = `button       -l "Save"       -c "AriUVScaleUnfoldOptions_Save();"`;
+	string $buttonSaveClose  = `button       -l "Save Close" -c "AriUVScaleUnfoldOptions_Save(); deleteUI AriUVScaleUnfoldOptions;"`;
+	string $buttonApply      = `button -h 38 -l "Apply"      -c "AriUVScaleUnfoldOptions_Go();" -bgc 0.5 0.5 1`;
+	setParent..;
+	formLayout -e 
+	-af $buttonApply "bottom" 0  
+	-ap $buttonApply "left"   0 50
+	-af $buttonApply "right"  0
+	-af $buttonApply "top"    0 
+	-af $buttonSave	"top"    0
+	-ap $buttonSave	"bottom" 0 50
+	-af $buttonSave	"left"   0 
+	-ac $buttonSave	"right"  0 $buttonApply
+	-ac $buttonSaveClose	"top"    0 $buttonSave
+	-af $buttonSaveClose	"bottom" 0
+	-af $buttonSaveClose	"left"   0
+	-ac $buttonSaveClose	"right"  0 $buttonApply
+	$buttonform;
+	setParent..;
+	formLayout -e 
+	-af $column "top"    0
+	-af $column "left"   0
+	-af $column "right"  0
+	-ac $buttonform "top"    0 $column
+	-af $buttonform "bottom" 0
+	-af $buttonform "left"   0
+	-af $buttonform "right"  0
+	$form;
+	showWindow;
+	AriUVScaleUnfoldOptions_Load();
+	AriUVScaleUnfoldOptions_ChangeUI();
+}

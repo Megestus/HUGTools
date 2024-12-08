@@ -1,0 +1,257 @@
+//--------------------------------------------------------------------------
+//
+// ScriptName : AriNormalDefaultBlend
+// Contents   : ロックされた法線と、デフォルトの法線をブレンドします。
+// Author     : Ari
+// URL        : http://cgjishu.net/
+// Since      : 2022/10
+// LastUpdate : 
+// Help       : http://cgjishu.net/blog-entry-367.html
+//
+//--------------------------------------------------------------------------
+
+
+
+proc float DstanceInputVector(vector $pos0,vector $pos1)
+{
+	float $dis;
+	$dis = 	 (($pos1.x)-($pos0.x))*(($pos1.x)-($pos0.x))
+			+(($pos1.y)-($pos0.y))*(($pos1.y)-($pos0.y))
+			+(($pos1.z)-($pos0.z))*(($pos1.z)-($pos0.z));
+	$dis=sqrt ($dis);
+	return $dis;
+}
+global proc AriNormalDefaultBlend_Load(){
+	int $blednTrue = true;
+	if(`optionVar -exists "AriNormalDefaultBlend_blend"`)		$blednTrue = `optionVar -q "AriNormalDefaultBlend_blend"`;
+	int $invertTrue = false;
+	if(`optionVar -exists "AriNormalDefaultBlend_invert"`)	$invertTrue = `optionVar -q "AriNormalDefaultBlend_invert"`;
+}
+proc vector getNormalOneVertex(string $vertex){
+	vector $vec ;
+	float $getNormal[] = `polyNormalPerVertex -q -xyz $vertex`;
+	int $tortal = size($getNormal)/3;
+	vector $norTotal;
+	for($ii=0; $ii<$tortal; $ii++){
+		vector $nowNor = <<$getNormal[$ii*3], $getNormal[$ii*3+1], $getNormal[$ii*3+2]>>;
+		$norTotal = $norTotal + $nowNor;
+	}
+	float $normalFloat[] = {($norTotal.x),($norTotal.y),($norTotal.z)};
+	normalize($normalFloat);
+	$norTotal = <<$normalFloat[0],$normalFloat[1],$normalFloat[2]>>;
+	return $norTotal;
+}
+global proc vector[] getNormalList_Vertex(string $vertexList[]){
+	vector $nowNormalList[];
+	for($ii=0; $ii<size($vertexList); $ii++){
+		$vertex = $vertexList[$ii];
+		vector $nor = getNormalOneVertex($vertex);
+		$nowNormalList[$ii] = $nor;
+	}
+	return $nowNormalList;
+}
+proc vector[] getNormalList_VerFace(string $verFaceList[]){
+	vector $nowNormalList[];
+	for($ii=0; $ii<size($verFaceList); $ii++){
+		string $vf = $verFaceList[$ii];
+		float $getNormal[] = `polyNormalPerVertex -q -xyz $vf`;
+		$nowNormalList[$ii] = <<$getNormal[0], $getNormal[1], $getNormal[2]>>;
+	}
+	return $nowNormalList;
+}
+global proc AriNormalDefaultBlend_SelectBaseNormalButton(){
+	global string $AriNormalDefaultBlend_baseVerNameList[];
+	select $AriNormalDefaultBlend_baseVerNameList;
+}
+global proc AriNormalDefaultBlend_GetBaseNormalButton(){
+	global string $AriNormalDefaultBlend_UI_VertexRB;
+	global string $AriNormalDefaultBlend_UI_getNormalTF;
+	global vector $AriNormalDefaultBlend_baseNormalList[];
+	global string $AriNormalDefaultBlend_baseVerNameList[];
+	int $verMode = false;
+	$verMode = `radioButton -q -select $AriNormalDefaultBlend_UI_VertexRB`;
+	string $selects[] = `ls -sl`;
+	string $vertexs[];
+	string $vertexFaceList[];
+	vector $BaseNormalList[];
+	if($verMode){
+		$vertexs = `polyListComponentConversion -tv $selects`;
+		$vertexFaceList = `filterExpand -selectionMask 31 $vertexs`;
+		$BaseNormalList = getNormalList_Vertex($vertexFaceList);
+	}
+	else{
+		$vertexs = `polyListComponentConversion -tvf $selects`;
+		$vertexFaceList = `filterExpand -selectionMask 70 $vertexs`;
+		$BaseNormalList = getNormalList_VerFace($vertexFaceList);
+	}
+	$AriNormalDefaultBlend_baseVerNameList = $vertexFaceList; 
+	$AriNormalDefaultBlend_baseNormalList  = $BaseNormalList;
+	AriNormalDefaultBlend_UIChange();
+}
+global proc AriNormalDefaultBlend_GO(){
+	global string $AriNormalDefaultBlend_UI_VertexRB;
+	global string $AriNormalDefaultBlend_UI_parSG;
+	global string $AriNormalDefaultBlend_UI_UnlockCB;
+	global vector $AriNormalDefaultBlend_baseNormalList[];
+	global string $AriNormalDefaultBlend_baseVerNameList[];
+	int $verMode = false;
+	$verMode = `radioButton -q -select $AriNormalDefaultBlend_UI_VertexRB`;
+	int $baseBlendTrue = true;
+	$baseBlendTrue = `radioButton -q -select $AriNormalDefaultBlend_UI_UnlockCB`;
+	string $selects[] = `ls -sl`;
+	string $vertexs[];
+	string $vertexFaceList[];
+	if($verMode){
+		$vertexs = `polyListComponentConversion -tv $selects`;
+		$vertexFaceList = `filterExpand -selectionMask 31 $vertexs`;
+	}
+	else{
+		$vertexs = `polyListComponentConversion -tvf $selects`;
+		$vertexFaceList = `filterExpand -selectionMask 70 $vertexs`;
+	}
+	float $per = 50;
+	$per = `floatSliderGrp -q -v $AriNormalDefaultBlend_UI_parSG`;
+	vector $LockNormalList[];
+	if($verMode)	$LockNormalList = getNormalList_Vertex($vertexFaceList);
+	else			$LockNormalList = getNormalList_VerFace($vertexFaceList);
+	string $BaseVerNameList[] = $vertexFaceList;
+	vector $BaseNormalList[];
+	if($baseBlendTrue){
+		UnlockNormals;
+		if($verMode)	$BaseNormalList = getNormalList_Vertex($vertexFaceList);
+		else 			$BaseNormalList = getNormalList_VerFace($vertexFaceList);
+	}
+	else{
+		$BaseNormalList  = $AriNormalDefaultBlend_baseNormalList;
+		$BaseVerNameList = $AriNormalDefaultBlend_baseVerNameList;
+	}
+	string $successVerList[];
+	clear $successVerList;
+	for($ii=0; $ii<size($vertexFaceList); $ii++){
+		$vertex = $vertexFaceList[$ii];
+		vector $lockNor = $LockNormalList[$ii];
+		if(!$baseBlendTrue){
+			for($jj=0; $jj<size($BaseNormalList); $jj++){
+				if($vertexFaceList[$ii] != $BaseVerNameList[$jj])continue;
+				vector $baseNor = $BaseNormalList[$jj];
+				vector $nor = ($baseNor*($per/100.0))+($lockNor*((100-$per)/100.0));
+				polyNormalPerVertex -e -x ($nor.x) -y ($nor.y) -z ($nor.z) $vertex;
+				$successVerList[size($successVerList)] = $vertex;
+				break;
+			}
+		}
+		else{
+			vector $baseNor = $BaseNormalList[$ii];
+			vector $nor = ($baseNor*($per/100.0))+($lockNor*((100-$per)/100.0));
+			polyNormalPerVertex -e -x ($nor.x) -y ($nor.y) -z ($nor.z) $vertex;
+			$successVerList[size($successVerList)] = $vertex;
+		}
+	}
+}
+global proc AriNormalDefaultBlend_UIChange(){
+	global string $AriNormalDefaultBlend_baseVerNameList[];
+	global string $AriNormalDefaultBlend_UI_GetRow;
+	global string $AriNormalDefaultBlend_UI_UnlockCB;
+	global string $AriNormalDefaultBlend_UI_getNormalTF;
+	global string $AriNormalDefaultBlend_UI_GetBt;
+	global string $AriNormalDefaultBlend_UI_SelectBt;
+	global string $AriNormalDefaultBlend_UI_UnlockTxt;
+	int $baseBlendTrue = true;
+	$baseBlendTrue = `radioButton -q -select $AriNormalDefaultBlend_UI_UnlockCB`;
+	int $enTrue = true;
+	string $unlockText;
+	if($baseBlendTrue){
+		$enTrue = false;
+		$unlockText = "Default";
+	}
+	else{
+		$enTrue = true;
+		$unlockText = "Get";
+	}
+	int $selTrue = false;
+	int $selSize = size($AriNormalDefaultBlend_baseVerNameList);
+	string $selects[] = $AriNormalDefaultBlend_baseVerNameList;
+	if($selSize > 0){
+		$selTrue = true;
+	}
+	rowLayout -e -en $enTrue     $AriNormalDefaultBlend_UI_GetRow;
+	textField -e -en $enTrue     $AriNormalDefaultBlend_UI_getNormalTF;
+	button    -e -en $enTrue     $AriNormalDefaultBlend_UI_GetBt;
+	text      -e -l  $unlockText $AriNormalDefaultBlend_UI_UnlockTxt;
+	button    -e -en $selTrue    $AriNormalDefaultBlend_UI_SelectBt;
+	textField -e -text ($selSize + " Vtx (" + $selects[0] + "...etc)" ) $AriNormalDefaultBlend_UI_getNormalTF;
+}
+global proc AriNormalDefaultBlend(){
+	global string $AriNormalDefaultBlend_UI_VertexRB;
+	global string $AriNormalDefaultBlend_UI_parSG;
+	global string $AriNormalDefaultBlend_UI_UnlockCB;
+	global string $AriNormalDefaultBlend_UI_getNormalTF;
+	global string $AriNormalDefaultBlend_UI_GetRow;
+	global string $AriNormalDefaultBlend_UI_GetBt;
+	global string $AriNormalDefaultBlend_UI_SelectBt;
+	global string $AriNormalDefaultBlend_UI_UnlockTxt;
+	if((`window -ex  AriNormalDefaultBlend`)==true)deleteUI AriNormalDefaultBlend;
+	window -title "AriNormalDefaultBlend" -tlb true -w 300 -h 50 AriNormalDefaultBlend;
+	string $mainForm = `formLayout`;
+	string $column = `columnLayout -adj true`;
+	rowLayout -nc 3 -cw 1 92;
+    radioCollection;
+	text -l "Normal Type: ";
+	$AriNormalDefaultBlend_UI_VertexRB = `radioButton -label "Vertex" -select`;
+    radioButton -label "VtxFace";
+	setParent..;
+	rowLayout -nc 3 -cw 1 92;
+	text -l "Blend Normal: ";
+    radioCollection;
+	$AriNormalDefaultBlend_UI_UnlockCB = `radioButton -label "Default" -onc "AriNormalDefaultBlend_UIChange()" -select`;
+	radioButton -label "Get" -onc "AriNormalDefaultBlend_UIChange()";
+	setParent..;
+	$AriNormalDefaultBlend_UI_GetRow = `rowLayout -nc 3 -adj 1`;
+	$AriNormalDefaultBlend_UI_getNormalTF = `textField -ed false`;
+	$AriNormalDefaultBlend_UI_GetBt    = `button -w 60 -l "Get" -c "AriNormalDefaultBlend_GetBaseNormalButton()"`;
+	$AriNormalDefaultBlend_UI_SelectBt = `button -w 60 -l "Select" -c "AriNormalDefaultBlend_SelectBaseNormalButton()"`;
+	setParent..;
+	string $form = `formLayout`;
+	string $textA = `text -l "Current"`;
+	string $textB = `text -l ">>>"`;
+	string $textC = `text -l "Default"`;
+	setParent..;
+	formLayout -e
+	-af $textA "left" 0
+	-af $textC "right" 0
+	-ac $textB "left"  0 $textA
+	-ac $textB "right" 0 $textC
+	$form;
+	$AriNormalDefaultBlend_UI_UnlockTxt = $textC;
+	$AriNormalDefaultBlend_UI_parSG = `floatSliderGrp -w 30 -v 50 -pre 2 -field true -min 0 -max 100 -fmn -1000 -fmx 1000 -cw 1 60`;
+	setParent..;
+	string $buttonForm = `formLayout`;
+	string $dispBt  = `button -w 60 -l "Display" -c "ToggleVertexNormalDisplay"`;
+	string $unlockBt= `button -w 60 -l "Unlock"  -c "UnlockNormals"`;
+	string $blendBt = `button -h 30 -l "Blend"   -c "AriNormalDefaultBlend_GO()"`;
+	setParent..;
+	setParent..;
+	formLayout -e
+	-af $dispBt "top"    0
+	-af $dispBt "left"   0
+	-ap $dispBt "bottom" 0 50
+	-af $unlockBt "bottom" 0
+	-af $unlockBt "left"   0
+	-ac $unlockBt "top"    0 $dispBt
+	-af $blendBt "top"   0
+	-af $blendBt "right" 0
+	-af $blendBt "bottom"0
+	-ac $blendBt "left"  0 $dispBt
+	$buttonForm;
+	formLayout -e
+	-af $column "top"   0
+	-af $column "left"  0
+	-af $column "right" 0
+	-ac $buttonForm "top"   0 $column
+	-af $buttonForm "right" 0
+	-af $buttonForm "left"  0
+	-af $buttonForm "bottom"0
+	$mainForm;
+	showWindow;
+	AriNormalDefaultBlend_UIChange();
+}

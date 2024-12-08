@@ -1,0 +1,169 @@
+//--------------------------------------------------------------------------
+//
+// ScriptName : AriUVScaleUnfold
+// Contents   : UnfoldUVを精度高めに実行します。(拡大してから実行してるだけ)
+// Author     : Ari
+// URL        : http://cgjishu.net/
+// Since      : 2023/03
+// Update     : 2023/05/07 裏向きで展開機能追加
+// Help       : http://cgjishu.net/blog-entry-378.html
+//
+//--------------------------------------------------------------------------
+
+
+proc int ReversCheck(string $faceOne){
+	
+	int $reverseTrue;
+	string $obj[];
+	tokenize $faceOne "." $obj;
+	string $verList[] = `polyInfo -faceToVertex $faceOne`;
+	string $vers[];
+	tokenizeList $verList[0] $vers;
+	string $uvs[]=`polyListComponentConversion -toUV $faceOne`;
+	string $uvList[]=`filterExpand -selectionMask 35 $uvs`;
+	string $verToUv[];
+	clear $verToUv;
+	for($x=0;$x<size($uvList);$x++){
+		string $uvToVer[]=`polyListComponentConversion -toUV ($obj[0]+".vtx["+$vers[$x+2]+"]")`;
+		$uvToVer=`filterExpand -selectionMask 35 $uvToVer`;
+		for($Loop in $uvToVer){
+			for($uvLoop in $uvList){
+				if($Loop==$uvLoop){
+					$verToUv[$x]=$Loop;
+					break;
+				}
+			}
+		}
+	}
+	vector $uvPos[];
+	clear $uvPos;
+	for($k=0; $k<size($verToUv); $k++){
+		float  $uvP[] = `polyEditUV -q  $verToUv[$k]`;
+		$uvPos[$k] =<<$uvP[0],$uvP[1],0>>;
+	}
+	int $leftRotTrue=0;
+	string $work_LeftUVList[];
+	string $work_RightUVList[];
+	int $workLeftCount = 0;
+	int $workRightCount= 0;
+	clear $work_LeftUVList;
+	clear $work_RightUVList;
+	for($k=0; $k<size($uvPos); $k++){
+		int $befoNum = $k-1;
+		int $nowNum  = $k;
+		int $afterNum = $k+1;
+		if($befoNum < 0) $befoNum = size($uvPos)-1;
+		if($afterNum >= size($uvPos)) $afterNum = 0;
+		vector $cross = cross($uvPos[$befoNum]-$uvPos[$nowNum], $uvPos[$afterNum]-$uvPos[$nowNum]);
+		if($cross.z >= 0){
+			$leftRotTrue++;
+			$work_LeftUVList[$workLeftCount] = $verToUv[$nowNum];
+			$workLeftCount++;
+		}
+		else{
+			$work_RightUVList[$workRightCount] = $verToUv[$nowNum];
+			$workRightCount++;
+		}
+	}
+	int $depressionTrue = false;
+	int $leftTotal=2;
+	if($depressionTrue){
+		$leftTotal=1;
+	}
+	/*
+	if($leftRotTrue >= $leftTotal){
+		for($workUV in $work_LeftUVList){
+			if(stringArrayContains($workUV,$selectUVList)){
+				$reUVList[$reUVCounter] = $workUV;
+				$reUVCounter++;
+			}
+		}
+	}
+	if($leftRotTrue==3){
+		for($workUV in $work_RightUVList){
+			if(stringArrayContains($workUV,$selectUVList)){
+				$reUVList[$reUVCounter] = $workUV;
+				$reUVCounter++;
+			}
+		}
+	}
+	*/
+	int $nejireTrue = false;
+	if($nejireTrue){
+		if($leftRotTrue >= $leftTotal){
+			return 1;
+		}
+	}
+	else{	
+		if($leftRotTrue >= size($uvPos)-1){
+			return 1;
+		}
+	}
+	return 0;
+}
+proc AriUVScaleUnfold_GO(string $selectUVs[], float $scaleValue, int $verhorMode, int $selectTrue, int $reverseVal){
+	polySelectBorderShell 0;
+	polyEditUV -pu 0.5 -pv 0.5 -su ($scaleValue) -sv ($scaleValue * $reverseVal) ;
+	select $selectUVs;
+	unfold -i 5000 -ss 0.001 -gb 0 -gmb 0.5 -pub 0 -ps $selectTrue -oa $verhorMode -us off;
+	polySelectBorderShell 0;
+	polyEditUV -pu 0.5 -pv 0.5 -su (1.0/$scaleValue) -sv (1.0/$scaleValue * $reverseVal) ;
+}
+global proc AriUVScaleUnfold(){
+	float $scaleValue = 100;
+	if(`optionVar -exists "AriUVScaleUnfold_Scale"`)	$scaleValue = `optionVar -q "AriUVScaleUnfold_Scale"`;
+	int $verhorMode = 0;
+	if(`optionVar -exists "AriUVScaleUnfold_VerHor"`)	$verhorMode = `optionVar -q "AriUVScaleUnfold_VerHor"`;
+	int $selectTrue = 0;
+	if(`optionVar -exists "AriUVScaleUnfold_Select"`)	$selectTrue = `optionVar -q "AriUVScaleUnfold_Select"`;
+	int $reverseMode = 2;
+	if(`optionVar -exists "AriUVScaleUnfold_Reverse"`)	$reverseMode = `optionVar -q "AriUVScaleUnfold_Reverse"`;
+	int $checkTotal = 10;
+	if(`optionVar -exists "AriUVScaleUnfold_Check"`)	$checkTotal  = `optionVar -q "AriUVScaleUnfold_Check"`;
+	string $userSelects[] = `ls -sl`;
+	string $selectUVs[] = `polyListComponentConversion -tuv $userSelects`;
+	if(size($selectUVs)==0){
+		AriUVScaleUnfoldOptions;
+		return;
+	}
+	int $reverseVal = 1;
+	if($reverseMode ==1) $reverseVal = -1;
+	if($reverseMode==2){
+		//print " Auto---\n";
+		string $selectUVList[] = `filterExpand -selectionMask 35 $selectUVs`;
+		string $remainingUVList[] = $selectUVList;
+		int $jj=0;
+		while(1){
+			string $oneUV = $remainingUVList[0];
+			print ($jj+" "+$oneUV+"\n");
+			$jj++;
+			select $oneUV;
+			polySelectBorderShell 0;
+			string $shellList[] = `ls -sl`;
+			$shellList = `filterExpand -selectionMask 35 $shellList`;
+			string $removeUVList[] = stringArrayRemove($selectUVList, $shellList);
+			string $commonUVList[] = stringArrayRemove($removeUVList, $shellList);
+			string $faceList[] = `polyListComponentConversion -tf $commonUVList`;
+			$faceList = `filterExpand -selectionMask 34 $faceList`;
+			int $counter = 0;
+			int $frontTotal = 0;
+			int $backTotal  = 0;
+			for($faceOne in $faceList){
+				if(ReversCheck($faceOne)) $backTotal++;
+				else $frontTotal++;	
+				$counter++;
+				if($counter >= $checkTotal)break;
+			}
+			print ($counter+"  "+$frontTotal+" "+$backTotal+"\n");
+			if($frontTotal >= $backTotal)$reverseVal = 1;
+			else $reverseVal = -1;
+			AriUVScaleUnfold_GO($commonUVList, $scaleValue, $verhorMode, $selectTrue, $reverseVal);
+			$remainingUVList = stringArrayRemove($shellList, $remainingUVList);
+			if(size($remainingUVList)<=0)break;
+		}
+	}
+	else{
+		AriUVScaleUnfold_GO($selectUVs, $scaleValue, $verhorMode, $selectTrue, $reverseVal);
+	}
+	select $userSelects;
+}

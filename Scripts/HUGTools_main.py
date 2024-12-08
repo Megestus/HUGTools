@@ -103,8 +103,6 @@ LANG = {
         "Editor": "Editor",
         "NormalEdit": "NormalEdit",
         "Crease Editor": "Crease Editor",
-        "UV Editor": "UV Editor",
-        "UV Editor_tip": "Open UV Editor window",
         "UV Set List": "UVsL Editor",
         "UV Set List_tip": "Open UV Set List Editor tool",
         
@@ -133,7 +131,8 @@ LANG = {
         "Distance_tip": "Calculate edge length",
         "AriScript": "AriScript",
         "AriScript_tip": "open AriScript tools",
-        "CreaseSetEditor": "CreaseSet Clean",
+        "CreaseSetClean": "CreaseSet Clean",
+        "CreaseSetClean_tip": "CreaseSet Clean tools",
         
         # Display Controls
         "Crease_tip": "Toggle Crease Edge Display\n\nShow/Hide crease edges",
@@ -172,8 +171,6 @@ LANG = {
         "Editor": "编辑器",
         "NormalEdit": "法线编辑器",
         "Crease Editor": "折痕编辑器",
-        "UV Editor": "UV编辑器",
-        "UV Editor_tip": "打开UV编辑器窗口",
         "UV Set List": "UV集列表器",
         "UV Set List_tip": "打开UV集列表编辑器工具",
         
@@ -202,7 +199,8 @@ LANG = {
         "Distance_tip": "计算边长",
         "AriScript": "AriScript工具集",
         "AriScript_tip": "打开AriScript工具集",
-        "CreaseSetEditor": "CreaseSet Clean",
+        "CreaseSetClean": "折痕清理编辑器",
+        "CreaseSetClean_tip": "折痕清理编辑器",
         
         # 显示控制
         "Crease_tip": "切换折边显示",
@@ -376,15 +374,8 @@ class HUGToolsWindow(QtWidgets.QDialog):
         self.open_NormalEdit_btn.setToolTip("Open Normal Edit window")
         self.open_crease_editor_btn = RoundedButton(LANG[CURRENT_LANG]["Crease Editor"], icon=QtGui.QIcon(":polyCrease.png"))
         self.open_crease_editor_btn.setToolTip(LANG[CURRENT_LANG]["Crease Editor"])
-
-        
-        # 注释掉 UV Editor 的按钮
-        # self.open_uv_editor_btn = RoundedButton(LANG[CURRENT_LANG]["UV Editor"], icon=QtGui.QIcon(":textureEditor.png"))
-        # self.open_uv_editor_btn.setToolTip(LANG[CURRENT_LANG]["UV Editor_tip"])
-
-        # 将 CreaseSet Clean 移动到 UV Editor 的位置
-        self.Toolbox_CreaseSetEditor_btn = RoundedButton("CreaseSet Clean", icon=QtGui.QIcon(":pruneWire.png"))
-        self.Toolbox_CreaseSetEditor_btn.setToolTip("CreaseSetEditor Tool")
+        self.Toolbox_CreaseSetClean_btn = RoundedButton(LANG[CURRENT_LANG]["CreaseSetClean"], icon=QtGui.QIcon(":pruneWire.png"))
+        self.Toolbox_CreaseSetClean_btn.setToolTip(LANG[CURRENT_LANG]["CreaseSetClean_tip"])
 
         #toolbox
         self.Toolbox_group = QtWidgets.QGroupBox(LANG[CURRENT_LANG]["Toolbox"])
@@ -396,7 +387,7 @@ class HUGToolsWindow(QtWidgets.QDialog):
         self.Toolbox_UnBevel_btn = RoundedButton(LANG[CURRENT_LANG]["UnBevel"], icon=QtGui.QIcon(":polyBevel.png"))
         self.Toolbox_ScreenShot_btn = RoundedButton(LANG[CURRENT_LANG]["ScreenShot"], icon=QtGui.QIcon(":out_snapshot.png"))
         self.Toolbox_CalcDistance_btn = RoundedButton("Distance", icon=QtGui.QIcon(":distanceDim.png"))
-        # self.Toolbox_CreaseSetEditor_btn = RoundedButton("CreaseSet Clean", icon=QtGui.QIcon(":pruneWire.png"))
+
 
         # Load the MirrorTool icon using the load_icon method
         ari_icon = self.load_icon(
@@ -424,7 +415,7 @@ class HUGToolsWindow(QtWidgets.QDialog):
         self.Toolbox_CalcDistance_btn.setToolTip(LANG[CURRENT_LANG]["Distance_tip"])
         self.Toolbox_AriScriptLauncherQt_btn.setToolTip(LANG[CURRENT_LANG]["AriScript_tip"])
         self.Toolbox_LOD_btn.setToolTip("Level of Detail Tool")
-        self.Toolbox_CreaseSetEditor_btn.setToolTip("CreaseSetEditor Tool")
+
 
 
 
@@ -538,8 +529,7 @@ class HUGToolsWindow(QtWidgets.QDialog):
         editor_layout.addWidget(self.open_NormalEdit_btn, 0, 0)
         editor_layout.addWidget(self.open_crease_editor_btn, 0, 1)
         editor_layout.addWidget(self.uvset_list_btn, 1, 0)
-        # editor_layout.addWidget(self.open_uv_editor_btn, 1, 1)
-        editor_layout.addWidget(self.Toolbox_CreaseSetEditor_btn, 1, 1)
+        editor_layout.addWidget(self.Toolbox_CreaseSetClean_btn, 1, 1)
         self.editor_group.setLayout(editor_layout)
 
         #toolbox group layout
@@ -551,7 +541,7 @@ class HUGToolsWindow(QtWidgets.QDialog):
         Toolbox_layout.addWidget(self.Toolbox_LOD_btn, 2, 0)  
         Toolbox_layout.addWidget(self.Toolbox_ScreenShot_btn, 3, 0)
         Toolbox_layout.addWidget(self.Toolbox_CalcDistance_btn, 2, 1)
-        # Toolbox_layout.addWidget(self.Toolbox_CreaseSetEditor_btn, 3, 1)
+
 
         # Toolbox_layout.addWidget(self.Toolbox_More_btn, 3, 0)
 
@@ -617,10 +607,7 @@ class HUGToolsWindow(QtWidgets.QDialog):
         self.planar_projection_btn.clicked.connect(self.apply_planar_projection2)
         self.uvset_list_btn.clicked.connect(self.UVSetList_view)
         self.edge_to_curve_btn.clicked.connect(self.convert_edge_to_curve)
-
         self.open_crease_editor_btn.clicked.connect(self.open_crease_set_editor)
-        # 注释掉 UV Editor 的连接
-        # self.open_uv_editor_btn.clicked.connect(self.open_uv_editor)
 
         self.Toolbox_QuickRename_btn.clicked.connect(self.quick_rename)
         self.Toolbox_Rename_btn.clicked.connect(self.rename_edit)
@@ -630,7 +617,8 @@ class HUGToolsWindow(QtWidgets.QDialog):
         self.Toolbox_CalcDistance_btn.clicked.connect(self.calculate_distance)
         self.Toolbox_AriScriptLauncherQt_btn.clicked.connect(self.AriScriptLauncherQt)
         self.Toolbox_LOD_btn.clicked.connect(self.show_lod_tool)
-        self.Toolbox_CreaseSetEditor_btn.clicked.connect(self.show_CreaseSetEditor_tool)
+        self.Toolbox_CreaseSetClean_btn.clicked.connect(self.show_CreaseSetClean_tool)
+
         # connect help button
         self.help_btn.clicked.connect(self.show_help)
 
@@ -1147,10 +1135,6 @@ class HUGToolsWindow(QtWidgets.QDialog):
 
 
 
-
-
-
-
     def switch_format(self):
         """Switch between ZBrush and Houdini format"""
         if self.current_format == "ZBR":
@@ -1273,13 +1257,13 @@ class HUGToolsWindow(QtWidgets.QDialog):
             cmds.warning(error_msg)
 
 
-    def show_CreaseSetEditor_tool(self):
-        """Launch CreaseSetEditor tool"""
+    def show_CreaseSetClean_tool(self):
+        """Launch CreaseSetClean tool"""
         try:
             importlib.reload(CreaseSetEditor)
             CreaseSetEditor.show()
         except Exception as e:
-            cmds.warning(f"Error launching CreaseSetEditor tool: {str(e)}")
+            cmds.warning(f"Error launching CreaseSetClean tool: {str(e)}")
 
 
     def show_lod_tool(self):
@@ -1405,26 +1389,21 @@ class HUGToolsWindow(QtWidgets.QDialog):
         )
 
     def retranslate_ui(self):
-        # update all UI elements
+        # 更新所有UI元素
         self.setWindowTitle("HUGTOOL")
         self.help_btn.setText(LANG[CURRENT_LANG]["document"])
         self.help_btn.setToolTip(LANG[CURRENT_LANG]["Help"])
         self.lang_btn.setToolTip(LANG[CURRENT_LANG]["Switch Language"])
         
-        # update all group boxes, labels and buttons
+        # 更新所有组框、标签和按钮
         self.display_group.setTitle(LANG[CURRENT_LANG]["Display Control"])
         self.toggle_normal_display_btn.setText(LANG[CURRENT_LANG]["Normal"])
         self.normal_size_label.setText(LANG[CURRENT_LANG]["Normal Size:"])
         self.open_NormalEdit_btn.setText(LANG[CURRENT_LANG]["NormalEdit"])
         
-        # Update tooltips only, do not set button text
-        self.toggle_crease_edge_btn.setToolTip(LANG[CURRENT_LANG]["Crease_tip"])
-        self.toggle_set_display_map_borders_btn.setToolTip(LANG[CURRENT_LANG]["MapBorders"])
-        
-        # Update text for other buttons and components
+        # 更新其他按钮和组件的文本
         self.editor_group.setTitle(LANG[CURRENT_LANG]["Editor"])
         self.open_crease_editor_btn.setText(LANG[CURRENT_LANG]["Crease Editor"])
-        self.open_uv_editor_btn.setText(LANG[CURRENT_LANG]["UV Editor"])
         
         self.Toolbox_group.setTitle(LANG[CURRENT_LANG]["Toolbox"])
         self.Toolbox_QuickRename_btn.setText(LANG[CURRENT_LANG]["QuickRename"])
@@ -1442,12 +1421,12 @@ class HUGToolsWindow(QtWidgets.QDialog):
         self.edge_to_curve_btn.setText(LANG[CURRENT_LANG]["EdgeToCurve"])
         self.uvset_list_btn.setText(LANG[CURRENT_LANG]["UV Set List"])
         
-        # Import/Export translations
+        # 导入/导出翻译
         self.import_export_group.setTitle(LANG[CURRENT_LANG]["Import/Export"])
         self.import_obj_btn.setText(LANG[CURRENT_LANG]["Import OBJ"])
         self.export_obj_btn.setText(LANG[CURRENT_LANG]["Export OBJ"])
         
-        # Update button text according to current format
+        # 根据当前格式更新按钮文本
         if self.current_format == "ZBR":
             self.import_obj_btn.setText(LANG[CURRENT_LANG]["Import OBJ"])
             self.export_obj_btn.setText(LANG[CURRENT_LANG]["Export OBJ"])
@@ -1455,7 +1434,7 @@ class HUGToolsWindow(QtWidgets.QDialog):
             self.import_obj_btn.setText(LANG[CURRENT_LANG]["Import FBX"])
             self.export_obj_btn.setText(LANG[CURRENT_LANG]["Export FBX"])
         
-        # all tooltips
+        # 所有工具提示
         self.Toolbox_QuickRename_btn.setToolTip(LANG[CURRENT_LANG]["QuickRename_tip"])
         self.Toolbox_Rename_btn.setToolTip(LANG[CURRENT_LANG]["Rename_tip"])
         self.Toolbox_QuickExport_btn.setToolTip(LANG[CURRENT_LANG]["QuickExport_tip"])

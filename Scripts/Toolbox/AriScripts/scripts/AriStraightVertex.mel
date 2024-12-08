@@ -1,0 +1,871 @@
+//--------------------------------------------------------------------------
+//
+// ScriptName : AriStraightVertex
+// Contents   : 頂点を直線や平面上に整列させます。
+// Author     : Ari
+// URL        : http://cgjishu.net/
+// Since      : 2014/11
+// Help       : http://cgjishu.net/blog-entry-44.html
+// LastUpdate : 2023/10/15 エッジ選択直線化(3D)に等間隔化機能追加
+//              2022/04/24 UI全体調整 英語UI対応
+//              2016/10/10 エッジ選択時両端の値を取る使用追加。バグ修正。 
+//              2016/07/24 UI、3頂点平面化バグ修正。
+//              2016/04/03 頂点端(水平垂直MaxMin)を基準座標にできる機能を追加。
+//              2015/07/16 インターフェース変更。
+//              2015/03/12 3D(直線)を選んでもバグ。3頂点平面がまだ有効だったので修正。
+//                         3頂点平面の取得座標の軸ごとに同じ値があると平面化できなかったバグ修正。
+//                         インターフェース変更。
+//              2015/01/25 3D(直線)を選んでも平面になってしまう場合があるバグ修正。
+//                         3頂点から平面にする機能追加。
+//
+//--------------------------------------------------------------------------
+
+
+
+proc vector AriHeimenTen(vector $a,vector $b,vector $c,vector $P)
+{
+	vector $ab=$b-$a;
+	vector $ac=$c-$a;
+	$nm=cross($ab,$ac);
+	$d=-$a.x*$nm.x-$a.y*$nm.y-$a.z*$nm.z;
+	float $lmn=($nm.x*$nm.x + $nm.y*$nm.y + $nm.z*$nm.z);
+	float $x1=( $P.x*($nm.y*$nm.y + $nm.z*$nm.z)-($P.y*$nm.y + $P.z*$nm.z+$d)*$nm.x )/$lmn;
+	float $y1=( $P.y*($nm.z*$nm.z + $nm.x*$nm.x)-($P.z*$nm.z + $P.x*$nm.x+$d)*$nm.y )/$lmn;
+	float $z1=( $P.z*($nm.x*$nm.x + $nm.y*$nm.y)-($P.x*$nm.x + $P.y*$nm.y+$d)*$nm.z )/$lmn;
+	vector $Q=<<$x1,$y1,$z1>>;
+	return $Q;
+}
+proc vector AriChokusenTen (vector $a1, vector $a2, vector $b1)
+{
+	vector $a3,$c1;
+	float $t;
+	vector $A,$B;
+	$a3=<< $a2.x-$a1.x , $a2.y-$a1.y , $a2.z-$a1.z>>;
+	$t= (-1*($a1.x-$b1.x)*$a3.x - ($a1.y-$b1.y)*$a3.y - ($a1.z-$b1.z)*$a3.z ) / ($a3.x*$a3.x + $a3.y*$a3.y + $a3.z*$a3.z);
+	$c1=<<($a3.x*$t+$a1.x),($a3.y*$t+$a1.y),($a3.z*$t+$a1.z)>>;
+	return $c1;
+}
+proc vector AriEqualDistance(vector $a1, vector $a2, vector $b1, float $par)
+{	
+	print $par;
+	vector $pos;
+	vector $direction = $a2 - $a1;
+	$pos = $a1+($direction*($par));
+	return $pos;
+}
+proc vector Ari_rotatePos(vector $pos,float $rotX,float $rotY,float $rotZ){
+	float $a;
+	float $b;
+	float $newX;
+	float $newY;
+	float $newZ;
+	vector $newPos=<<$pos.x,$pos.y,$pos.z>>;
+	for($i=0;$i<=2;$i++){
+		float $rot;
+		if($i==2){
+			$a=$newPos.y;
+			$b=$newPos.z;
+			$rot=$rotX;
+		}
+		if($i==1){
+			$a=$newPos.z;
+			$b=$newPos.x;
+			$rot=$rotY;
+		}
+		if($i==0){
+			$a=$newPos.x;
+			$b=$newPos.y;
+			$rot=$rotZ;
+		}
+		float $degRot=`deg_to_rad ($rot)`;
+		$new1=$a*cos($degRot)-$b*sin($degRot);
+		$new2=$a*sin($degRot)+$b*cos($degRot);
+		if($i==2){
+			$newPos=<<($newPos.x),$new1,$new2>>;
+		}
+		if($i==1){
+			$newPos=<<$new2,($newPos.y),$new1>>;
+		}
+		if($i==0){
+			$newPos=<<$new1,$new2,($newPos.z)>>;
+		}
+	}
+	return $newPos;
+}
+proc string[] AriGetEdgeList(string  $getList_edges[],int $verMode){
+	string $getList_vartex[];
+	for($i=0;$i<size($getList_edges);$i++){
+		string $edgeToUv[] = `polyListComponentConversion -tv $getList_edges[$i]`;
+		$edgeToUv = `filterExpand -selectionMask 31 $edgeToUv`;
+		$getList_vartex = stringArrayCatenate( $getList_vartex, $edgeToUv );
+	}
+	string $sort_edgeList[];
+	string $sort_vertexList[];
+	int $count=0;
+	for($i=0;$i<size($getList_edges);$i++){
+		if(stringArrayContains($getList_edges[$i],$sort_edgeList))continue;
+		int $verNum1=$i*2;
+		string $nowEdge;
+		string $workEdgeList[];
+		string $workVertexList[];
+		clear $workEdgeList;
+		clear $workVertexList;
+		int $workEdgeListCounter=0;
+		string $leadEdge;
+		int $loopTrue = false;
+		for($k=0;$k<2;$k++){
+			$nowEdge   = $getList_edges[$i];
+			$nowVertex = $getList_vartex[$i*2+$k];
+			$workVertexList[0] = $nowVertex;
+			int $n=0;
+			string $beforeEdge=$nowVertex;
+			while($n<10000){
+				for($j=0;$j<size($getList_edges);$j++){
+					if(                    $getList_edges[$j] == $nowEdge  )continue;
+					if(stringArrayContains($getList_edges[$j],   $workEdgeList))continue;
+					if(stringArrayContains($getList_edges[$j],   $sort_edgeList))continue;
+					int $verNum2=$j*2;
+					if($nowVertex == $getList_vartex[$verNum2]){
+						$nowEdge   = $getList_edges[$j];
+						$nowVertex = $getList_vartex[$verNum2+1];
+						$workEdgeList[$workEdgeListCounter]     = $nowEdge;
+						$workVertexList[$workEdgeListCounter+1] = $nowVertex;
+						$workEdgeListCounter++;
+						break;
+					}
+					if($nowVertex == $getList_vartex[$verNum2+1]){
+						$nowEdge   = $getList_edges[$j];
+						$nowVertex = $getList_vartex[$verNum2];
+						$workEdgeList[$workEdgeListCounter]     = $nowEdge;
+						$workVertexList[$workEdgeListCounter+1] = $nowVertex;
+						$workEdgeListCounter++;
+						break;
+					}
+				}
+				if($beforeEdge == $nowVertex)break;
+				$beforeEdge=$nowVertex;
+				$n++;
+			}
+			string $plusEdge_Work[]   = $workEdgeList;
+			string $plusVertex_Work[] = $workVertexList;
+			if($k==0){
+				for($j=0;$j<size($workEdgeList);$j++){
+					$plusEdge_Work[(size($workEdgeList))-$j-1] = $workEdgeList[$j];
+				}
+				for($j=0;$j<size($workVertexList);$j++){
+					$plusVertex_Work[(size($workVertexList))-$j-1] = $workVertexList[$j];
+				}
+			}
+			$sort_edgeList   = stringArrayCatenate( $sort_edgeList,   $plusEdge_Work );
+			$sort_vertexList = stringArrayCatenate( $sort_vertexList, $plusVertex_Work );
+			if($k==0){
+				if($plusEdge_Work[0] != $getList_edges[$i]){
+					$sort_edgeList[size($sort_edgeList)]=$getList_edges[$i];
+				}
+				else{
+					$loopTrue = true;
+				}
+			}
+			else{
+				string $sepaString="--";
+				if($loopTrue)$sepaString="--Loop";
+				$sort_edgeList[size($sort_edgeList)]     = $sepaString;
+				$sort_vertexList[size($sort_vertexList)] = $sepaString;
+			}
+			clear $workEdgeList;
+			clear $workVertexList;
+			$workEdgeListCounter=0;
+		}
+	}
+	if($verMode) return $sort_vertexList;
+	else         return $sort_edgeList;
+}
+proc AriStraightVertex_Save(){
+	global string $AriStraightVertex_UI_2d3dMode_RB[];
+	global string $AriStraightVertex_UI_BothEnds_RB;
+	global string $AriStraightVertex_UI_HVEnds_RB;  
+	global string $AriStraightVertex_UI_ViewMode_RB;
+	global string $AriStraightVertex_UI_HorizVertic_RB;
+	global string $AriStraightVertex_UI_Equi_CB;
+	int $axisMode = 0;
+	for($ii=0; $ii<=2 ;$ii++){
+		if(`radioButton -q -select $AriStraightVertex_UI_2d3dMode_RB[$ii]`) $axisMode = $ii;
+	}
+	string $bothMode = `radioCollection -q -select $AriStraightVertex_UI_BothEnds_RB`;
+	string $hvEnd = `radioCollection -q -select $AriStraightVertex_UI_HVEnds_RB`;
+	string $viewMode     = `radioCollection -q -select $AriStraightVertex_UI_ViewMode_RB`;
+	string $hvMode       = `radioCollection -q -select $AriStraightVertex_UI_HorizVertic_RB`;
+	int $EqualTrue = `checkBox -q -v $AriStraightVertex_UI_Equi_CB`;
+	optionVar -intValue    "AriStraightVertex_axisMode" $axisMode;
+	optionVar -stringValue "AriStraightVertex_bothMode" $bothMode;
+	optionVar -stringValue "AriStraightVertex_hvEnd"    $hvEnd;
+	optionVar -stringValue "AriStraightVertex_viewMode"   $viewMode;
+	optionVar -stringValue "AriStraightVertex_hvModeMode" $hvMode;
+	optionVar -intValue "AriStraightVertex_Equal" $EqualTrue;
+}
+proc AriStraightVertex_Load(){
+	global string $AriStraightVertex_UI_2d3dMode_RB[];
+	global string $AriStraightVertex_UI_BothEnds_RB;
+	global string $AriStraightVertex_UI_HVEnds_RB;  
+	global string $AriStraightVertex_UI_ViewMode_RB;
+	global string $AriStraightVertex_UI_HorizVertic_RB;
+	global string $AriStraightVertex_UI_Equi_CB;
+	int $axisMode = 0;
+	if(`optionVar -exists "AriStraightVertex_axisMode"`) $axisMode = `optionVar -q "AriStraightVertex_axisMode"`;
+	string $bothMode = "AriSVRadio_modeGetfield";
+	if(`optionVar -exists "AriStraightVertex_bothMode"`) $bothMode = `optionVar -q "AriStraightVertex_bothMode"`;
+	string $hvEnd = "AriSVRadio_Horizontal";
+	if(`optionVar -exists "AriStraightVertex_hvEnd"`) $hvEnd = `optionVar -q "AriStraightVertex_hvEnd"`;
+	string $viewMode = "AriSVRadio_Persp";
+	if(`optionVar -exists "AriStraightVertex_viewMode"`) $viewMode = `optionVar -q "AriStraightVertex_viewMode"`;
+	string $hvMode = "AriSVRadio_Short";
+	if(`optionVar -exists "AriStraightVertex_hvModeMode"`) $hvMode = `optionVar -q "AriStraightVertex_hvModeMode"`;
+	int $EqualTrue = false;
+	if(`optionVar -exists "AriStraightVertex_Equal"`) $EqualTrue = `optionVar -q "AriStraightVertex_Equal"`;
+	radioButton -e -select $AriStraightVertex_UI_2d3dMode_RB[$axisMode];
+	radioCollection -e -select $bothMode $AriStraightVertex_UI_BothEnds_RB;
+	radioCollection -e -select $hvEnd    $AriStraightVertex_UI_HVEnds_RB;
+	radioCollection -e -select $viewMode $AriStraightVertex_UI_ViewMode_RB;
+	radioCollection -e -select $hvMode   $AriStraightVertex_UI_HorizVertic_RB;
+	checkBox -e -v $EqualTrue $AriStraightVertex_UI_Equi_CB;
+}
+global proc AriPositionAlignmentGetPos(int $mode){
+	global string $AriStraightVertex_UI_2d3dMode_RB[];
+	global string $AriStraightVertex_UI_Position[10];
+	int $axisMode = 0;
+	for($ii=0; $ii<=2 ;$ii++){
+		if(`radioButton -q -select $AriStraightVertex_UI_2d3dMode_RB[$ii]`) $axisMode = $ii;
+	}
+	string $selects[] = `ls -sl -fl`;
+	string $selectTransforms[] = `ls -sl -transforms`;
+	string $verList[]  = `polyListComponentConversion -tv $selects` ;
+	$verList           = `filterExpand -selectionMask 31  $verList` ;
+	float $spos1[], $spos2[], $spos3[];
+	if(size($selectTransforms) == 0){
+		int $total = size($verList);
+		if($total>3) $total=3;
+		if($mode==0 || $mode==1){
+			if($total>=1){
+				$spos1 = `pointPosition $verList[0]`;
+				floatField -e -v $spos1[0] $AriStraightVertex_UI_Position[0];
+				floatField -e -v $spos1[1] $AriStraightVertex_UI_Position[1];
+				floatField -e -v $spos1[2] $AriStraightVertex_UI_Position[2];
+				select $verList[0];
+			}
+		}
+		if($mode==0 && $verList[1]!=""){
+			string $verEnd = $verList[size($verList)-1];
+			$spos2 = `pointPosition $verEnd`;
+			floatField -e -v $spos2[0] $AriStraightVertex_UI_Position[3];
+			floatField -e -v $spos2[1] $AriStraightVertex_UI_Position[4];
+			floatField -e -v $spos2[2] $AriStraightVertex_UI_Position[5];
+			select -add $verEnd;
+		}
+		if($mode==0 && $verList[2]!="" && $axisMode==2){
+			$spos3 = `pointPosition $verList[1]`;
+			floatField -e -v $spos3[0] $AriStraightVertex_UI_Position[6];
+			floatField -e -v $spos3[1] $AriStraightVertex_UI_Position[7];
+			floatField -e -v $spos3[2] $AriStraightVertex_UI_Position[8];
+			select -add $verList[1];
+		}
+		if($mode==2){
+			$spos2 = `pointPosition $verList[0]`;
+			floatField -e -v $spos2[0] $AriStraightVertex_UI_Position[3];
+			floatField -e -v $spos2[1] $AriStraightVertex_UI_Position[4];
+			floatField -e -v $spos2[2] $AriStraightVertex_UI_Position[5];
+			select $verList[0];
+		}
+		if($mode==3){
+			$spos3 = `pointPosition $verList[0]`;
+			floatField -e -v $spos3[0] $AriStraightVertex_UI_Position[6];
+			floatField -e -v $spos3[1] $AriStraightVertex_UI_Position[7];
+			floatField -e -v $spos3[2] $AriStraightVertex_UI_Position[8];
+			select $verList[0];
+		}
+	}
+	else{
+		if(size($selectTransforms)>0){
+			if($mode==0 || $mode==1){
+				$spos1=`xform -q -ws -rp $selectTransforms[0]`;
+				floatField -e -v $spos1[0] $AriStraightVertex_UI_Position[0];
+				floatField -e -v $spos1[1] $AriStraightVertex_UI_Position[1];
+				floatField -e -v $spos1[2] $AriStraightVertex_UI_Position[2];
+				select $selectTransforms[0];
+			}
+			if($mode==0 && $selectTransforms[1] != ""){
+				$spos2=`xform -q -ws -rp $selectTransforms[1]`;
+				floatField -e -v $spos2[0] $AriStraightVertex_UI_Position[3];
+				floatField -e -v $spos2[1] $AriStraightVertex_UI_Position[4];
+				floatField -e -v $spos2[2] $AriStraightVertex_UI_Position[5];
+				select -add $selectTransforms[1];
+			}
+			if($mode==0 && $selectTransforms[2] != ""){
+				$spos3 = `xform -q -ws -rp $selectTransforms[2]`;
+				floatField -e -v $spos3[0] $AriStraightVertex_UI_Position[6];
+				floatField -e -v $spos3[1] $AriStraightVertex_UI_Position[7];
+				floatField -e -v $spos3[2] $AriStraightVertex_UI_Position[8];
+				select -add $selectTransforms[2];
+			}			
+			if($mode==2){
+				$spos2=`xform -q -ws -rp $selectTransforms[0]`;
+				floatField -e -v $spos2[0] $AriStraightVertex_UI_Position[3];
+				floatField -e -v $spos2[1] $AriStraightVertex_UI_Position[4];
+				floatField -e -v $spos2[2] $AriStraightVertex_UI_Position[5];
+				select $selectTransforms[0];
+			}
+			if($mode==3){
+				$spos3=`xform -q -ws -rp $selectTransforms[0]`;
+				floatField -e -v $spos3[0] $AriStraightVertex_UI_Position[6];
+				floatField -e -v $spos3[1] $AriStraightVertex_UI_Position[7];
+				floatField -e -v $spos3[2] $AriStraightVertex_UI_Position[8];
+				select $selectTransforms[0];
+			}
+		}
+	}
+}
+proc AriMoveVertex (string $VerList[], float $spos1[], float $spos2[], float $spos3[], int $EqualTrue){
+	global string $AriStraightVertex_UI_2d3dMode_RB[3];
+	global string $AriStraightVertex_UI_ViewMode_RB;
+	global string $AriStraightVertex_UI_HorizVertic_RB;
+	global string $AriStraightVertex_UI_Equi_CB;
+	int $axisMode = 0;
+	for($ii=0; $ii<=2 ;$ii++){
+		if(`radioButton -q -select $AriStraightVertex_UI_2d3dMode_RB[$ii]`) $axisMode = $ii;
+	}
+	string $viewMode        = `radioCollection -q -select $AriStraightVertex_UI_ViewMode_RB`;
+	string $HorizVerticMode = `radioCollection -q -select $AriStraightVertex_UI_HorizVertic_RB`;
+	if($axisMode == 0 || $axisMode == 2 || $viewMode == "AriSVRadio_Persp" ){
+		vector $saveVerPos1 = <<$spos1[0],$spos1[1],$spos1[2]>>;
+		vector $saveVerPos2 = <<$spos2[0],$spos2[1],$spos2[2]>>;
+		vector $saveVerPos3 = <<$spos3[0],$spos3[1],$spos3[2]>>;
+		vector $movePosVec;
+		int $num;
+		for($loopVers in $VerList){
+			float $pos[]=`pointPosition $loopVers`;
+			vector $loopPos=<<$pos[0],$pos[1],$pos[2]>>;
+			if($axisMode == 1 && $viewMode == "AriSVRadio_Persp"){
+				$movePosVec = AriHeimenTen($saveVerPos1,$saveVerPos2,$saveVerPos3,$loopPos);
+			}
+			if($axisMode == 2){
+				$movePosVec = AriHeimenTen($saveVerPos1,$saveVerPos2,$saveVerPos3,$loopPos);;
+			}
+			if($axisMode == 0){
+				if(!$EqualTrue){
+					$movePosVec = AriChokusenTen($saveVerPos1,$saveVerPos2,$loopPos);
+				}
+				else{
+					float $per = (float($num+1) / (size($VerList)+1));
+					$movePosVec = AriEqualDistance($saveVerPos1, $saveVerPos2, $loopPos, $per );
+				}
+			}
+			move -a ($movePosVec.x) ($movePosVec.y) ($movePosVec.z) $loopVers;
+			$num++;
+		}
+	}
+	else{
+		int $xx ,$yy;	
+		float $a,$a2,$b,$b2;
+		float $movePos1,$movePos2;
+		if(	$viewMode=="AriSVRadio_Front" ||
+			$viewMode=="AriSVRadio_Top" ||
+			$viewMode=="AriSVRadio_Side"){
+			if($viewMode=="AriSVRadio_Front"){$xx=0; $yy=1;}
+			if($viewMode=="AriSVRadio_Top")  {$xx=0; $yy=2;}
+			if($viewMode=="AriSVRadio_Side") {$xx=2; $yy=1;}
+			int $katamuki=1;
+			if(($spos1[$xx]-$spos2[$xx])!=0){
+				$a=($spos1[$yy]-$spos2[$yy])/($spos1[$xx]-$spos2[$xx]);
+				$b=$spos2[$yy]-$a*$spos2[$xx];
+			}
+			else{
+				$movePos1=$spos1[$xx];
+				$katamuki=0;
+			}
+			for($loopVers in $VerList){
+				float $pos[]=`pointPosition $loopVers`;
+				if($HorizVerticMode=="AriSVRadio_Short"){
+					if($a!=0){
+						$a2=-1/$a;
+						$b2=$pos[$yy]-$a2*$pos[$xx];
+						$movePos1 =($b2-$b)/($a-$a2);
+						$movePos2 =$a*$movePos1+$b;
+					}
+					else{
+						if($katamuki!=0){
+							$movePos1=$pos[$xx];
+							$movePos2=$b;
+						}
+						else $movePos2 = $pos[$yy];
+					}
+				}
+				if($HorizVerticMode=="AriSVRadio_Yoko"){
+					if($a!=0){
+						$movePos1=($pos[$yy]-$b)/$a;
+					}
+					else{
+						$movePos1=$spos1[$xx];
+					}
+					$movePos2=$pos[$yy];
+				}
+				if($HorizVerticMode=="AriSVRadio_Tate"){
+					$movePos1=$pos[$xx];
+					$movePos2=$pos[$xx]*$a+$b;
+				}
+				if($xx==0 && $yy==1)	{
+					move -x $movePos1 0 0 $loopVers;
+					move -y $movePos2 0 0 $loopVers;
+				}
+				if($xx==0 && $yy==2)	{
+					move -x $movePos1 0 0 $loopVers;
+					move -z $movePos2 0 0 $loopVers;
+				}
+				if($xx==2 && $yy==1)	{
+					move -z $movePos1 0 0 $loopVers;
+					move -y $movePos2 0 0 $loopVers;
+				}
+			}
+		}
+	}
+}
+global proc AriStraightVertex_MoveGO(){
+	global string $AriStraightVertex_UI_2d3dMode_RB[];
+	global string $AriStraightVertex_UI_BothEnds_RB;
+	global string $AriStraightVertex_UI_HVEnds_RB;
+	global string $AriStraightVertex_UI_ViewMode_RB;
+	global string $AriStraightVertex_UI_HorizVertic_RB;
+	global string $AriStraightVertex_UI_Position[10];
+	global string $AriStraightVertex_UI_Equi_CB;
+	float $spos1[],$spos2[],$spos3[];
+	AriStraightVertex_Save();
+	int $axisMode = 0;
+	for($ii=0; $ii<=2 ;$ii++){
+		if(`radioButton -q -select $AriStraightVertex_UI_2d3dMode_RB[$ii]`) $axisMode = $ii;
+	}
+	string $gets[] = `ls -sl`;
+	string $vers[]  = `polyListComponentConversion -tv $gets`;
+	$vers           = `filterExpand -selectionMask 31 $vers` ;
+	string $edges[] = `filterExpand -selectionMask 32 $gets` ;
+	int $edgeMode=false;
+	if(size($edges)){
+		$edgeMode=true;
+		clear  $vers;
+	}
+	string $radioKijyunSelect     = `radioCollection -q -select $AriStraightVertex_UI_BothEnds_RB`;
+	string $radioxKijunHorizRadio = `radioCollection -q -select $AriStraightVertex_UI_HVEnds_RB`;
+	if($radioKijyunSelect=="AriSVRadio_modeGetfield"){
+		$spos1[0] = `floatField -q -v $AriStraightVertex_UI_Position[0]`;
+		$spos1[1] = `floatField -q -v $AriStraightVertex_UI_Position[1]`;
+		$spos1[2] = `floatField -q -v $AriStraightVertex_UI_Position[2]`;
+		$spos2[0] = `floatField -q -v $AriStraightVertex_UI_Position[3]`;
+		$spos2[1] = `floatField -q -v $AriStraightVertex_UI_Position[4]`;
+		$spos2[2] = `floatField -q -v $AriStraightVertex_UI_Position[5]`;
+		$spos3[0] = `floatField -q -v $AriStraightVertex_UI_Position[6]`;
+		$spos3[1] = `floatField -q -v $AriStraightVertex_UI_Position[7]`;
+		$spos3[2] = `floatField -q -v $AriStraightVertex_UI_Position[8]`;
+	}
+	if($radioKijyunSelect=="AriSVRadio_modeEnd"){
+		string $HVcamera = `textField -q -text AriSVTextField_HorizVertCamera`;
+		if(objectType($HVcamera)!="transform"){
+			return;
+		}
+		float $rx = getAttr ($HVcamera+".rx");
+		float $ry = getAttr ($HVcamera+".ry");
+		float $rz = getAttr ($HVcamera+".rz");
+		$rx = $rx * -1;
+		$ry = $ry * -1;
+		$rz = $rz * -1;
+		vector $basePos[];
+		int $i=0;
+		vector $xyPosList[];
+		for($ver in $vers){
+			float $pos[]=`pointPosition $ver`;
+			vector $loopPos=<<$pos[0],$pos[1],$pos[2]>>;
+			$basePos[$i] = $loopPos;
+			$xyPosList[$i]=Ari_rotatePos($loopPos,$rx,$ry,$rz);
+			$i++;
+		}
+		float $max;
+		float $min;
+		vector $maxBasePos;
+		vector $minBasePos;
+		$i=0;
+		for($xyPos in $xyPosList){
+			float $onePos;
+			if($radioxKijunHorizRadio=="AriSVRadio_Horizontal")$onePos=$xyPos.x;
+			if($radioxKijunHorizRadio=="AriSVRadio_Vertical")$onePos=$xyPos.y;
+			if($i==0){
+				$max = $onePos;
+				$min = $onePos;
+				$maxBasePos = $basePos[$i];
+				$minBasePos = $basePos[$i];
+			}
+			if($max<$onePos){
+				$max=$onePos;
+				$maxBasePos = $basePos[$i];
+			}
+			if($min>$onePos){
+				$min=$onePos;
+				$minBasePos = $basePos[$i];
+			}
+			$i++;
+		}
+		$spos1[0] = $minBasePos.x;
+		$spos1[1] = $minBasePos.y;
+		$spos1[2] = $minBasePos.z;
+		$spos2[0] = $maxBasePos.x;
+		$spos2[1] = $maxBasePos.y;
+		$spos2[2] = $maxBasePos.z;
+	}
+	string $loopVers;
+	float $movePos1,$movePos2;
+	string $viewMode = `radioCollection -q -select $AriStraightVertex_UI_ViewMode_RB`;
+	if($viewMode == "AriSVRadio_Persp"){
+		if($axisMode != 2){
+			string $camera = `textField -q -text AriSVTextField_Camera`;
+			if(objectType($camera)!="transform"){
+				return;
+			}
+			float $cx = getAttr ($camera+".tx");
+			float $cy = getAttr ($camera+".ty");
+			float $cz = getAttr ($camera+".tz");
+			$spos3[0] = $cx;
+			$spos3[1] = $cy;
+			$spos3[2] = $cz;
+		}
+	}
+	int $EqualTrue = 0;
+	$EqualTrue = `checkBox -q -v $AriStraightVertex_UI_Equi_CB`;
+	if($edgeMode == true){
+		string $edgeToVerList[];
+		$edgeToVerList = AriGetEdgeList($edges,1);
+		string $workVerList[];
+		int $counter = -1;
+		for($j=0; $j<size($edgeToVerList); $j++){
+			if($edgeToVerList[$j]=="--")continue;
+			if($counter==-1){
+				$spos1=`pointPosition $edgeToVerList[$j]`;
+				$counter++;
+				continue;
+			}
+			if($edgeToVerList[$j+1]=="--"){
+				$spos2=`pointPosition $edgeToVerList[$j]`;
+				AriMoveVertex ($workVerList, $spos1, $spos2, $spos3, $EqualTrue);
+				clear $workVerList;
+				$counter=-1;
+				continue;
+			}
+			if($edgeToVerList[$j]=="--Loop"){
+				break;
+			}
+			$workVerList[$counter]=$edgeToVerList[$j];
+			$counter++;
+		}
+	}
+	else{
+		AriMoveVertex ($vers,$spos1,$spos2,$spos3,0);
+	}
+}
+global proc AriStraightVertex_frameChange(){
+	window -e -h 40 AriVertexAlignment;
+}
+global proc AriStraightVertex_ChangeUI(int $frameChangeTrue){
+	global string $AriStraightVertex_UI_2d3dMode_RB[3];
+	global string $AriStraightVertex_UI_Get_Button;
+	global string $AriStraightVertex_UI_BothEnds_RB;
+	global string $AriStraightVertex_UI_ViewMode_RB;
+	global string $AriStraightVertex_UI_HorizVertic_RB;
+	global string $AriStraightVertex_UI_Position[10];
+	global string $AriStraightVertex_UI_Equi_CB;
+	global string $AriStraightVertex_UI_Frame[10];
+	int $jpTrue = false;
+	if(`about -uil`=="ja_JP") $jpTrue = true;
+	int $axisMode = 0;
+	for($ii=0; $ii<=2 ;$ii++){
+		if(`radioButton -q -select $AriStraightVertex_UI_2d3dMode_RB[$ii]`) $axisMode = $ii;
+	}
+	if($axisMode == 1){
+		radioButton -e -en 1 AriSVRadio_Top;
+		radioButton -e -en 1 AriSVRadio_Front;
+		radioButton -e -en 1 AriSVRadio_Side;
+		radioButton -e -en 1 AriSVRadio_Persp;
+		textField   -e -en 1 AriSVTextField_Camera;
+	}
+	else{
+		radioButton -e -en 0 AriSVRadio_Top;
+		radioButton -e -en 0 AriSVRadio_Front;
+		radioButton -e -en 0 AriSVRadio_Side;
+		radioButton -e -en 0 AriSVRadio_Persp;
+		textField   -e -en 0 AriSVTextField_Camera;
+	}
+	if($axisMode == 0){
+		checkBox -e -en 1 $AriStraightVertex_UI_Equi_CB;
+	}
+	else{
+		checkBox -e -en 0 $AriStraightVertex_UI_Equi_CB;
+	}
+	if($axisMode == 0){
+		frameLayout -e -cl 1 $AriStraightVertex_UI_Frame[3];
+		frameLayout -e -cl 0 $AriStraightVertex_UI_Frame[4];
+	}
+	if($axisMode == 1){
+		frameLayout -e -cl 0 $AriStraightVertex_UI_Frame[3];
+		frameLayout -e -cl 1 $AriStraightVertex_UI_Frame[4];
+	}
+	if($axisMode == 2){
+		frameLayout -e -cl 0 $AriStraightVertex_UI_Frame[1];
+		frameLayout -e -cl 1 $AriStraightVertex_UI_Frame[3];
+		frameLayout -e -cl 1 $AriStraightVertex_UI_Frame[4];
+	}
+	if($axisMode != 2){
+		radioButton -e -en 1 AriSVRadio_modeEnd;
+	}
+	else{
+		radioButton -e -en 0 AriSVRadio_modeEnd;
+		radioButton -e -select AriSVRadio_modeGetfield;
+	}
+	if($axisMode == 2){
+		floatField -e -en true $AriStraightVertex_UI_Position[6];
+		floatField -e -en true $AriStraightVertex_UI_Position[7];
+		floatField -e -en true $AriStraightVertex_UI_Position[8];
+	}
+	else{
+		floatField -e -en false $AriStraightVertex_UI_Position[6];
+		floatField -e -en false $AriStraightVertex_UI_Position[7];
+		floatField -e -en false $AriStraightVertex_UI_Position[8];
+	}
+	string $getMode    = `radioCollection -q -select $AriStraightVertex_UI_BothEnds_RB`; 
+	string $viewMode   = `radioCollection -q -select $AriStraightVertex_UI_ViewMode_RB`;
+	string $st_Horiz[] = {"Horizontal(X)","Horizontal(Y)","Horizontal(Z)"};
+	string $st_Vert[]  = {"Vertical(X)","Vertical(Y)","Vertical(Z)"};
+	if($jpTrue){
+		$st_Horiz = {"水平(X)","水平(Y)","水平(Z)"};
+		$st_Vert  = {"垂直(X)","垂直(Y)","垂直(Z)"};
+	}
+	if($viewMode=="AriSVRadio_Persp" || $axisMode == 2 || $axisMode== 0 ){
+		radioButton -e -en 0 AriSVRadio_Short;
+		radioButton -e -en 0 -bgc 0.4 0.4 0.4 AriSVRadio_Yoko;
+		radioButton -e -en 0 -bgc 0.4 0.4 0.4 AriSVRadio_Tate;
+	}
+	else{
+		radioButton -e -en 1 AriSVRadio_Short;
+		radioButton -e -en 1 AriSVRadio_Yoko;
+		radioButton -e -en 1 AriSVRadio_Tate;
+		if( $viewMode=="AriSVRadio_Top"){
+			radioButton -e -label $st_Horiz[0] -bgc 0.4 0 0 AriSVRadio_Yoko;
+			radioButton -e -label $st_Vert[2]  -bgc 0 0 0.4 AriSVRadio_Tate;
+			textField   -e -text "top"  AriSVTextField_HorizVertCamera;
+		}
+		if( $viewMode=="AriSVRadio_Front"){
+			radioButton -e -label $st_Horiz[0] -bgc 0.4 0 0 AriSVRadio_Yoko;
+			radioButton -e -label $st_Vert[1]  -bgc 0 0.4 0 AriSVRadio_Tate;
+			textField   -e -text "front"  AriSVTextField_HorizVertCamera;
+		}
+		if( $viewMode=="AriSVRadio_Side"){
+			radioButton -e -label $st_Horiz[2] -bgc 0 0 0.4 AriSVRadio_Yoko;
+			radioButton -e -label $st_Vert[1]  -bgc 0 0.4 0 AriSVRadio_Tate;
+			textField   -e -text "side"  AriSVTextField_HorizVertCamera;
+		}
+	}
+	if($viewMode=="AriSVRadio_Persp"){
+		string $camera=`textField -q -text AriSVTextField_Camera`;
+		textField   -e -text $camera  AriSVTextField_HorizVertCamera;
+	}
+	if($getMode=="AriSVRadio_modeGetfield"){
+		columnLayout -e -en true  AriSVColumn_positionField;
+		columnLayout -e -en false AriSVRow_HorizVertic;
+		button -e -en true -bgc 0.5 0.5 1 $AriStraightVertex_UI_Get_Button;
+	}
+	if($getMode=="AriSVRadio_modeEnd"){
+		columnLayout -e -en false AriSVColumn_positionField;
+		columnLayout -e -en true  AriSVRow_HorizVertic;
+		radioButton -e -en 1 AriSVRadio_Top;
+		radioButton -e -en 1 AriSVRadio_Front;
+		radioButton -e -en 1 AriSVRadio_Side;
+		radioButton -e -en 1 AriSVRadio_Persp;
+		textField   -e -en 1 AriSVTextField_Camera;
+		button -e -en false -bgc 0.5 0.5 0.5 $AriStraightVertex_UI_Get_Button;
+	}
+	if($frameChangeTrue)AriStraightVertex_frameChange();
+	AriStraightVertex_Save();
+}
+global proc AriPositionAlignment_GetActiveCam(){
+	string $panel=`getPanel -withFocus`;
+	if(!`modelEditor -ex $panel`)return;
+	string $camera = `modelEditor -q -camera $panel`;
+	textField -e -text $camera AriSVTextField_HorizVertCamera;
+	if($camera=="top")		radioButton -e -select AriSVRadio_Top;
+	if($camera=="front")	radioButton -e -select AriSVRadio_Front;
+	if($camera=="side")		radioButton -e -select AriSVRadio_Side;
+	if($camera!="top" && $camera!="front" && $camera!="side"){
+		textField -e -text $camera AriSVTextField_Camera;
+		radioButton -e -en 1 -select AriSVRadio_Persp;
+	}
+	AriStraightVertex_ChangeUI(0);
+}
+global proc AriStraightVertex(){
+	global string $AriStraightVertex_UI_Frame[10];
+	global string $AriStraightVertex_UI_2d3dMode_RB[3];
+	global string $AriStraightVertex_UI_Get_Button;
+	global string $AriStraightVertex_UI_BothEnds_RB;
+	global string $AriStraightVertex_UI_HVEnds_RB;  
+	global string $AriStraightVertex_UI_ViewMode_RB;
+	global string $AriStraightVertex_UI_HorizVertic_RB;
+	global string $AriStraightVertex_UI_Position[10];
+	global string $AriStraightVertex_UI_Equi_CB;
+	int $jpTrue = false;
+	if(`about -uil`=="ja_JP")$jpTrue = true;
+	string $label_Linear  = "Linear 3D";
+	string $label_Limited = "Linear 2D (Axis-Limited)";
+	string $label_Flatten = "Flatten (Based on 3 vertices)";
+	string $label_Position = "Position";
+	string $label_GetPos   = "Get Source Position";
+	string $label_GetValue = "GetPosition";
+	string $label_BothEnds = "BothEnds";	
+	string $label_EndHorizontal = "EndHorizontal";
+	string $label_EndVertical   = "EndVertical";
+	string $label_Shortest   = "Shortest";
+	string $label_Horizontal = "Horizontal(X)";
+	string $label_Vertical   = "Vertical(Y)";	
+	string $label_Equal = "Equidistant(Selecting edges)";
+	string $label_MoveVer = "Move Vertices";
+	if($jpTrue==true){
+		$label_Linear   = "直線化 3D";
+		$label_Limited  = "直線化 2D (軸固定)";
+		$label_Flatten  = "平面化 (3頂点基準)";
+		$label_GetPos   = "基準頂点取得";
+		$label_EndHorizontal = "水平端";
+		$label_EndVertical   = "垂直端";
+		$label_GetValue = "座標取得 ";
+		$label_BothEnds = "両端  ";
+		$label_Shortest = "最短";
+		$label_Horizontal = "水平(X)";
+		$label_Vertical   = "水平(Y)";
+		$label_Equal = "等間隔(エッジ選択のみ)";
+		$label_MoveVer = "頂点移動";
+	}
+	if((`window -ex  AriVertexAlignment`)==true)deleteUI AriVertexAlignment;
+	window -title "AriStraightVertex"  -w 200 -h 120 -tlb true AriVertexAlignment;
+	columnLayout -adj true;
+	frameLayout -l "Mode" -bgc 0 0 0 -cll true -cl false -cc "AriStraightVertex_frameChange()" -ec "AriStraightVertex_frameChange()";
+	columnLayout -adj true;
+	radioCollection;
+		$AriStraightVertex_UI_2d3dMode_RB[0] = `radioButton -label $label_Linear  -onc "AriStraightVertex_ChangeUI(1)"`;
+		$AriStraightVertex_UI_2d3dMode_RB[1] = `radioButton -label $label_Limited -onc "AriStraightVertex_ChangeUI(1)"`;
+		$AriStraightVertex_UI_2d3dMode_RB[2] = `radioButton -label $label_Flatten -onc "AriStraightVertex_ChangeUI(1)"`;
+	setParent..;
+	setParent..;
+	$AriStraightVertex_UI_Frame[1] = `frameLayout -l "SourcePosition" -bgc 0 0 0 -cll true -cl false -cc "AriStraightVertex_frameChange()" -ec "AriStraightVertex_frameChange()"`;
+	columnLayout -adj true ;
+	rowLayout -numberOfColumns 2;
+	$AriStraightVertex_UI_BothEnds_RB =  `radioCollection`;
+		radioButton -label $label_GetValue -en 1 -onc "AriStraightVertex_ChangeUI(0);" -select AriSVRadio_modeGetfield;
+		radioButton -label $label_BothEnds -en 1 -onc "AriStraightVertex_ChangeUI(0);"         AriSVRadio_modeEnd;
+	setParent..;
+	$AriStraightVertex_UI_Frame[2] = `frameLayout -cll true -cl false -l $label_Position -cc "AriStraightVertex_frameChange()" -ec "AriStraightVertex_frameChange()"`;
+	columnLayout -adj true AriSVColumn_positionField;
+	rowLayout -nc 2 -adj 2;
+	button -w 38 -l "Pos1" -command "AriPositionAlignmentGetPos(1)";
+	string $formPos1 = `formLayout`;
+	$AriStraightVertex_UI_Position[0] = `floatField -v 0 -w 40 -pre 3`;
+	$AriStraightVertex_UI_Position[1] = `floatField -v 0 -w 40 -pre 3`;
+	$AriStraightVertex_UI_Position[2] = `floatField -v 0 -w 40 -pre 3`;
+	setParent..;
+	formLayout -e
+		-af $AriStraightVertex_UI_Position[0] "left"  0
+		-ap $AriStraightVertex_UI_Position[0] "right" 0 33
+		-ac $AriStraightVertex_UI_Position[1] "left"  0 $AriStraightVertex_UI_Position[0]
+		-ap $AriStraightVertex_UI_Position[1] "right" 0 67
+		-ac $AriStraightVertex_UI_Position[2] "left"  0 $AriStraightVertex_UI_Position[1]
+		-af $AriStraightVertex_UI_Position[2] "right" 0
+	$formPos1;
+	setParent..;
+	rowLayout -nc 2 -adj 2;
+	button  -w 38 -l "Pos2" -command "AriPositionAlignmentGetPos(2)";
+	string $formPos2 = `formLayout`;
+	$AriStraightVertex_UI_Position[3] = `floatField -v 0 -w 40 -pre 3`;
+	$AriStraightVertex_UI_Position[4] = `floatField -v 0 -w 40 -pre 3`;
+	$AriStraightVertex_UI_Position[5] = `floatField -v 0 -w 40 -pre 3`;
+	setParent..;
+	formLayout -e
+		-af $AriStraightVertex_UI_Position[3] "left"  0
+		-ap $AriStraightVertex_UI_Position[3] "right" 0 33
+		-ac $AriStraightVertex_UI_Position[4] "left"  0 $AriStraightVertex_UI_Position[3]
+		-ap $AriStraightVertex_UI_Position[4] "right" 0 67
+		-ac $AriStraightVertex_UI_Position[5] "left"  0 $AriStraightVertex_UI_Position[4]
+		-af $AriStraightVertex_UI_Position[5] "right" 0
+	$formPos2;
+	setParent..;
+	rowLayout -nc 2 -adj 2;
+	button  -w 38 -l "Pos3" -command "AriPositionAlignmentGetPos(2)";
+	string $formPos3 = `formLayout`;
+	$AriStraightVertex_UI_Position[6] = `floatField -v 0 -w 40 -pre 3`;
+	$AriStraightVertex_UI_Position[7] = `floatField -v 0 -w 40 -pre 3`;
+	$AriStraightVertex_UI_Position[8] = `floatField -v 0 -w 40 -pre 3`;
+	setParent..;
+	formLayout -e
+		-af $AriStraightVertex_UI_Position[6] "left"  0
+		-ap $AriStraightVertex_UI_Position[6] "right" 0 33
+		-ac $AriStraightVertex_UI_Position[7] "left"  0 $AriStraightVertex_UI_Position[6]
+		-ap $AriStraightVertex_UI_Position[7] "right" 0 67
+		-ac $AriStraightVertex_UI_Position[8] "left"  0 $AriStraightVertex_UI_Position[7]
+		-af $AriStraightVertex_UI_Position[8] "right" 0
+	$formPos3;
+	setParent..;
+	setParent..;
+	setParent..;
+	$AriStraightVertex_UI_Get_Button = `button -label $label_GetPos -h 36 -bgc 0.5 0.5 1 -command "AriPositionAlignmentGetPos(0)"`;
+	columnLayout AriSVRow_HorizVertic;
+	rowLayout -nc 3;
+	textField -vis false -w 1 -ed 0 -text "persp" AriSVTextField_HorizVertCamera;
+	$AriStraightVertex_UI_HVEnds_RB = `radioCollection`;
+		radioButton -label $label_EndHorizontal -en 1 -onc "AriStraightVertex_ChangeUI(0)" -select AriSVRadio_Horizontal;
+		radioButton -label $label_EndVertical   -en 1 -onc "AriStraightVertex_ChangeUI(0)"         AriSVRadio_Vertical;
+	setParent..;
+	setParent..;
+	setParent..;
+	setParent..;
+	setParent..;
+	$AriStraightVertex_UI_Frame[3] = `frameLayout -l "FixAxis" -bgc 0 0 0 -cll true -cl false -cc "AriStraightVertex_frameChange()" -ec "AriStraightVertex_frameChange()"`;
+	columnLayout -adj true;
+	columnLayout -adj true;
+	$AriStraightVertex_UI_ViewMode_RB = `radioCollection `;
+	rowLayout -nc 3;
+	string $buttonY = `radioButton -label "top-Y   "   -bgc 0.0 0.2 0.0 -en 0 -onc "AriStraightVertex_ChangeUI(0)" AriSVRadio_Top`;
+	string $buttonZ = `radioButton -label "front-Z " -bgc 0.0 0.0 0.2 -en 0 -onc "AriStraightVertex_ChangeUI(0)" AriSVRadio_Front`;
+	string $buttonX = `radioButton -label "side-X  "	 -bgc 0.2 0.0 0.0 -en 0 -onc "AriStraightVertex_ChangeUI(0)" AriSVRadio_Side`;
+	setParent..;
+	/*
+	formLayout -e
+		-af $buttonY "left"  0
+		-ap $buttonY "right" 0 33
+		-ac $buttonZ "left"  0 $buttonY
+		-ap $buttonZ "right" 0 67
+		-ac $buttonX "left"  0 $buttonZ
+		-af $buttonX "right" 0
+	$form;
+	*/
+	rowLayout -nc 3 -adj 3;
+	radioButton -label ""	-en 0 -onc "AriStraightVertex_ChangeUI(0)" -select AriSVRadio_Persp;
+	textField -w 60 -ed false -text "persp"  AriSVTextField_Camera;
+	button -w 100 -l "<< GetActiveCam" -c "AriPositionAlignment_GetActiveCam" AriSVButton_GetActiveCam;
+	setParent..;
+	separator -w 200 -h 2 -st "in";;
+	rowLayout -numberOfColumns 4 ;
+		$AriStraightVertex_UI_HorizVertic_RB = `radioCollection`;
+		radioButton -label $label_Shortest   -en 0 -select AriSVRadio_Short;
+		radioButton -label $label_Horizontal -en 0         AriSVRadio_Yoko;
+		radioButton -label $label_Vertical   -en 0         AriSVRadio_Tate;
+		setParent..;
+	setParent..;
+	setParent..;
+	setParent..;
+	$AriStraightVertex_UI_Frame[4] = `frameLayout -l "Equidistant" -bgc 0 0 0 -cll true -cl false -cc "AriStraightVertex_frameChange()" -ec "AriStraightVertex_frameChange()"`;
+	columnLayout -adj true;
+	$AriStraightVertex_UI_Equi_CB = `checkBox -l $label_Equal`;
+	setParent..;
+	setParent..;
+	button -label $label_MoveVer -h 36 -bgc 1 1 0.5 -command "AriStraightVertex_MoveGO();" AriSVGOButton;
+	showWindow;
+	AriStraightVertex_Load();
+	AriStraightVertex_ChangeUI(0);
+}

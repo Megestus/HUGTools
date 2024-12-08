@@ -1,0 +1,450 @@
+//--------------------------------------------------------------------------
+//
+// ScriptName : AriUVSquare
+// Contents   : UV‚Ì‹«ŠE‚ðŽlŠpŒ`‚É®—ñ
+// Author     : Ari
+// URL        : http://cgjishu.net/
+// Since      : 2023/11
+// Help       : http://cgjishu.net/blog-entry-394.html
+// LastUpdate : 
+//
+//--------------------------------------------------------------------------
+
+
+
+proc float[] getMimMax(vector $posList[]){
+	
+	float $minmax[];
+	
+	int $i=0;
+	for($pos in $posList){
+		if($i==0){
+			$minmax[0] = $pos.x;
+			$minmax[1] = $pos.y;
+			$minmax[2] = $pos.z;
+			$minmax[3] = $pos.x;
+			$minmax[4] = $pos.y;
+			$minmax[5] = $pos.z;
+		}
+		if($minmax[0] > $pos.x) $minmax[0] = $pos.x;
+		if($minmax[1] > $pos.y) $minmax[1] = $pos.y;
+		if($minmax[2] > $pos.z) $minmax[2] = $pos.z;
+		if($minmax[3] < $pos.x) $minmax[3] = $pos.x;
+		if($minmax[4] < $pos.y) $minmax[4] = $pos.y;
+		if($minmax[5] < $pos.z) $minmax[5] = $pos.z;
+		$i++;
+	}
+	return $minmax;
+}
+proc float DstancePos(vector $pos0, vector $pos1)
+{
+	float $dis;
+	$dis = 	 (($pos1.x)-($pos0.x))*(($pos1.x)-($pos0.x))
+			+(($pos1.y)-($pos0.y))*(($pos1.y)-($pos0.y))
+			+(($pos1.z)-($pos0.z))*(($pos1.z)-($pos0.z));
+	$dis = sqrt($dis);
+	return $dis;
+}
+proc UVratio(string $uvSetList[], vector $startPos, vector $endPos){
+	vector $verPosList[];
+	for($ii=0; $ii<size($uvSetList); $ii++){
+		string $uv = $uvSetList[$ii];
+		string $uvToVer[] = `polyListComponentConversion -tv $uv`;
+		$uvToVer = `filterExpand -selectionMask 31 $uvToVer`;
+		$verPosList[$ii] =`pointPosition -w $uvToVer[0]`;
+	}
+	float $distanceList[];
+	float $distanceTotal = 0;
+	for($ii=0; $ii<size($uvSetList)-1; $ii++){
+		$distanceList[$ii] = DstancePos($verPosList[$ii],$verPosList[$ii+1]);
+		$distanceTotal = $distanceTotal + $distanceList[$ii];
+	}
+	vector $uvVector   = $endPos - $startPos;
+	float  $uvDistance = DstancePos($endPos, $startPos);
+	vector $beforePos = $startPos;
+	for($ii=0; $ii<size($uvSetList)-1; $ii++){
+		float $ratioVal = $distanceList[$ii] / $distanceTotal;
+		vector $movePos = $beforePos + ($ratioVal * $uvVector);
+		polyEditUV -r false -u ($movePos.x) -v ($movePos.y) $uvSetList[$ii+1];
+		$beforePos = $movePos;
+	}
+	polyEditUV -r false -u ($startPos.x) -v ($startPos.y) $uvSetList[0];
+}
+proc string[] GetCommonArray(string $stringA[], string $stringB[]){
+	string $sub[]        = stringArrayRemove($stringB, $stringA);
+	string $commonList[] = stringArrayRemove($sub    , $stringA);
+	return $commonList;
+}
+proc string[] GetUVSide(string $uv, string $edghList[]){
+	select $edghList;
+	string $uvToface[] = `polyListComponentConversion -tf $uv`;
+	string $faceToUV[] = `polyListComponentConversion -tuv $uvToface`;
+	$faceToUV = `filterExpand -selectionMask 35 $faceToUV`;
+	string $uvToEdge[] = `polyListComponentConversion -te $uv`;
+	$uvToEdge = `filterExpand -selectionMask 32 $uvToEdge`;
+	$uvToEdge = GetCommonArray($uvToEdge, $edghList);
+	string $edgeToUV[] = `polyListComponentConversion -tuv $uvToEdge`;
+	$edgeToUV = `filterExpand -selectionMask 35 $edgeToUV`;
+	string $sideUV[] = GetCommonArray($edgeToUV, $faceToUV);
+	string $uvs[] = {$uv};
+	$sideUV = stringArrayRemove($uvs, $sideUV);
+	return $sideUV;
+}
+proc string[] AriSortUVList(string  $getUVList[], string $edgeList[]){
+	string $sortUVList[];
+	string $ProcessedUVList[];
+	string $nowUV = $getUVList[0];
+	$ProcessedUVList[0] = $nowUV;
+	int $ii=0;
+	while($ii<10000){
+		string $sideUVs[] = GetUVSide($nowUV,$edgeList);
+		$sideUVs = GetCommonArray($getUVList, $sideUVs);
+		if(size($sideUVs) < 3){
+			$sideUVs = stringArrayRemove($ProcessedUVList,$sideUVs);
+			if(size($sideUVs)<=0){
+				break;
+			}
+			else{
+				$ProcessedUVList[size($ProcessedUVList)] = $sideUVs[0];
+				$nowUV = $sideUVs[0];
+			}
+		}
+		$ii++;
+	}
+	$sortUVList = $ProcessedUVList;
+	return $sortUVList;
+}
+proc string[] AriSortEdgeList(string  $getList_edges[],int $verMode){
+	string $getList_vartex[];
+	for($i=0;$i<size($getList_edges);$i++){
+		string $edgeToUv[] = `polyListComponentConversion -tv $getList_edges[$i]`;
+		$edgeToUv = `filterExpand -selectionMask 31 $edgeToUv`;
+		$getList_vartex = stringArrayCatenate( $getList_vartex, $edgeToUv );
+	}
+	string $sort_edgeList[];
+	string $sort_vertexList[];
+	int $count=0;
+	for($i=0;$i<size($getList_edges);$i++){
+		if(stringArrayContains($getList_edges[$i],$sort_edgeList))continue;
+		int $verNum1=$i*2;
+		string $nowEdge;
+		string $workEdgeList[];
+		string $workVertexList[];
+		clear $workEdgeList;
+		clear $workVertexList;
+		int $workEdgeListCounter=0;
+		string $leadEdge;
+		int $loopTrue = false;
+		for($k=0;$k<2;$k++){
+			$nowEdge   = $getList_edges[$i];
+			$nowVertex = $getList_vartex[$i*2+$k];
+			$workVertexList[0] = $nowVertex;
+			int $n=0;
+			string $beforeEdge=$nowVertex;
+			while($n<10000){
+				for($j=0;$j<size($getList_edges);$j++){
+					if(                    $getList_edges[$j] == $nowEdge  )continue;
+					if(stringArrayContains($getList_edges[$j],   $workEdgeList))continue;
+					if(stringArrayContains($getList_edges[$j],   $sort_edgeList))continue;
+					int $verNum2=$j*2;
+					if($nowVertex == $getList_vartex[$verNum2]){
+						$nowEdge   = $getList_edges[$j];
+						$nowVertex = $getList_vartex[$verNum2+1];
+						$workEdgeList[$workEdgeListCounter]     = $nowEdge;
+						$workVertexList[$workEdgeListCounter+1] = $nowVertex;
+						$workEdgeListCounter++;
+						break;
+					}
+					if($nowVertex == $getList_vartex[$verNum2+1]){
+						$nowEdge   = $getList_edges[$j];
+						$nowVertex = $getList_vartex[$verNum2];
+						$workEdgeList[$workEdgeListCounter]     = $nowEdge;
+						$workVertexList[$workEdgeListCounter+1] = $nowVertex;
+						$workEdgeListCounter++;
+						break;
+					}
+				}
+				if($beforeEdge == $nowVertex)break;
+				$beforeEdge=$nowVertex;
+				$n++;
+			}
+			string $plusEdge_Work[]   = $workEdgeList;
+			string $plusVertex_Work[] = $workVertexList;
+			if($k==0){
+				for($j=0;$j<size($workEdgeList);$j++){
+					$plusEdge_Work[(size($workEdgeList))-$j-1] = $workEdgeList[$j];
+				}
+				for($j=0;$j<size($workVertexList);$j++){
+					$plusVertex_Work[(size($workVertexList))-$j-1] = $workVertexList[$j];
+				}
+			}
+			$sort_edgeList   = stringArrayCatenate( $sort_edgeList,   $plusEdge_Work );
+			$sort_vertexList = stringArrayCatenate( $sort_vertexList, $plusVertex_Work );
+			if($k==0){
+				if($plusEdge_Work[0] != $getList_edges[$i]){
+					$sort_edgeList[size($sort_edgeList)]=$getList_edges[$i];
+				}
+				else{
+					$loopTrue = true;
+				}
+			}
+			else{
+				string $sepaString="--";
+				if($loopTrue)$sepaString="--Loop";
+				$sort_edgeList[size($sort_edgeList)]     = $sepaString;
+				$sort_vertexList[size($sort_vertexList)] = $sepaString;
+			}
+			clear $workEdgeList;
+			clear $workVertexList;
+			$workEdgeListCounter=0;
+		}
+	}
+	if($verMode) return $sort_vertexList;
+	else         return $sort_edgeList;
+}
+proc string[] getTrueBorderEdge(string $edgeList[]){
+	string $trueBolderList[];
+	for($edge in $edgeList){
+		string $edgeToFace[] = `polyListComponentConversion -tf $edge`;
+		$edgeToFace = `filterExpand -selectionMask 34 $edgeToFace`;
+		if(size($edgeToFace)==1){
+			$trueBolderList[size($trueBolderList)] = $edge;
+		}
+		if(size($edgeToFace)==2){
+			string $edgeToUV[] = `polyListComponentConversion -tuv $edge`;
+			$edgeToUV = `filterExpand -selectionMask 35 $edgeToUV`;
+			if(size($edgeToUV)!=2){
+				$trueBolderList[size($trueBolderList)] = $edge;
+			}
+		}
+	}
+	return $trueBolderList;
+}
+proc string[] ArraySortStart(string $stringList[], int $id){
+	string $sortArray[];
+	int $size = size($stringList);
+	$stringList = stringArrayCatenate($stringList, $stringList);
+	int $jj = 0;
+	for($ii = $id; $ii < size($stringList); $ii++){
+		$sortArray[size($sortArray)] = $stringList[$ii];
+		$jj++;
+		if($size <= $jj) break;
+	}
+	return $sortArray;
+}
+proc vector[] ArraySortStartVector(vector $vectorList[], int $id){
+	vector $sortArray[];
+	int $size = size($vectorList);
+	vector $doubleList[] = $vectorList;
+	for($ii = 0; $ii < size($vectorList); $ii++){
+		$doubleList[size($doubleList)] = $vectorList[$ii];
+	}
+	int $jj = 0;
+	for($ii = $id; $ii < size($doubleList); $ii++){
+		$sortArray[size($sortArray)] = $doubleList[$ii];
+		$jj++;
+		if($size <= $jj) break;
+	}
+	return $sortArray;
+}
+proc string[] ArrayInvert(string $stringList[]){
+	string $sortArray[];
+	int $jj = 0;
+	for($ii = size($stringList)-1; $ii >= 0; $ii--){
+		$sortArray[size($sortArray)] = $stringList[$ii];
+	}
+	return $sortArray;
+}
+global proc string[] AriUVSquare_4UVGO(string $input4UV[]){
+	global string $AriUVSquare_ValidEdge[];
+	global string $AriUVSquare_ValidUV[];
+	global string $AriUVSquare_InnerUV[];
+	string $selectUVList[];
+	string $borderUVList[]   = $AriUVSquare_ValidUV;
+	string $borderEdgeList[] = $AriUVSquare_ValidEdge;
+	string $innerUVList[]    = $AriUVSquare_InnerUV;
+	string $outUVList[];
+	select $input4UV[0];
+	polySelectBorderShell 0;
+	string $WorkShellList[] = `ls -sl`;
+	$WorkShellList = `filterExpand -selectionMask 35 $WorkShellList`;
+	$borderUVList = GetCommonArray($borderUVList,$WorkShellList);
+	string $UV4List[] = GetCommonArray($input4UV, $borderUVList);
+	if(size($UV4List)!=4){
+		$UV4List = $input4UV;
+		polySelectBorderShell 1;
+		string $selects[] = `ls -sl`;
+		$borderUVList = `filterExpand -selectionMask 35 $selects`;
+		textureWindowSelectConvert 3;
+		ConvertSelectionToContainedEdges;
+		$selects = `ls -sl`;
+		$borderEdgeList = `filterExpand -selectionMask 32 $selects`;
+		$borderEdgeList = getTrueBorderEdge($borderEdgeList);
+		$UV4List = GetCommonArray($input4UV, $borderUVList);
+		if(size($UV4List)==0)return $input4UV;
+		string $UVShellList[];
+		select $UV4List[0];
+		polySelectBorderShell 0;
+		$UVShellList = `ls -sl`;
+		$UVShellList = `filterExpand -selectionMask 35 $UVShellList`;
+		$innerUVList = stringArrayRemoveExact($borderUVList,$UVShellList);
+	}
+	else{
+		string $UVShellList[];
+		select $UV4List[0];
+		polySelectBorderShell 0;
+		$UVShellList = `ls -sl`;
+		$UVShellList = `filterExpand -selectionMask 35 $UVShellList`;
+		$outUVList = stringArrayRemoveExact($borderUVList,$UVShellList);
+		$outUVList = stringArrayRemoveExact($innerUVList,$outUVList);
+	}
+	$UV4List = GetCommonArray($UV4List,$borderUVList);
+	if(size($UV4List) != 4){
+		return $input4UV;
+	}
+	string $sortUVList[] = AriSortUVList($borderUVList, $borderEdgeList);
+	$sortUVList = stringArrayRemoveDuplicates($sortUVList);
+	$sortUVList = stringArrayCatenate($sortUVList, $sortUVList );
+	vector $UV4PosList[];
+	for($ii=0; $ii<=3; $ii++){
+		float $uvpos[] = `polyEditUV -q $UV4List[$ii]`;
+		$UV4PosList[$ii] = <<$uvpos[0], $uvpos[1], 0>>;
+	}
+	float $maxmin[] = getMimMax($UV4PosList);
+	vector $boundingPos[];
+	$boundingPos[0] = <<$maxmin[0], $maxmin[1], 0>>;
+	$boundingPos[1] = <<$maxmin[3], $maxmin[1], 0>>;
+	$boundingPos[2] = <<$maxmin[3], $maxmin[4], 0>>;
+	$boundingPos[3] = <<$maxmin[0], $maxmin[4], 0>>;
+	int $minNumberBound = 0;
+	int $minNumberUV = 0;
+	float $minDistance = 0;
+	for($jj=0; $jj<4; $jj++){
+		for($ii=0; $ii<4; $ii++){
+			float $dis = DstancePos($boundingPos[$jj], $UV4PosList[$ii]);
+			if($ii==0 && $jj==0){
+				$minDistance = $dis;
+			}
+			if($minDistance > $dis){
+				$minDistance = $dis;
+				$minNumberUV = $ii;
+				$minNumberBound = $jj;
+			}
+		}
+	}
+	int $startNum = 0;
+	for($ii=0; $ii<size($sortUVList); $ii++){
+		if($sortUVList[$ii] == $UV4List[$minNumberUV]){
+			$startNum = $ii;
+			break;
+		}
+	}
+	$sortUVList  = ArraySortStart($sortUVList,$startNum);
+	$boundingPos = ArraySortStartVector($boundingPos,$minNumberBound);
+	string $UV4SortList[];
+	vector $UV4SortPosList[];
+	for($ii=0; $ii<size($sortUVList); $ii++){
+		for($jj=0; $jj<size($UV4List); $jj++){
+			if($sortUVList[$ii] ==  $UV4List[$jj]){
+				$UV4SortList[size($UV4SortList)] = $UV4List[$jj];
+				$UV4SortPosList[size($UV4SortPosList)] = $UV4PosList[$jj];
+			}
+		}
+	}
+	vector $uu = cross(($UV4SortPosList[1]-$UV4SortPosList[0]), ($UV4SortPosList[3]-$UV4SortPosList[0]));
+	int $invertTrue = false;
+	if(($uu.z) < 0) $invertTrue = true;
+	if($invertTrue){
+		$sortUVList = ArrayInvert($sortUVList);
+		$sortUVList = ArraySortStart($sortUVList, size($sortUVList)-1);
+	}
+	for($ii=0; $ii<4; $ii++){
+		string $uvSetList[];
+		int $startTrue = 0;
+		for($uv in $sortUVList){
+			if(stringArrayContains($uv,$UV4List)){
+				$startTrue++;
+			}
+			if($startTrue == $ii+1){
+				$uvSetList[size($uvSetList)] = $uv;
+			}
+			if($startTrue == $ii+2){
+				$uvSetList[size($uvSetList)] = $uv;
+				break;
+			}
+		}
+		int $uu = $ii;
+		int $vv = $ii+1;
+		if($vv > 3)$vv = 0;
+		UVratio($uvSetList, $boundingPos[$uu], $boundingPos[$vv]);
+		clear $uvSetList;
+	}
+	int $select10 = 1;
+	int $unfold10 = 18;
+	if(`optionVar -exists "AriUVSquareOptions_Select"`)	$select10 = `optionVar -q "AriUVSquareOptions_Select"`;
+	if(`optionVar -exists "AriUVSquareOptions_Unfold"`)	$unfold10 = `optionVar -q "AriUVSquareOptions_Unfold"`;
+	int $selectTrue[] = AriNumber10to2($select10);
+	int $unfoldTrue[] = AriNumber10to2($unfold10);
+	int $selInputUVTrue = $selectTrue[0];
+	int $selBolderTrue  = $selectTrue[1];
+	int $selInnerUVTrue = $selectTrue[2];
+	int $selOutUVTrue   = $selectTrue[3];
+	int $InnerUVMode = 1;
+	int $OutUVMode   = 1;
+	if($unfoldTrue[0]==true)$InnerUVMode=0;
+	if($unfoldTrue[1]==true)$InnerUVMode=1;
+	if($unfoldTrue[2]==true)$InnerUVMode=2;
+	if($unfoldTrue[3]==true)$OutUVMode=0;
+	if($unfoldTrue[4]==true)$OutUVMode=1;
+	if($unfoldTrue[5]==true)$OutUVMode=2;
+	float $UnfSolverToward = 0;
+	float $UnfOptimizeOri = 0.5;
+	if(`optionVar -exists "AriUVSquareOptions_UnfSolver"`)		$UnfSolverToward = `optionVar -q "AriUVSquareOptions_UnfSolver"`;
+	if(`optionVar -exists "AriUVSquareOptions_UnfOptimize"`)	$UnfOptimizeOri = `optionVar -q "AriUVSquareOptions_UnfOptimize"`;
+	float $OptimizeSurfangle = 1.0;
+	if(`optionVar -exists "AriUVSquareOptions_OptSurf"`)	$OptimizeSurfangle = `optionVar -q "AriUVSquareOptions_OptSurf"`;
+	if(size($innerUVList)>0){
+		if($InnerUVMode==1) unfold -i 5000 -ss 0.001 -gb $UnfSolverToward -gmb $UnfOptimizeOri -pub 0 -ps  0 -oa  0 -us off $innerUVList;
+		if($InnerUVMode==2) u3dOptimize -ite 5 -pow 2 -sa $OptimizeSurfangle -bi 0 -tf 1 -ms 1024 -rs 0 $innerUVList;
+	}
+	if(size($outUVList)>0){
+		if($OutUVMode==1) unfold -i 5000 -ss 0.001 -gb $UnfSolverToward -gmb $UnfOptimizeOri -pub 0 -ps  0 -oa  0 -us off $outUVList;
+		if($OutUVMode==2) u3dOptimize -ite 5 -pow 2 -sa $OptimizeSurfangle -bi 0 -tf 1 -ms 1024 -rs 0 $outUVList;
+	}
+	if($selInputUVTrue)	$selectUVList = stringArrayCatenate($selectUVList,$input4UV);
+	if($selBolderTrue)	$selectUVList = stringArrayCatenate($selectUVList,$borderUVList);
+	if($selInnerUVTrue)	$selectUVList = stringArrayCatenate($selectUVList,$innerUVList);
+	if($selOutUVTrue)	$selectUVList = stringArrayCatenate($selectUVList,$outUVList);
+	return $selectUVList;
+}
+global proc AriUVSquare(){
+	global string $AriUVSquare_ValidEdge[];
+	global string $AriUVSquare_ValidUV[];
+	global string $AriUVSquare_InnerUV[];
+	string $startSelects[] = `ls -sl`;
+	string $lastSelects[] = $startSelects;
+	string $faceList[] = `filterExpand -selectionMask 34 $startSelects`;
+	string $uvList[]   = `filterExpand -selectionMask 35 $startSelects`;
+	if(size($uvList)==0){
+		AriUVSquareOptions();
+	}
+	string $selectUVList[];
+	string $processedUV[] = $uvList;
+	while(size($processedUV)>0){
+		string $uv = $processedUV[0];
+		select $uv;
+		polySelectBorderShell 0;
+		string $shellList[] = `ls -sl`;
+		$shellList  = `filterExpand -selectionMask 35 $shellList`;
+		string $UV4List[] = GetCommonArray($shellList,$uvList);
+		if(size($UV4List)==4){
+			$lastSelects = AriUVSquare_4UVGO($UV4List);
+			$selectUVList = stringArrayCatenate($selectUVList,$lastSelects);
+		}
+		$processedUV = stringArrayRemove($shellList, $processedUV);
+	}
+	selectType -puv true;
+	select $selectUVList;
+}
+
+

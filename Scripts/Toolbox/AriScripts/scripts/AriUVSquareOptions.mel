@@ -1,0 +1,241 @@
+//--------------------------------------------------------------------------
+//
+// ScriptName : AriUVSquareOptions
+// Contents   : AriUVSquareのオプションウィンドウ
+// Author     : Ari
+// URL        : http://cgjishu.net/
+// Since      : 2023/11
+// Help       : http://cgjishu.net/blog-entry-394.html
+// LastUpdate : 
+//
+//--------------------------------------------------------------------------
+
+
+global proc int[] AriNumber10to2(int $number){
+	int $boolList[];
+	int $baisu = pow(2,20);
+	$amari=$number;
+	
+	for($i=20;$i>=0;$i--){
+		if($amari-$baisu>=0){
+			$amari=$amari-$baisu;
+			$boolList[$i]=1;
+		}
+		else $boolList[$i]=0;
+		$baisu=$baisu/2;
+	}
+	return $boolList;	
+}
+global proc int AriNumber2to10(int $boolList[]){
+	int $number;
+	int $baisu=1;
+	for($i=0;$i<size($boolList);$i++){
+		$number += $baisu*$boolList[$i];
+		$baisu = $baisu*2;
+	}
+	return $number;	
+}
+global proc AriUVSquareOptions_Save(){
+	global string $AriUVSquareOptions_UI_SelectCB[];
+	global string $AriUVSquareOptions_UI_UnfoldRB[];
+	global string $AriUVSquareOptions_UI_UnfSolverToward_FField;
+	global string $AriUVSquareOptions_UI_UnfOptimizeOri_FField;
+	int $selectTrue[];
+	int $unfoldTrue[];
+	$selectTrue[0] = `checkBox -q -v $AriUVSquareOptions_UI_SelectCB[0]`;
+	$selectTrue[1] = `checkBox -q -v $AriUVSquareOptions_UI_SelectCB[1]`;
+	$selectTrue[2] = `checkBox -q -v $AriUVSquareOptions_UI_SelectCB[2]`;
+	$selectTrue[3] = `checkBox -q -v $AriUVSquareOptions_UI_SelectCB[3]`;
+	if(`radioButton -q -select $AriUVSquareOptions_UI_UnfoldRB[0]`)  $unfoldTrue[0] = true;
+	if(`radioButton -q -select $AriUVSquareOptions_UI_UnfoldRB[1]`)  $unfoldTrue[1] = true;
+	if(`radioButton -q -select $AriUVSquareOptions_UI_UnfoldRB[2]`)  $unfoldTrue[2] = true;
+	if(`radioButton -q -select $AriUVSquareOptions_UI_UnfoldRB[3]`)  $unfoldTrue[3] = true;
+	if(`radioButton -q -select $AriUVSquareOptions_UI_UnfoldRB[4]`)  $unfoldTrue[4] = true;
+	if(`radioButton -q -select $AriUVSquareOptions_UI_UnfoldRB[5]`)  $unfoldTrue[5] = true;
+	int $select10 = AriNumber2to10($selectTrue);
+	int $unfold10 = AriNumber2to10($unfoldTrue);
+	print $unfold10;
+	optionVar -intValue "AriUVSquareOptions_Select" $select10;
+	optionVar -intValue "AriUVSquareOptions_Unfold" $unfold10;
+	global string $AriUVSquareOptions_UI_UnfSolverToward_FField;
+	global string $AriUVSquareOptions_UI_UnfOptimizeOri_FField;
+	float $UnfSolverToward = `floatField -q -v $AriUVSquareOptions_UI_UnfSolverToward_FField`;
+	float $UnfOptimizeOri  = `floatField -q -v $AriUVSquareOptions_UI_UnfOptimizeOri_FField`;
+	optionVar -floatValue "AriUVSquareOptions_UnfSolver"   $UnfSolverToward;
+	optionVar -floatValue "AriUVSquareOptions_UnfOptimize" $UnfOptimizeOri;
+	global string $AriUVSquareOptions_UI_OptimizeSurfangle_FSG;
+	global string $AriUVSquareOptions_UI_OptimizePower_FSG;
+	float $OptimizeSurfangle = `floatSliderGrp -q -v $AriUVSquareOptions_UI_OptimizeSurfangle_FSG`;
+	optionVar -floatValue "AriUVSquareOptions_OptSurf"	$OptimizeSurfangle;
+}
+proc AriUVSquareOptions_Load(){
+	global string $AriUVSquareOptions_UI_SelectCB[];
+	global string $AriUVSquareOptions_UI_UnfoldRB[];
+	int $select10 = 1;
+	int $unfold10 = 18;
+	if(`optionVar -exists "AriUVSquareOptions_Select"`)	$select10 = `optionVar -q "AriUVSquareOptions_Select"`;
+	if(`optionVar -exists "AriUVSquareOptions_Unfold"`)	$unfold10 = `optionVar -q "AriUVSquareOptions_Unfold"`;
+	int $selectTrue[] = AriNumber10to2($select10);
+	int $unfoldTrue[] = AriNumber10to2($unfold10);
+	checkBox -e -v $selectTrue[0] $AriUVSquareOptions_UI_SelectCB[0];
+	checkBox -e -v $selectTrue[1] $AriUVSquareOptions_UI_SelectCB[1];
+	checkBox -e -v $selectTrue[2] $AriUVSquareOptions_UI_SelectCB[2];
+	checkBox -e -v $selectTrue[3] $AriUVSquareOptions_UI_SelectCB[3];
+	if($unfoldTrue[0]==true) radioButton -e -select $AriUVSquareOptions_UI_UnfoldRB[0];
+	if($unfoldTrue[1]==true) radioButton -e -select $AriUVSquareOptions_UI_UnfoldRB[1];
+	if($unfoldTrue[2]==true) radioButton -e -select $AriUVSquareOptions_UI_UnfoldRB[2];
+	if($unfoldTrue[3]==true) radioButton -e -select $AriUVSquareOptions_UI_UnfoldRB[3];
+	if($unfoldTrue[4]==true) radioButton -e -select $AriUVSquareOptions_UI_UnfoldRB[4];
+	if($unfoldTrue[5]==true) radioButton -e -select $AriUVSquareOptions_UI_UnfoldRB[5];
+	global string $AriUVSquareOptions_UI_UnfSolverToward_FField;
+	global string $AriUVSquareOptions_UI_UnfSolverToward_FSlider;
+	global string $AriUVSquareOptions_UI_UnfOptimizeOri_FField;
+	global string $AriUVSquareOptions_UI_UnfOptimizeOri_FSlider;
+	float $UnfSolverToward = 0;
+	float $UnfOptimizeOri = 0.5;
+	if(`optionVar -exists "AriUVSquareOptions_UnfSolver"`)		$UnfSolverToward = `optionVar -q "AriUVSquareOptions_UnfSolver"`;
+	if(`optionVar -exists "AriUVSquareOptions_UnfOptimize"`)	$UnfOptimizeOri = `optionVar -q "AriUVSquareOptions_UnfOptimize"`;
+	floatSlider -e -v $UnfSolverToward   $AriUVSquareOptions_UI_UnfSolverToward_FSlider;
+	floatSlider -e -v $UnfOptimizeOri    $AriUVSquareOptions_UI_UnfOptimizeOri_FSlider;
+	floatField  -e -v $UnfSolverToward   $AriUVSquareOptions_UI_UnfSolverToward_FField;
+	floatField  -e -v $UnfOptimizeOri    $AriUVSquareOptions_UI_UnfOptimizeOri_FField;
+	global string $AriUVSquareOptions_UI_OptimizeSurfangle_FSG;
+	global string $AriUVSquareOptions_UI_OptimizePower_FSG;
+	float $OptimizeSurfangle = 1.0;
+	int $OptimizePower = 100;
+	if(`optionVar -exists "AriUVSquareOptions_OptSurf"`)	$OptimizeSurfangle = `optionVar -q "AriUVSquareOptions_OptSurf"`;
+	floatSliderGrp -e -v $OptimizeSurfangle $AriUVSquareOptions_UI_OptimizeSurfangle_FSG;
+}
+global proc AriUVSquareOptions_FieldChange(int $SliderTrue){
+	global string $AriUVSquareOptions_UI_UnfSolverToward_FField;
+	global string $AriUVSquareOptions_UI_UnfSolverToward_FSlider;
+	global string $AriUVSquareOptions_UI_UnfOptimizeOri_FField;
+	global string $AriUVSquareOptions_UI_UnfOptimizeOri_FSlider;
+	float $SolverToward = 0;
+	float $OptimizeOri = 0;
+	if($SliderTrue == 0){
+		$SolverToward = `floatField -q -v $AriUVSquareOptions_UI_UnfSolverToward_FField`;
+		floatSlider -e -v $SolverToward   $AriUVSquareOptions_UI_UnfSolverToward_FSlider;
+		$OptimizeOri = `floatField -q -v  $AriUVSquareOptions_UI_UnfOptimizeOri_FField`;
+		floatSlider -e -v $OptimizeOri    $AriUVSquareOptions_UI_UnfOptimizeOri_FSlider;
+	}
+	if($SliderTrue == 1){
+		$SolverToward = `floatSlider -q -v $AriUVSquareOptions_UI_UnfSolverToward_FSlider`;
+		floatField -e -v $SolverToward     $AriUVSquareOptions_UI_UnfSolverToward_FField;
+		$OptimizeOri = `floatSlider -q -v  $AriUVSquareOptions_UI_UnfOptimizeOri_FSlider`;
+		floatField -e -v $OptimizeOri      $AriUVSquareOptions_UI_UnfOptimizeOri_FField;
+	}
+}
+global proc AriUVSquareOptions_Go(){
+	AriUVSquareOptions_Save();
+	AriUVSquare;
+}
+global proc AriUVSquareOptions(){
+	global string $AriUVSquareOptions_UI_SelectCB[];
+	global string $AriUVSquareOptions_UI_UnfoldRB[];
+	if((`window -ex  AriUVSquareOptions`)==true)deleteUI AriUVSquareOptions;
+	window -title "AriUVSquareOptions" -tlb true -w 300 -h 50 AriUVSquareOptions;
+	string $form   = `formLayout`;
+	string $column = `columnLayout -adj true`;
+	separator -h 4 -st "in";
+	rowLayout -nc 5;
+	radioCollection;
+	text -w 60 -l "Select:";
+	$AriUVSquareOptions_UI_SelectCB[0] = `checkBox -l "First" -al "left" `;
+	$AriUVSquareOptions_UI_SelectCB[1] = `checkBox -l "Border"`;
+	$AriUVSquareOptions_UI_SelectCB[2] = `checkBox -l "Inside"`;
+	$AriUVSquareOptions_UI_SelectCB[3] = `checkBox -l "Outside" -vis false`;
+	setParent..;
+	separator -h 4 -st "in";
+	rowLayout -nc 4;
+	radioCollection;
+	text -w 60 -l "Inside:";
+	$AriUVSquareOptions_UI_UnfoldRB[0] = `radioButton -l "None" -al "left" `;
+	$AriUVSquareOptions_UI_UnfoldRB[1] = `radioButton -l "Unfold"`;
+	$AriUVSquareOptions_UI_UnfoldRB[2] = `radioButton -l "OptimzeUVs"`;
+	setParent..;
+	separator -h 4 -st "in";
+	rowLayout -nc 4 -vis false;
+	radioCollection;
+	text -w 60 -l "Outside:";
+	$AriUVSquareOptions_UI_UnfoldRB[3] = `radioButton -l "None" -al "left" `;
+	$AriUVSquareOptions_UI_UnfoldRB[4] = `radioButton -l "Unfold"`;
+	$AriUVSquareOptions_UI_UnfoldRB[5] = `radioButton -l "OptimzeUVs"`;
+	setParent..;
+	global string $AriUVSquareOptions_UI_UnfSolverToward_FField;
+	global string $AriUVSquareOptions_UI_UnfSolverToward_FSlider;
+	global string $AriUVSquareOptions_UI_UnfOptimizeOri_FField;
+	global string $AriUVSquareOptions_UI_UnfOptimizeOri_FSlider;
+	frameLayout -l "Unfold";
+	columnLayout -adj true;
+	columnLayout -adj true;
+	rowLayout -nc 4 ;
+	text -w 140 -l "Weight solver towards:";
+	$AriUVSquareOptions_UI_UnfSolverToward_FField = `floatField -min 0 -max 1 -w 80 -cc "AriUVSquareOptions_FieldChange(0)"`;
+	setParent..;
+	rowLayout -nc 4 -adj 2;
+	text -w 80 -l "Local solver";
+	$AriUVSquareOptions_UI_UnfSolverToward_FSlider = `floatSlider -min 0 -max 1 -cc "AriUVSquareOptions_FieldChange(1)"`;
+	text -w 80 -l "Global solver";
+	setParent..;
+	setParent..;
+	columnLayout -adj true;
+	rowLayout -nc 4 ;
+	text -w 140 -l "Optimize to original:";
+	$AriUVSquareOptions_UI_UnfOptimizeOri_FField = `floatField -min 0 -max 1 -w 80 -cc "AriUVSquareOptions_FieldChange(0)"`;
+	setParent..;
+	rowLayout -nc 4 -adj 2;
+	text -w 80 -l "Face area";
+	$AriUVSquareOptions_UI_UnfOptimizeOri_FSlider = `floatSlider -min 0 -max 1 -cc "AriUVSquareOptions_FieldChange(1)"`;
+	text -w 80 -l "Edge length";
+	setParent..;
+	setParent..;
+	setParent..;
+	setParent..;
+	global string $AriUVSquareOptions_UI_OptimizeSurfangle_FSG;
+	global string $AriUVSquareOptions_UI_OptimizePower_FSG;
+	frameLayout -l "Optimize UVs";
+	columnLayout -adj true;
+	columnLayout -adj true;
+	rowLayout -nc 4 -adj 2;
+	text -w 60 -l "Surfangle:";
+	$AriUVSquareOptions_UI_OptimizeSurfangle_FSG = `floatSliderGrp -field true -pre 4 -min 0 -max 1 -w 80`;
+	setParent..;
+	setParent..;
+	setParent..;
+	setParent..;
+	setParent..;
+	$buttonform = `formLayout`;
+	string $buttonSave       = `button       -l "Save"       -c "AriUVSquareOptions_Save();"`;
+	string $buttonSaveClose  = `button       -l "Save Close" -c "AriUVSquareOptions_Save(); deleteUI AriUVSquareOptions;"`;
+	string $buttonApply      = `button -h 38 -l "Apply"      -c "AriUVSquareOptions_Go();" -bgc 0.5 0.5 1`;
+	setParent..;
+	formLayout -e 
+	-af $buttonApply "bottom" 0  
+	-ap $buttonApply "left"   0 35
+	-af $buttonApply "right"  0
+	-af $buttonApply "top"    0 
+	-af $buttonSave	"top"    0
+	-ap $buttonSave	"bottom" 0 50
+	-af $buttonSave	"left"   0 
+	-ac $buttonSave	"right"  0 $buttonApply
+	-ac $buttonSaveClose	"top"    0 $buttonSave
+	-af $buttonSaveClose	"bottom" 0
+	-af $buttonSaveClose	"left"   0
+	-ac $buttonSaveClose	"right"  0 $buttonApply
+	$buttonform;
+	setParent..;
+	formLayout -e 
+	-af $column "top"    0
+	-af $column "left"   0
+	-af $column "right"  0
+	-ac $buttonform "top"    0 $column
+	-af $buttonform "bottom" 0
+	-af $buttonform "left"   0
+	-af $buttonform "right"  0
+	$form;
+	showWindow;
+	AriUVSquareOptions_Load();
+}
+
+

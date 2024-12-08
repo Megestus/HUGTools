@@ -12,7 +12,7 @@ def get_maya_main_window():
 class CreaseSetEditor(QtWidgets.QDialog):
     """CreaseSet编辑器"""
 
-    # 定义语言字典作为类的静态变量
+    # 字典
     language_dict = {
         "en": {
             "window_title": "CreaseSet Clean",
@@ -204,6 +204,9 @@ class CreaseSetEditor(QtWidgets.QDialog):
         self.split_crease_set_btn.clicked.connect(self.split_crease_set_by_object)
         self.clean_crease_set_btn.clicked.connect(self.clean_empty_crease_sets)
         self.add_selection_callback()
+
+
+## =========   函数模块  ========  ##
 
     def show_context_menu(self, position):
         """显示右键菜单"""
