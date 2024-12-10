@@ -332,7 +332,7 @@ class CreaseSetEditor(QtWidgets.QDialog):
                         item.setBackground(1, QtGui.QBrush(QtGui.QColor("#344d5a")))
                         item.setBackground(2, QtGui.QBrush(QtGui.QColor("#414d5a")))
 
-                    # 只允许名称列可编辑
+                    # 允许名称列可编辑
                     item.setFlags(item.flags() | QtCore.Qt.ItemIsEditable)
 
             except Exception as e:
@@ -340,29 +340,6 @@ class CreaseSetEditor(QtWidgets.QDialog):
 
     def select_crease_edges(self):
         """选择当前CreaseSet中的边并设置硬边/软边"""
-
-        # 获取当前选定的对象
-        selected_objects = cmds.ls(sl=True, long=True)
-        selected_object_names = {obj.split("|")[-1] for obj in selected_objects}
-
-        # 自动选择与选定对象相关的CreaseSet节点
-        if not self.crease_set_tree.selectedItems():
-            all_crease_sets = cmds.ls(type='objectSet') or []
-            for cs in all_crease_sets:
-                if not cmds.attributeQuery('creaseLevel', node=cs, exists=True):
-                    continue
-
-                members = cmds.sets(cs, q=True) or []
-                related = any(member.split('.')[0] in selected_object_names for member in members)
-                if related:
-                    # 自动选择相关的CreaseSet节点
-                    for i in range(self.crease_set_tree.topLevelItemCount()):
-                        item = self.crease_set_tree.topLevelItem(i)
-                        if item.data(0, QtCore.Qt.UserRole) == cs:
-                            item.setSelected(True)
-                            break
-
-        # 继续执行原有逻辑
         selected_items = self.crease_set_tree.selectedItems()
         if not selected_items:
             cmds.inViewMessage(amg='<span style="color:#fbca82;">请先选择CreaseSet节点</span>', pos='botRight', fade=True)
@@ -373,17 +350,10 @@ class CreaseSetEditor(QtWidgets.QDialog):
             cmds.select(clear=True)
             all_edges_to_select = []
 
-            # 获取所有模型对象
-            all_objects = cmds.ls(type='mesh', long=True)
-            all_object_edges = cmds.polyListComponentConversion(all_objects, toEdge=True)
-            all_object_edges = cmds.ls(all_object_edges, flatten=True)
-
-            # 将所有边设置为软边
-            cmds.polySoftEdge(all_object_edges, angle=180, ch=True)
-
             for item in selected_items:
                 crease_set = item.data(0, QtCore.Qt.UserRole)
                 all_members = cmds.sets(crease_set, q=True) or []
+                print(f"Processing CreaseSet: {crease_set}, Members: {all_members}")  # 调试信息
 
                 # 从成员中提取对象名称并选择相关边
                 for member in all_members:
@@ -398,6 +368,13 @@ class CreaseSetEditor(QtWidgets.QDialog):
                     all_edges_to_select.extend(edges)
 
             if all_edges_to_select:
+                # 确保只对单个对象的边进行操作
+                unique_objects = set(edge.split('.')[0] for edge in all_edges_to_select)
+                print("Unique objects:", unique_objects)  # 调试信息
+                if len(unique_objects) > 1:
+                    cmds.inViewMessage(amg='<span style="color:#fbca82;">选择的边属于多个对象，请确保只选择一个对象的边</span>', pos='botRight', fade=True)
+                    return
+
                 cmds.select(all_edges_to_select, replace=True)
                 cmds.selectType(edge=True)
 
@@ -405,13 +382,15 @@ class CreaseSetEditor(QtWidgets.QDialog):
                 print("选中的边:", all_edges_to_select)
 
                 # 设置选中边为硬边
-                cmds.polySoftEdge(all_edges_to_select, angle=0, ch=True)
+                result = cmds.polySoftEdge(all_edges_to_select, angle=0, ch=True)
+                print("polySoftEdge result:", result)  # 调试信息
 
             else:
                 cmds.inViewMessage(amg='<span style="color:#fbca82;">未找到相关的边</span>', pos='botRight', fade=True)
 
         except Exception as e:
             cmds.inViewMessage(amg=f'<span style="color:#fbca82;">选择边时出错: {str(e)}</span>', pos='botRight', fade=True)
+            print(f"Error: {str(e)}")  # 打印异常信息
         finally:
             cmds.undoInfo(closeChunk=True)
             self.refresh_crease_sets()
