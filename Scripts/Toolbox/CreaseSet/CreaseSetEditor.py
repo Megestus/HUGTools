@@ -279,7 +279,7 @@ class CreaseSetEditor(QtWidgets.QDialog):
             return []
 
         # 获取CreaseSet中的边
-        members = cmds.sets(crease_set_name, query=True)
+        members = cmds.sets(crease_set_name, query=True) or []
 
         if members is None:
             cmds.warning(f"CreaseSet '{crease_set_name}' 中没有边。")
@@ -287,13 +287,17 @@ class CreaseSetEditor(QtWidgets.QDialog):
 
         expanded_members = []
         for member in members:
-            if ':' in member:
+            if '[' in member and ':' in member:
                 # 解析范围
                 base, indices = member.split('[')
                 start, end = map(int, indices[:-1].split(':'))
                 expanded_members.extend([f"{base}[{i}]" for i in range(start, end + 1)])
             else:
                 expanded_members.append(member)
+
+            # 检查不合法字符
+            # if ':' in member or '[' in member:
+            #     cmds.warning(f"成员 '{member}' 包含不合法字符 ':', '['，请检查命名。")
 
         return expanded_members
 
@@ -339,7 +343,7 @@ class CreaseSetEditor(QtWidgets.QDialog):
                 cmds.warning(f"处理CreaseSet {cs} 时出错: {str(e)}")
 
     def select_crease_edges(self):
-        """选择当前CreaseSet中的边并设置硬边/软边"""
+        """选择当前选中的CreaseSet中的边并设置硬边/软边"""
         selected_items = self.crease_set_tree.selectedItems()
         if not selected_items:
             cmds.inViewMessage(amg='<span style="color:#fbca82;">请先选择CreaseSet节点</span>', pos='botRight', fade=True)
@@ -348,9 +352,25 @@ class CreaseSetEditor(QtWidgets.QDialog):
         try:
             cmds.undoInfo(openChunk=True)
             cmds.select(clear=True)
-            all_edges_to_select = []
+
+            # 获取所有相关对象的边并设置为软边
+            all_objects = set()
+            for item in selected_items:
+                crease_set = item.data(0, QtCore.Qt.UserRole)
+                all_members = cmds.sets(crease_set, q=True) or []
+                for member in all_members:
+                    obj_name = member.split('.')[0]
+                    all_objects.add(obj_name)
+
+            for obj in all_objects:
+                edges = cmds.polyListComponentConversion(obj, toEdge=True)
+                obj_edges = cmds.ls(edges, flatten=True)
+                if obj_edges:
+                    cmds.polySoftEdge(obj_edges, angle=180, ch=True)
+                    print(f"All edges of {obj} set to soft:", obj_edges)  # 调试信息
 
             for item in selected_items:
+                all_edges_to_select = []
                 crease_set = item.data(0, QtCore.Qt.UserRole)
                 all_members = cmds.sets(crease_set, q=True) or []
                 print(f"Processing CreaseSet: {crease_set}, Members: {all_members}")  # 调试信息
@@ -358,7 +378,7 @@ class CreaseSetEditor(QtWidgets.QDialog):
                 # 从成员中提取对象名称并选择相关边
                 for member in all_members:
                     obj_name = member.split('.')[0]
-                    if ':' in member:
+                    if '[' in member and ':' in member:
                         # 解析范围
                         base, indices = member.split('[')
                         start, end = map(int, indices[:-1].split(':'))
@@ -367,26 +387,26 @@ class CreaseSetEditor(QtWidgets.QDialog):
                         edges = [member]
                     all_edges_to_select.extend(edges)
 
-            if all_edges_to_select:
-                # 确保只对单个对象的边进行操作
-                unique_objects = set(edge.split('.')[0] for edge in all_edges_to_select)
-                print("Unique objects:", unique_objects)  # 调试信息
-                if len(unique_objects) > 1:
-                    cmds.inViewMessage(amg='<span style="color:#fbca82;">选择的边属于多个对象，请确保只选择一个对象的边</span>', pos='botRight', fade=True)
-                    return
+                if all_edges_to_select:
+                    # 确保只对单个对象的边进行操作
+                    unique_objects = set(edge.split('.')[0] for edge in all_edges_to_select)
+                    print("Unique objects:", unique_objects)  # 调试信息
+                    if len(unique_objects) > 1:
+                        cmds.inViewMessage(amg=f'<span style="color:#fbca82;">CreaseSet {crease_set} 中的边属于多个对象，跳过此CreaseSet</span>', pos='botRight', fade=True)
+                        continue
 
-                cmds.select(all_edges_to_select, replace=True)
-                cmds.selectType(edge=True)
+                    cmds.select(all_edges_to_select, replace=True)
+                    cmds.selectType(edge=True)
 
-                # 打印选中的边
-                print("选中的边:", all_edges_to_select)
+                    # 打印选中的边
+                    print("选中的边:", all_edges_to_select)
 
-                # 设置选中边为硬边
-                result = cmds.polySoftEdge(all_edges_to_select, angle=0, ch=True)
-                print("polySoftEdge result:", result)  # 调试信息
+                    # 设置选中边为硬边
+                    result = cmds.polySoftEdge(all_edges_to_select, angle=0, ch=True)
+                    print("polySoftEdge result:", result)  # 调试信息
 
-            else:
-                cmds.inViewMessage(amg='<span style="color:#fbca82;">未找到相关的边</span>', pos='botRight', fade=True)
+                else:
+                    cmds.inViewMessage(amg=f'<span style="color:#fbca82;">CreaseSet {crease_set} 中未找到相关的边</span>', pos='botRight', fade=True)
 
         except Exception as e:
             cmds.inViewMessage(amg=f'<span style="color:#fbca82;">选择边时出错: {str(e)}</span>', pos='botRight', fade=True)
