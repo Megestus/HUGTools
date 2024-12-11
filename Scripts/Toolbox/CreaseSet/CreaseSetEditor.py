@@ -369,6 +369,9 @@ class CreaseSetEditor(QtWidgets.QDialog):
                     cmds.polySoftEdge(obj_edges, angle=180, ch=True)
                     print(f"All edges of {obj} set to soft:", obj_edges)  # 调试信息
 
+            # 获取用户指定的折痕级别
+            new_crease_level = self.quick_set_level_spin.value()
+
             for item in selected_items:
                 all_edges_to_select = []
                 crease_set = item.data(0, QtCore.Qt.UserRole)
@@ -404,6 +407,10 @@ class CreaseSetEditor(QtWidgets.QDialog):
                     # 设置选中边为硬边
                     result = cmds.polySoftEdge(all_edges_to_select, angle=0, ch=True)
                     print("polySoftEdge result:", result)  # 调试信息
+
+                    # 设置CreaseSet的折痕级别
+                    cmds.setAttr(f"{crease_set}.creaseLevel", new_crease_level)
+                    print(f"Set crease level of {crease_set} to {new_crease_level}")
 
                 else:
                     cmds.inViewMessage(amg=f'<span style="color:#fbca82;">CreaseSet {crease_set} 中未找到相关的边</span>', pos='botRight', fade=True)
