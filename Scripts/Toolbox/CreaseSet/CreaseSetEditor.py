@@ -22,13 +22,15 @@ class CreaseSetEditor(QtWidgets.QDialog):
             "quick_execute": "Quick Execute",
             "quick_set_btn": "Quick Set Crease Level",
             "select_edges_btn": "Select CreaseSet Edges to Soft/Hard Edge",
+            "select_all_edges_btn": "Select all CreaseSet Edges to Soft/Hard Edge",
             "prefix_merge_btn": "Merge by Prefix",
             "prefix_rename_btn": "Rename by Prefix",
             "split_crease_set_btn": "Split CreaseSet",
             "clean_crease_set_btn": "Clean CreaseSet",
             "toggle_lang_tip": "Switch to Chinese",
             "quick_set_tip": "Quickly set the crease level for all CreaseSets in the list",
-            "select_edges_tip": "Select all edges associated with the selected CreaseSet",
+            "select_edges_tip": "Select all edges related to the selected CreaseSet, entering the hard and soft edges (single object)",
+            "select_all_edges_tip": "Select all edges related to all CreaseSets, make hard and soft edges (multiple objects)",
             "prefix_merge_tip": "Merge selected CreaseSets into one based on prefix, default is _M, In addition, recognizes _Lb and _Lc",
             "prefix_rename_tip": "Rename selected CreaseSets based on object prefix, default is _R, In addition, recognizes _Lb and _Lc",
             "split_crease_set_tip": "Split selected CreaseSet into multiple sets by object",
@@ -42,13 +44,15 @@ class CreaseSetEditor(QtWidgets.QDialog):
             "quick_execute": "快捷执行",
             "quick_set_btn": "一键设置折痕级别",
             "select_edges_btn": "选择CreaseSet边进行软硬边",
+            "select_all_edges_btn": "选择所有CreaseSet边进行软硬边",
             "prefix_merge_btn": "根据前缀合并",
             "prefix_rename_btn": "根据前缀重命名",
             "split_crease_set_btn": "拆分CreaseSet",
             "clean_crease_set_btn": "清理CreaseSet",
             "toggle_lang_tip": "切换到英文",
             "quick_set_tip": "快速设置列表中所有CreaseSet的折痕级别",
-            "select_edges_tip": "选择与选定CreaseSet相关的所有边",
+            "select_edges_tip": "选择与选定CreaseSet相关的所有边，进入软硬边（单个对象）",
+            "select_all_edges_tip": "选择所有的CreaseSet相关的所有边，进行软硬边（多个对象）",
             "prefix_merge_tip": "根据前缀合并选定的CreaseSet，默认是_M，另外，还能识别Lb和Lc",
             "prefix_rename_tip": "根据对象前缀重命名选定的CreaseSet，默认是_R，另外，还能识别Lb和Lc",
             "split_crease_set_tip": "按对象将选定的CreaseSet拆分为多个",
@@ -166,6 +170,10 @@ class CreaseSetEditor(QtWidgets.QDialog):
         self.select_edges_btn.setStyleSheet(button_style)
         self.select_edges_btn.setToolTip(lang["select_edges_tip"])  # 设置悬停提示
 
+        self.select_all_edges_btn = QtWidgets.QPushButton(lang["select_all_edges_btn"])
+        self.select_all_edges_btn.setStyleSheet(button_style)
+        self.select_all_edges_btn.setToolTip(lang["select_all_edges_tip"])  # 设置悬停提示
+
         self.prefix_merge_btn = QtWidgets.QPushButton(lang["prefix_merge_btn"])
         self.prefix_merge_btn.setStyleSheet(button_style)
         self.prefix_merge_btn.setToolTip(lang["prefix_merge_tip"])  # 设置悬停提示
@@ -184,10 +192,11 @@ class CreaseSetEditor(QtWidgets.QDialog):
 
         # 添加到快捷执行布局 (2x2)
         quick_exec_layout.addWidget(self.select_edges_btn, 0, 0, 1, 2)
-        quick_exec_layout.addWidget(self.prefix_merge_btn, 1, 0)
-        quick_exec_layout.addWidget(self.prefix_rename_btn, 1, 1)
-        quick_exec_layout.addWidget(self.split_crease_set_btn, 2, 0)
-        quick_exec_layout.addWidget(self.clean_crease_set_btn, 2, 1)  
+        quick_exec_layout.addWidget(self.select_all_edges_btn, 1, 0, 1, 2)
+        quick_exec_layout.addWidget(self.prefix_merge_btn, 2, 0)
+        quick_exec_layout.addWidget(self.prefix_rename_btn, 2, 1)
+        quick_exec_layout.addWidget(self.split_crease_set_btn, 3, 0)
+        quick_exec_layout.addWidget(self.clean_crease_set_btn, 3, 1)  
 
         main_layout.addWidget(quick_exec_group, 1, 0, 1, 3)
 
@@ -196,7 +205,8 @@ class CreaseSetEditor(QtWidgets.QDialog):
         self.crease_set_tree.customContextMenuRequested.connect(self.show_context_menu)
 
         # 设置信号和槽
-        self.select_edges_btn.clicked.connect(self.select_crease_edges)
+        self.select_edges_btn.clicked.connect(self.select_crease_edges2)
+        self.select_all_edges_btn.clicked.connect(self.select_crease_edges)
         self.quick_set_btn.clicked.connect(self.quick_set_crease_level)
         self.crease_set_tree.itemChanged.connect(self.rename_crease_set)
         self.prefix_merge_btn.clicked.connect(self.prefix_merge_selected_sets)
@@ -235,6 +245,9 @@ class CreaseSetEditor(QtWidgets.QDialog):
 
         self.select_edges_btn.setText(lang["select_edges_btn"])
         self.select_edges_btn.setToolTip(lang["select_edges_tip"])  # 更新悬停提示
+
+        self.select_all_edges_btn.setText(lang["select_all_edges_btn"])
+        self.select_all_edges_btn.setToolTip(lang["select_all_edges_tip"])  # 更新悬停提示
 
         self.prefix_merge_btn.setText(lang["prefix_merge_btn"])
         self.prefix_merge_btn.setToolTip(lang["prefix_merge_tip"])  # 更新悬停提示
@@ -421,6 +434,70 @@ class CreaseSetEditor(QtWidgets.QDialog):
         finally:
             cmds.undoInfo(closeChunk=True)
             self.refresh_crease_sets()
+
+    def select_crease_edges2(self):
+        """根据选中的模型对象，在CreaseSet中找到对应的边，先将所有边设置为软边，然后设置特定边为硬边"""
+        selected_items = self.crease_set_tree.selectedItems()
+        if not selected_items:
+            cmds.inViewMessage(amg='<span style="color:#fbca82;">请先选择CreaseSet节点</span>', pos='botRight', fade=True)
+            return
+
+        # 获取当前在场景中选中的所有对象
+        selected_objects = cmds.ls(selection=True, long=True)
+        selected_object_names = set(obj.rpartition('|')[-1] for obj in selected_objects)
+
+        if not selected_object_names:
+            cmds.inViewMessage(amg='<span style="color:#fbca82;">请先选择场景中的对象</span>', pos='botRight', fade=True)
+            return
+
+        try:
+            cmds.undoInfo(openChunk=True)
+            cmds.select(clear=True)
+
+            # 用户指定的折痕级别
+            new_crease_level = self.quick_set_level_spin.value()
+
+            # 先设置所有选中对象的所有边为软边
+            for obj_name in selected_object_names:
+                cmds.select(obj_name + '.e[*]', replace=True)
+                cmds.polySoftEdge(angle=180, ch=True)
+                print(f"All edges of {obj_name} set to soft")  # 调试信息
+
+            # 再处理每个CreaseSet中指定的边
+            for item in selected_items:
+                crease_set = item.data(0, QtCore.Qt.UserRole)
+                all_members = cmds.sets(crease_set, q=True) or []
+                print(f"Processing CreaseSet: {crease_set}, Members: {all_members}")  # 调试信息
+
+                for member in all_members:
+                    obj_name = member.split('.')[0]
+                    if obj_name in selected_object_names:
+                        if '[' in member and ':' in member:
+                            base, indices = member.split('[')
+                            start, end = map(int, indices[:-1].split(':'))
+                            edges = [f"{base}[{i}]" for i in range(start, end + 1)]
+                        else:
+                            edges = [member]
+
+                        cmds.select(edges, replace=True)
+                        cmds.polySoftEdge(angle=0, ch=True)
+                        print(f"Edges {edges} of {obj_name} set to hard")  # 调试信息
+
+                # 设置CreaseSet的折痕级别
+                cmds.setAttr(f"{crease_set}.creaseLevel", new_crease_level)
+                print(f"Set crease level of {crease_set} to {new_crease_level}")
+
+            cmds.select(clear=True)  # 清除选择
+
+        except Exception as e:
+            cmds.inViewMessage(amg=f'<span style="color:#fbca82;">操作时出错: {str(e)}</span>', pos='botRight', fade=True)
+            print(f"Error: {str(e)}")  # 打印异常信息
+        finally:
+            cmds.undoInfo(closeChunk=True)
+            self.refresh_crease_sets()
+
+
+
 
     def update_crease_level_display(self):
         """更新显示的折痕级别值"""
@@ -819,7 +896,6 @@ def show():
 
 if __name__ == "__main__":
     show() 
-
 
 
 
