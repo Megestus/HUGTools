@@ -321,17 +321,25 @@ class InstallDialog(QtWidgets.QDialog):
 
 # Get the script path
 def get_script_path():
-    mel_command = f'whatIs "{TOOLBOX_NAME}"'
+    # 获取当前执行的MEL脚本的路径
+    mel_command = 'whatIs "installHUGTools"'
     result = mel.eval(mel_command)
+    
     if result.startswith("Mel procedure found in: "):
-        return os.path.dirname(result.split(": ", 1)[1])
+        # 从MEL文件路径获取目录路径
+        mel_path = result.split(": ", 1)[1]
+        directory = os.path.dirname(mel_path)
+        # 确保路径使用正斜杠
+        directory = directory.replace("\\", "/")
+        print(f"Script directory found: {directory}")
+        return directory
     
-    for path in sys.path:
-        possible_path = os.path.join(path, "install.py")
-        if os.path.exists(possible_path):
-            return os.path.dirname(possible_path)
-    
-    return os.getcwd()
+    print("Warning: Could not find script path through MEL command")
+    # 回退方案：尝试从当前文件位置获取
+    current_file = os.path.normpath(__file__)
+    directory = os.path.dirname(current_file)
+    print(f"Using current file location: {directory}")
+    return directory
 
 # Create or update the .mod file
 def create_mod_file():
@@ -374,6 +382,21 @@ def clean_existing_buttons():
 def install_toolbox(new_shelf=True, show_message=True):
     current_path = get_script_path()
     scripts_path = os.path.join(current_path, "Scripts")
+    
+    # 确保路径存在
+    if not os.path.exists(scripts_path):
+        os.makedirs(scripts_path)
+        print(f"Created Scripts directory: {scripts_path}")
+    
+    # 验证主脚本文件
+    main_script = os.path.join(scripts_path, f"{TOOLBOX_NAME}_main.py")
+    if not os.path.exists(main_script):
+        error_msg = f"错误：{TOOLBOX_NAME}_main.py 文件不存在于路径 {main_script}"
+        print(error_msg)
+        cmds.error(error_msg)
+        return
+    
+    print(f"Found main script at: {main_script}")
     
     create_mod_file()
     

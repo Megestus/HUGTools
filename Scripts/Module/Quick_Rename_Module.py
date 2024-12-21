@@ -102,6 +102,8 @@ class Quick_Rename_Module_UI(QtWidgets.QWidget):
         self.bottom_buttons = [
             RoundedButton("Remove pasted__"),
             RoundedButton("Mirror L_R"),
+            RoundedButton("Remove First"),
+            RoundedButton("Remove Last")
         ]
 
 #====== UI Layout ======
@@ -145,9 +147,11 @@ class Quick_Rename_Module_UI(QtWidgets.QWidget):
         main_layout.addWidget(self.quick_layer_group)
 
         
-        bottom_layout = QtWidgets.QHBoxLayout()
-        bottom_layout.addWidget(self.bottom_buttons[0])
-        bottom_layout.addWidget(self.bottom_buttons[1])
+        bottom_layout = QtWidgets.QGridLayout()
+        bottom_layout.addWidget(self.bottom_buttons[0], 0, 0)
+        bottom_layout.addWidget(self.bottom_buttons[1], 0, 1)
+        bottom_layout.addWidget(self.bottom_buttons[2], 1, 0)
+        bottom_layout.addWidget(self.bottom_buttons[3], 1, 1)
         self.bottom_group.setLayout(bottom_layout)
         main_layout.addWidget(self.bottom_group)
 
@@ -173,6 +177,8 @@ class Quick_Rename_Module_UI(QtWidgets.QWidget):
         # Add connections for bottom buttons
         self.bottom_buttons[0].clicked.connect(pasted_Del)  # Connect "Remove pasted__" button
         self.bottom_buttons[1].clicked.connect(L_R)         # Connect "L_R" button
+        self.bottom_buttons[2].clicked.connect(remove_first_char)
+        self.bottom_buttons[3].clicked.connect(remove_last_char)
 
 #====== Functions ======
 
@@ -301,13 +307,43 @@ def L_R():
             'makeIdentity -apply true -t 1 -r 1 -s 1 -n 0 -pn 1;'
             'searchReplaceNames "_L_" "_R_" "hierarchy";')
 
+def remove_first_char():
+    """
+    Remove the first character of selected objects' names
+    """
+    selection = cmds.ls(selection=True)
+    if not selection:
+        cmds.warning("No object selected")
+        return
+        
+    for obj in selection:
+        if len(obj) > 1:  # Ensure name length is greater than 1
+            new_name = obj[1:]  # Get from second character to the end
+            try:
+                cmds.rename(obj, new_name)
+            except RuntimeError as e:
+                cmds.warning(f"Unable to rename {obj}: {str(e)}")
+    
+    cmds.inViewMessage(amg='<span style="color:#fbca82;">First character removed</span>', pos='botRight', fade=True)
 
-
-
-
-
-
-
+def remove_last_char():
+    """
+    Remove the last character of selected objects' names
+    """
+    selection = cmds.ls(selection=True)
+    if not selection:
+        cmds.warning("No object selected")
+        return
+        
+    for obj in selection:
+        if len(obj) > 1:  # Ensure name length is greater than 1
+            new_name = obj[:-1]  # Get from first character to second-to-last
+            try:
+                cmds.rename(obj, new_name)
+            except RuntimeError as e:
+                cmds.warning(f"Unable to rename {obj}: {str(e)}")
+    
+    cmds.inViewMessage(amg='<span style="color:#fbca82;">Last character removed</span>', pos='botRight', fade=True)
 
 #====== UI Functions ======
 
